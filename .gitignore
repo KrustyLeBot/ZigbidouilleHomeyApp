@@ -1,0 +1,9 @@
+# Node
+node_modules/
+*.log
+
+# Homey build output
+.homeybuild/
+
+# Local env (Zigbee needs no secrets, but keep this here in case a driver ever does)
+.env

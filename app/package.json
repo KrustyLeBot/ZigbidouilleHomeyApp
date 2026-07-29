@@ -1,0 +1,9 @@
+{
+  "name": "com.jerome.zigbidouille",
+  "version": "1.0.0",
+  "main": "app.js",
+  "dependencies": {
+    "homey-zigbeedriver": "^2.1.5",
+    "zigbee-clusters": "^2.0.1"
+  }
+}

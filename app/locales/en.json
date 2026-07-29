@@ -1,0 +1,10 @@
+{
+  "settings": {
+    "err_title": "Errors",
+    "err_intro": "Recent errors from drivers (failed cluster binds, capability writes). Newest first.",
+    "err_empty": "No errors.",
+    "refresh": "Refresh",
+    "clear": "Clear",
+    "confirm_clear": "Clear the error list?"
+  }
+}

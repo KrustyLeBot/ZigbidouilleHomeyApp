@@ -1,0 +1,10 @@
+{
+  "settings": {
+    "err_title": "Erreurs",
+    "err_intro": "Erreurs récentes des drivers (échecs de liaison de cluster, écritures de capacité). Plus récentes en premier.",
+    "err_empty": "Aucune erreur.",
+    "refresh": "Rafraîchir",
+    "clear": "Effacer",
+    "confirm_clear": "Effacer la liste des erreurs ?"
+  }
+}

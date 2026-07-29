@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <!-- Required: without /homey.js the Homey object is never injected, so
+         onHomeyReady never runs, Homey.ready() is never called, and the page
+         spins on an infinite loading screen. -->
+    <script type="text/javascript" src="/homey.js" data-origin="settings"></script>
+    <style>
+      body { font-family: -apple-system, system-ui, sans-serif; padding: 16px; color: #222; }
+      h2 { font-size: 18px; margin: 0 0 4px; }
+      .intro { font-size: 13px; color: #888; margin: 0 0 16px; }
+      .row { display: flex; gap: 8px; margin-bottom: 16px; }
+      button {
+        padding: 8px 16px; font-size: 14px; border-radius: 4px;
+        border: 1px solid #ccc; background: #f5f5f5; color: #333; cursor: pointer;
+      }
+      button.primary { background: #00A6A6; color: #fff; border-color: #00A6A6; }
+      ul { list-style: none; padding: 0; margin: 0; }
+      li { border-bottom: 1px solid #eee; padding: 8px 0; font-size: 13px; }
+      li:last-child { border-bottom: none; }
+      .ctx { font-weight: 600; }
+      .msg { color: #c00; }
+      .time { color: #999; font-size: 11px; }
+      .empty { color: #999; font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <h2 id="t-title"></h2>
+    <p class="intro" id="t-intro"></p>
+
+    <div class="row">
+      <button type="button" class="primary" id="refresh"></button>
+      <button type="button" id="clear"></button>
+    </div>
+
+    <ul id="list"></ul>
+
+    <script type="text/javascript">
+      function onHomeyReady(Homey) {
+        const __ = (k) => Homey.__('settings.' + k);
+        const listEl = document.getElementById('list');
+
+        document.getElementById('t-title').textContent = __('err_title');
+        document.getElementById('t-intro').textContent = __('err_intro');
+        document.getElementById('refresh').textContent = __('refresh');
+        document.getElementById('clear').textContent = __('clear');
+
+        function fmt(t) {
+          return new Date(t).toLocaleString();
+        }
+
+        function render(entries) {
+          if (!entries || entries.length === 0) {
+            listEl.innerHTML = '<li class="empty">' + __('err_empty') + '</li>';
+            return;
+          }
+          listEl.innerHTML = entries
+            .map((e) =>
+              '<li><div class="ctx">' + e.context + '</div>' +
+              '<div class="msg">' + e.message + '</div>' +
+              '<div class="time">' + fmt(e.t) + '</div></li>')
+            .join('');
+        }
+
+        function load() {
+          Homey.api('GET', '/errors', null, (err, result) => {
+            if (err) { listEl.innerHTML = '<li class="msg">' + err + '</li>'; return; }
+            render(result && result.entries);
+          });
+        }
+
+        document.getElementById('refresh').addEventListener('click', load);
+        document.getElementById('clear').addEventListener('click', () => {
+          Homey.confirm(__('confirm_clear'), 'warning', (err, ok) => {
+            if (err || !ok) return;
+            Homey.api('POST', '/errors/clear', null, () => load());
+          });
+        });
+
+        load();
+        Homey.ready();
+      }
+    </script>
+  </body>
+</html>
