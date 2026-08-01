@@ -17,6 +17,29 @@ class ZigbidouilleApp extends Homey.App {
     this.log('Zigbidouille started');
 
     this.registerVacuumFlows();
+    this.registerDevialetFlows();
+    this.registerRemoteFlows();
+  }
+
+  // The dimmer fires one trigger for every button event; this listener is what
+  // narrows a flow down to the button and the kind of press it asked for.
+  // Without it the card would run on every button of the remote.
+  registerRemoteFlows() {
+    this.homey.flow
+      .getDeviceTriggerCard('hue_dimmer_pressed')
+      .registerRunListener((args, state) => args.button === state.button && args.action === state.action);
+  }
+
+  // "Set the source" is the card that makes the speakers actually useful in a
+  // flow — switching to the right speaker's jack, or back to Spotify.
+  registerDevialetFlows() {
+    this.homey.flow
+      .getActionCard('devialet_set_source')
+      .registerRunListener(({ device, source }) => device.selectSource(source));
+
+    this.homey.flow
+      .getActionCard('devialet_volume_step')
+      .registerRunListener(({ device, delta }) => device.stepVolume(Number(delta)));
   }
 
   // Flow cards for the miIO vacuum (drivers/x20plus). Zigbee drivers here need

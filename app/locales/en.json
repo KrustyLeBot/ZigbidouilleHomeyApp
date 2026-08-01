@@ -46,5 +46,9 @@
     "unknown": "Unknown",
     "error_returning": "Blocked returning to dock",
     "error": "Error"
+  },
+  "devialet": {
+    "unreachable": "Devialet system unreachable",
+    "source_unavailable": "That source is not currently available (speaker off, or the group was reconfigured)."
   }
 }

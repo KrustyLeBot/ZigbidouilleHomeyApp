@@ -328,6 +328,115 @@
           "INTERNAL"
         ]
       }
+    },
+    {
+      "id": "devialet",
+      "name": {
+        "en": "Devialet Phantom",
+        "fr": "Devialet Phantom"
+      },
+      "class": "speaker",
+      "capabilities": [
+        "speaker_playing",
+        "speaker_next",
+        "speaker_prev",
+        "volume_set",
+        "volume_up",
+        "volume_down",
+        "volume_mute",
+        "devialet_source",
+        "speaker_artist",
+        "speaker_album",
+        "speaker_track"
+      ],
+      "platforms": [
+        "local"
+      ],
+      "connectivity": [
+        "lan"
+      ],
+      "discovery": "devialet",
+      "images": {
+        "small": "/drivers/devialet/assets/images/small.png",
+        "large": "/drivers/devialet/assets/images/large.png",
+        "xlarge": "/drivers/devialet/assets/images/xlarge.png"
+      },
+      "pair": [
+        {
+          "id": "list_devices",
+          "template": "list_devices",
+          "navigation": {
+            "next": "add_devices"
+          }
+        },
+        {
+          "id": "add_devices",
+          "template": "add_devices"
+        }
+      ]
+    },
+    {
+      "id": "hue-dimmer-v3",
+      "name": {
+        "en": "Hue Dimmer Switch v3",
+        "fr": "Télécommande Hue Dimmer v3"
+      },
+      "class": "remote",
+      "capabilities": [
+        "measure_battery"
+      ],
+      "energy": {
+        "batteries": [
+          "CR2032"
+        ]
+      },
+      "platforms": [
+        "local"
+      ],
+      "connectivity": [
+        "zigbee"
+      ],
+      "images": {
+        "small": "/drivers/hue-dimmer-v3/assets/images/small.png",
+        "large": "/drivers/hue-dimmer-v3/assets/images/large.png",
+        "xlarge": "/drivers/hue-dimmer-v3/assets/images/xlarge.png"
+      },
+      "zigbee": {
+        "manufacturerName": [
+          "Signify Netherlands B.V.",
+          "Philips"
+        ],
+        "productId": [
+          "RWL022"
+        ],
+        "endpoints": {
+          "1": {
+            "clusters": [
+              0,
+              1,
+              3,
+              4,
+              6,
+              8,
+              4096,
+              64512
+            ],
+            "bindings": [
+              1,
+              6,
+              8,
+              64512
+            ]
+          }
+        },
+        "learnmode": {
+          "image": "/drivers/hue-dimmer-v3/assets/learnmode.svg",
+          "instruction": {
+            "en": "Open the back cover. Hold the small setup button next to the battery for about 10 seconds, close to the Homey, until the LED blinks. It is NOT one of the four front buttons. If the remote was paired to a Hue bridge, remove it there first.",
+            "fr": "Ouvrez le dos de la télécommande. Maintenez le petit bouton d'appairage situé à côté de la pile pendant environ 10 secondes, près du Homey, jusqu'à ce que la LED clignote. Ce n'est PAS un des quatre boutons de façade. Si la télécommande était appairée à un pont Hue, retirez-la d'abord de celui-ci."
+          }
+        }
+      }
     }
   ],
   "brandColor": "#00A6A6",
@@ -717,6 +826,74 @@
       "setable": false,
       "uiComponent": null,
       "insights": true
+    },
+    "devialet_source": {
+      "type": "enum",
+      "title": {
+        "en": "Source",
+        "fr": "Source"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "picker",
+      "values": [
+        {
+          "id": "bluetooth",
+          "title": {
+            "en": "Bluetooth",
+            "fr": "Bluetooth"
+          }
+        },
+        {
+          "id": "airplay2",
+          "title": {
+            "en": "AirPlay 2",
+            "fr": "AirPlay 2"
+          }
+        },
+        {
+          "id": "spotifyconnect",
+          "title": {
+            "en": "Spotify Connect",
+            "fr": "Spotify Connect"
+          }
+        },
+        {
+          "id": "upnp",
+          "title": {
+            "en": "UPnP / DLNA",
+            "fr": "UPnP / DLNA"
+          }
+        },
+        {
+          "id": "raat",
+          "title": {
+            "en": "Roon",
+            "fr": "Roon"
+          }
+        },
+        {
+          "id": "jack",
+          "title": {
+            "en": "Jack / optical",
+            "fr": "Jack / optique"
+          }
+        },
+        {
+          "id": "jack_left",
+          "title": {
+            "en": "Jack — left speaker",
+            "fr": "Jack — enceinte gauche"
+          }
+        },
+        {
+          "id": "jack_right",
+          "title": {
+            "en": "Jack — right speaker",
+            "fr": "Jack — enceinte droite"
+          }
+        }
+      ]
     }
   },
   "flow": {
@@ -946,6 +1123,96 @@
               "en": "Cleaned area",
               "fr": "Surface nettoyée"
             }
+          }
+        ]
+      },
+      {
+        "id": "hue_dimmer_pressed",
+        "title": {
+          "en": "A button was pressed",
+          "fr": "Un bouton a été actionné"
+        },
+        "titleFormatted": {
+          "en": "[[button]] was [[action]]",
+          "fr": "[[button]] a été [[action]]"
+        },
+        "hint": {
+          "en": "The \"held\" event repeats about every 0.8s while the button stays down, which is what lets a held button ramp the volume.",
+          "fr": "L'événement « maintenu » se répète environ toutes les 0,8 s tant que le bouton reste enfoncé — c'est ce qui permet de faire varier le volume en maintenant."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=hue-dimmer-v3"
+          },
+          {
+            "name": "button",
+            "type": "dropdown",
+            "values": [
+              {
+                "id": "on",
+                "title": {
+                  "en": "Top button (I / Hue)",
+                  "fr": "Bouton du haut (I / Hue)"
+                }
+              },
+              {
+                "id": "up",
+                "title": {
+                  "en": "Brightness up",
+                  "fr": "Luminosité +"
+                }
+              },
+              {
+                "id": "down",
+                "title": {
+                  "en": "Brightness down",
+                  "fr": "Luminosité −"
+                }
+              },
+              {
+                "id": "off",
+                "title": {
+                  "en": "Bottom button (O)",
+                  "fr": "Bouton du bas (O)"
+                }
+              }
+            ]
+          },
+          {
+            "name": "action",
+            "type": "dropdown",
+            "values": [
+              {
+                "id": "press",
+                "title": {
+                  "en": "pressed",
+                  "fr": "appuyé"
+                }
+              },
+              {
+                "id": "hold",
+                "title": {
+                  "en": "held (repeats)",
+                  "fr": "maintenu (se répète)"
+                }
+              },
+              {
+                "id": "press_release",
+                "title": {
+                  "en": "released after a press",
+                  "fr": "relâché après un appui"
+                }
+              },
+              {
+                "id": "hold_release",
+                "title": {
+                  "en": "released after a hold",
+                  "fr": "relâché après un maintien"
+                }
+              }
+            ]
           }
         ]
       }
@@ -1197,7 +1464,130 @@
             "filter": "driver_id=x20plus"
           }
         ]
+      },
+      {
+        "id": "devialet_set_source",
+        "title": {
+          "en": "Set the source",
+          "fr": "Choisir la source"
+        },
+        "titleFormatted": {
+          "en": "Set the source to [[source]]",
+          "fr": "Choisir la source [[source]]"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=devialet"
+          },
+          {
+            "name": "source",
+            "type": "dropdown",
+            "values": [
+              {
+                "id": "bluetooth",
+                "title": {
+                  "en": "Bluetooth",
+                  "fr": "Bluetooth"
+                }
+              },
+              {
+                "id": "airplay2",
+                "title": {
+                  "en": "AirPlay 2",
+                  "fr": "AirPlay 2"
+                }
+              },
+              {
+                "id": "spotifyconnect",
+                "title": {
+                  "en": "Spotify Connect",
+                  "fr": "Spotify Connect"
+                }
+              },
+              {
+                "id": "upnp",
+                "title": {
+                  "en": "UPnP / DLNA",
+                  "fr": "UPnP / DLNA"
+                }
+              },
+              {
+                "id": "raat",
+                "title": {
+                  "en": "Roon",
+                  "fr": "Roon"
+                }
+              },
+              {
+                "id": "jack",
+                "title": {
+                  "en": "Jack / optical",
+                  "fr": "Jack / optique"
+                }
+              },
+              {
+                "id": "jack_left",
+                "title": {
+                  "en": "Jack — left speaker",
+                  "fr": "Jack — enceinte gauche"
+                }
+              },
+              {
+                "id": "jack_right",
+                "title": {
+                  "en": "Jack — right speaker",
+                  "fr": "Jack — enceinte droite"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "devialet_volume_step",
+        "title": {
+          "en": "Change the volume by",
+          "fr": "Modifier le volume de"
+        },
+        "titleFormatted": {
+          "en": "Change the volume by [[delta]] %",
+          "fr": "Modifier le volume de [[delta]] %"
+        },
+        "hint": {
+          "en": "Relative change in percentage points; negative lowers it. Use this instead of the built-in volume up/down when you want a step other than the 5% the speaker imposes — handy for a held remote button.",
+          "fr": "Variation relative en points de pourcentage ; négatif pour baisser. À utiliser à la place des cartes monter/baisser quand on veut un autre pas que les 5 % imposés par l'enceinte — pratique pour un bouton de télécommande maintenu."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=devialet"
+          },
+          {
+            "name": "delta",
+            "type": "number",
+            "min": -100,
+            "max": 100,
+            "step": 1,
+            "placeholder": {
+              "en": "10",
+              "fr": "10"
+            }
+          }
+        ]
       }
     ]
+  },
+  "discovery": {
+    "devialet": {
+      "type": "mdns-sd",
+      "mdns-sd": {
+        "name": "devialet-http",
+        "protocol": "tcp"
+      },
+      "id": "{{txt.serialNumber}}"
+    }
   }
 }

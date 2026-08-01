@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Devialet Phantom, front on: the body reads as a sphere, with the two
+       convex side woofers bulging out left and right, and the small round
+       driver grille in the centre.
+       Rendered by Homey as a monochrome mask, so this is one solid silhouette
+       (thin strokes disappear; see CLAUDE.md). The grille is punched out with
+       fill-rule evenodd so the shape is not a featureless blob. -->
+  <g fill="#111111" fill-rule="evenodd">
+    <circle cx="32" cy="32" r="21"/>
+    <circle cx="32" cy="32" r="7"/>
+    <ellipse cx="10" cy="32" rx="7" ry="11"/>
+    <ellipse cx="54" cy="32" rx="7" ry="11"/>
+  </g>
+</svg>

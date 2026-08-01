@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500" viewBox="0 0 500 500">
+  <!-- BACK of the remote: the pairing button sits next to the battery, not on
+       the front face. Showing the front here sent people pressing the wrong
+       button. -->
+  <rect width="500" height="500" fill="#f4f4f4"/>
+
+  <!-- body, back side -->
+  <rect x="175" y="55" width="150" height="340" rx="60" fill="#ffffff" stroke="#39424e" stroke-width="9"/>
+
+  <!-- battery compartment -->
+  <circle cx="250" cy="205" r="62" fill="#eceff2" stroke="#39424e" stroke-width="7"/>
+  <text x="250" y="215" text-anchor="middle" font-family="sans-serif" font-size="30"
+        font-weight="700" fill="#8b97a3">CR2032</text>
+
+  <!-- the setup button, highlighted -->
+  <circle cx="250" cy="318" r="19" fill="#00A6A6"/>
+  <circle cx="250" cy="318" r="33" fill="none" stroke="#00A6A6" stroke-width="5" opacity="0.55"/>
+  <circle cx="250" cy="318" r="46" fill="none" stroke="#00A6A6" stroke-width="4" opacity="0.28"/>
+
+  <text x="250" y="440" text-anchor="middle" font-family="sans-serif" font-size="25" fill="#555">Dos : bouton près de la pile, ~10 s</text>
+</svg>

@@ -110,3 +110,125 @@ Endpoint 1:
   output clusters: <list>
 Power source: <battery / mains>
 ```
+
+---
+
+## Devialet Phantom II 95 dB — stereo pair (driver `devialet`)
+
+> **Status: interviewed 2026-08-01** via `probe/devialet/discover.js` (mDNS +
+> local HTTP API). Firmware DOS 2.19.1, ipControlVersion 1.
+
+Local REST API, no auth: `http://<ip>/ipcontrol/v1`. Discovered over mDNS as
+`_devialet-http._tcp`, TXT carries `serialNumber`, `model` and `path`.
+
+### The interviewed installation
+
+| Role | Address | Serial | deviceId | Leader |
+|---|---|---|---|---|
+| `FrontLeft` | 192.168.1.22 | P44X01257P001 | `ad69fbcf-…` | **yes** |
+| `FrontRight` | 192.168.1.11 | N51X01406P0LA | `bcbb1e72-…` | no |
+
+Both belong to **one system**: `6bb4f39a-…`, `systemName` "Salon",
+`systemType: "stereo"`.
+
+### Why one Homey device per SYSTEM, not per speaker
+
+`{systemId}` and `{groupId}` only accept the literal value `"current"`, which
+resolves to the system of whichever speaker receives the request (the
+"dispatcher"). So **talking to either speaker controls the whole pair**, and the
+two speakers return identical system state.
+
+The upstream app (`winnieoursbrun/homey-devialet`) creates one Homey device per
+mDNS result, so a stereo pair yields two tiles fighting over one system. Here a
+tile maps to a system and keeps **both addresses**, retrying the other when one
+does not answer.
+
+Caveat: *reading* a system setting works from any member, but *changing* one
+requires the system leader to be reachable. The dispatcher forwards to it.
+
+### Sources on this installation (7)
+
+| Type | Host | Meaning |
+|---|---|---|
+| `bluetooth`, `airplay2`, `spotifyconnect`, `upnp`, `raat` | FrontLeft | non-physical, all hosted on one speaker |
+| `opticaljack` | FrontLeft | the left speaker's own jack |
+| `opticaljack` | FrontRight | the right speaker's own jack |
+
+`sourceId`s are UUIDv4 and **not stable** — resolve them at runtime by matching
+`type`, plus the host's `role` to tell the two jacks apart (the API docs say to
+use `deviceId` for exactly this). Map `deviceId` → `role` from
+`GET /systems/current` → `devices[]`.
+
+Switch input with `POST /groups/current/sources/{sourceId}/playback/play`.
+
+### Endpoints used
+
+```
+GET  /devices/current                                   deviceId, systemId, role, isSystemLeader
+GET  /systems/current                                   systemName, systemType, devices[], availableFeatures
+GET  /groups/current/sources                            [{sourceId, deviceId, type}]
+GET  /groups/current/sources/current                    source, playingState, muteState, metadata
+POST /groups/current/sources/{sourceId}/playback/play    switch input
+POST /groups/current/sources/current/playback/{pause|next|previous|mute|unmute}
+GET  /systems/current/sources/current/soundControl/volume    {volume} 0-100
+POST /systems/current/sources/current/soundControl/volume    {volume}
+POST /systems/current/sources/current/soundControl/{volumeUp|volumeDown}   5% steps
+```
+
+---
+
+## Philips Hue Dimmer Switch v3 — RWL022 (driver `hue-dimmer-v3`)
+
+> **Status: paired and confirmed 2026-08-01.** The Zigbee dump reports endpoint
+> 1 with `manuSpecificPhilips` (64512) alongside the standard clusters, so the
+> custom cluster below is registered and the fingerprint matches.
+
+**Pairing:** hold the small setup button **on the back, next to the battery**
+for ~10 s — *not* one of the four front buttons.
+
+| field | value |
+|-------|-------|
+| `manufacturerName` | `Signify Netherlands B.V.` (also accepting `Philips`) |
+| `productId` | `RWL022` |
+| endpoint | `1` |
+| clusters | `0` basic, `1` power, `3` identify, `4` groups, `6` onOff, `8` level, `4096` touchlink, `64512` **manuSpecificPhilips** |
+| bindings | `1`, `6`, `8`, `64512` |
+
+### The buttons do NOT come through standard clusters
+
+The switch sends one manufacturer command, `hueNotification`, on Philips cluster
+**0xFC00**, which `zigbee-clusters` does not ship — it is declared in
+`app/lib/philips-hue-cluster.js`, with the frame layout taken from
+[zigbee-herdsman-converters](https://github.com/Koenkk/zigbee-herdsman-converters)
+(`src/lib/philips.ts`, definition for RWL022).
+
+```
+hueNotification (command 0x00, server -> client)
+  button   uint8    1 = top (I/Hue) · 2 = up · 3 = down · 4 = bottom (O)
+  unknown1 uint24
+  type     uint8    0 = press · 1 = hold · 2 = press_release · 3 = hold_release
+  unknown2 uint8
+  time     uint8    climbs while the button is held
+  unknown3 uint8
+```
+
+Receiving it needs a **BoundCluster** bound to the endpoint — a listener is not
+enough for an incoming command.
+
+### The magic write
+
+`configure()` in the Z2M converter writes `genBasic` attribute `0x0031` = `0x000B`
+with manufacturer code Signify (`0x100B`). Without it the switch keeps sending
+plain on/off and level commands and never emits `hueNotification` — the likely
+reason other apps handle this remote poorly.
+
+Here the attribute is declared on the Philips cluster itself (Z2M's own cluster
+definition also places `config` at `0x0031`) and written best-effort: patching
+the shared `basic` cluster globally would affect every other device in the app,
+and some firmwares are already in the right mode.
+
+### `hold` repeats — that is the point
+
+While a button is held the switch re-sends `hold` roughly every 0.8 s. Each
+repeat fires the flow again, which is what makes "hold to ramp the volume"
+work at all.

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Solid silhouette (monochrome mask): the remote's rounded body with its
+       four buttons punched out. See CLAUDE.md on why strokes do not work. -->
+  <g fill="#111111" fill-rule="evenodd">
+    <rect x="20" y="4" width="24" height="56" rx="10"/>
+    <circle cx="32" cy="15" r="4.5"/>
+    <circle cx="32" cy="27" r="4.5"/>
+    <circle cx="32" cy="39" r="4.5"/>
+    <circle cx="32" cy="51" r="4.5"/>
+  </g>
+</svg>
