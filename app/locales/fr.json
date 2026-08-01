@@ -1,10 +1,17 @@
 {
   "settings": {
-    "err_title": "Erreurs",
-    "err_intro": "Erreurs récentes des drivers (échecs de liaison de cluster, écritures de capacité). Plus récentes en premier.",
-    "err_empty": "Aucune erreur.",
+    "err_title": "Journal",
+    "err_intro": "Étapes et erreurs récentes des drivers (appairage, init, liaison de clusters). Plus récentes en premier. Conservé même après un redémarrage de l'app.",
+    "err_empty": "Journal vide.",
     "refresh": "Rafraîchir",
     "clear": "Effacer",
-    "confirm_clear": "Effacer la liste des erreurs ?"
+    "confirm_clear": "Effacer la liste des erreurs ?",
+    "verbose": "Journalisation détaillée",
+    "verbose_hint": "Ajoute les étapes d'init, de reporting et les commandes envoyées. Trop bavard au quotidien, mais à activer pour mettre au point un nouvel appareil. Prise en compte immédiate.",
+    "zdump_title": "Dump Zigbee",
+    "zdump_intro": "Endpoints et clusters de chaque appareil appairé à cette app. Chargez-le, puis copiez le JSON pour partager l'interview Zigbee d'un appareil.",
+    "zdump_load": "Charger le dump Zigbee",
+    "copy": "Copier",
+    "copied": "Copié"
   }
 }

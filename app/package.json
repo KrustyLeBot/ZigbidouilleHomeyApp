@@ -1,6 +1,6 @@
 {
   "name": "com.jerome.zigbidouille",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "app.js",
   "dependencies": {
     "homey-zigbeedriver": "^2.1.5",

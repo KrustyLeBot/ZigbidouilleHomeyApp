@@ -49,9 +49,12 @@ class CoHS720ESDevice extends ZigbidouilleDevice {
       const { zoneStatus } = await iasZone.readAttributes(['zoneStatus']);
       this.onZoneStatus(zoneStatus);
     } catch (err) {
-      // Sleepy detectors may be unreachable at init; the next notification will
-      // set the state. Not fatal.
-      this.recordError('read zoneStatus', err);
+      // Expected, not an error: this is a sleepy battery end-device, so it is
+      // usually unreachable at init ("could not reach device"). The alarm still
+      // works — it arrives as a zoneStatusChangeNotification the moment the
+      // detector fires. Logged to the app log only, never to the error panel,
+      // which would otherwise fill with noise on every restart.
+      this.log('initial zoneStatus read skipped (device asleep):', err.message);
     }
 
     // Battery percentage, if the device exposes the Power Configuration cluster.

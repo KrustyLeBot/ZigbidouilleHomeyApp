@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Homey renders driver icons as a MONOCHROME MASK, tinted by the app.
+       So this must be a solid silhouette:
+         - thin strokes vanish against the tinted background (looked like
+           "nothing is showing");
+         - a shape filling the whole frame reads as a coloured block (looked
+           like "a big teal square").
+       A bold shape with clear negative space around it is what reads properly.
+       The PNGs under assets/images are NOT what Homey shows here. -->
+  <path fill="#111111"
+        d="M35 4 L14 34 h13 l-3 26 21 -32 h-13 z"/>
+</svg>

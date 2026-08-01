@@ -25,6 +25,31 @@ device directly.
 
 This is the whole point of the app. To add a device:
 
+0. **Look up how others already did it — BEFORE writing anything.** Someone has
+   almost certainly mapped this device for another ecosystem, and their mapping
+   is ground truth you can copy:
+
+   - **Zigbee2MQTT** — [supported devices](https://www.zigbee2mqtt.io/supported-devices/),
+     and the converter source in
+     [`Koenkk/zigbee-herdsman-converters`](https://github.com/Koenkk/zigbee-herdsman-converters)
+     (search the repo *and its pull requests* — new devices often live in an
+     open PR before release). A converter states the endpoint→function mapping
+     outright, e.g. `onOff({endpointNames: ["1"]})`,
+     `electricityMeter({endpointNames: ["2","3"]})`.
+   - **Home Assistant ZHA** — [`zigpy/zha-device-handlers`](https://github.com/zigpy/zha-device-handlers)
+     quirks, plus its issues for devices not yet supported.
+   - The HA and Zigbee2MQTT **issue trackers** are also where firmware bugs and
+     workarounds for a given model are discussed.
+
+   This is not optional polish. On the Shelly EM Gen4 the device's own simple
+   descriptor advertised the endpoints **backwards**, the driver was built from
+   it, and the result was hours spent "proving" that a perfectly functional
+   device had broken firmware. The Zigbee2MQTT converter had the correct
+   mapping the whole time and would have settled it in two minutes.
+
+   **Where a working converter and the device's descriptor disagree, trust the
+   converter** and hardcode its mapping.
+
 1. **Interview it.** Pair the device to Homey once (it lands as an unknown /
    generic node), then read its Zigbee fingerprint:
    ```bash
@@ -48,6 +73,55 @@ This is the whole point of the app. To add a device:
 `docs/` collects the fingerprints of devices already interviewed — add to it
 whenever you adopt a new one, so the next person does not re-interview.
 
+### Never rename the image files
+
+Images must sit at the conventional paths, exactly:
+
+```
+assets/images/{small,large,xlarge}.png              250x175 / 500x350 / 1000x700
+drivers/<id>/assets/images/{small,large,xlarge}.png  75x75 / 500x500 / 1000x1000
+```
+
+The mobile app resolves them **by that path**, ignoring the `images` override in
+`app.json`. Renaming the files and updating the manifest therefore validates
+cleanly, works in the web client, and shows a blank panel on the phone.
+
+This was diagnosed the slow way: renaming to `-v2`/`-v3` (to defeat image
+caching) blanked the mobile pairing screen, renaming back fixed it, renaming to
+`device-*.png` blanked it again — a perfect correlation.
+
+**The mobile app caches these images hard, and neither reinstalling the app nor
+bumping its version evicts them.** The only thing that worked was clearing the
+Homey app's cache on the phone (Android: Settings → Apps → Homey → Storage →
+Clear cache — *not* "Clear data", which signs the user out).
+
+So: change the file contents, keep the name, and clear the phone cache to see
+it. Renaming is never the answer — it silently breaks the mobile lookup, and
+that failure looks identical to "the image is missing".
+
+All three sizes must exist. A missing `xlarge` also leaves the phone with
+nothing to draw. Write them as RGBA (PNG colour type 6).
+
+Content matters too: keep a **white background and a clearly contrasted device**.
+An early attempt drew the device in `#F4F6F7` on white — present in the file,
+invisible on screen.
+
+### Debugging tools built into the app
+
+Both live in the app's settings page, so nothing needs the CLI:
+
+- **Verbose logging** (checkbox) — turns on the `debugNote()` breadcrumbs:
+  init steps, endpoint chosen per tile, reporting setup, commands sent. Off by
+  default because it is several lines per device per restart; **turn it on
+  first when bringing up a new device**, off again once it works. Applies
+  immediately, no reinstall.
+- **Zigbee dump** (button) — endpoints and clusters of every device paired to
+  this app, as JSON. This is the interview, readable without transcribing
+  Homey's developer tools.
+
+The log itself is persisted, so it survives the app restart that a failed
+pairing can cause.
+
 ## Hard rules (Homey Zigbee, learned the hard way elsewhere)
 
 ### The fingerprint is the only matcher
@@ -65,6 +139,64 @@ Use `CLUSTER.ON_OFF`, `CLUSTER.POWER_CONFIGURATION`, etc. from `zigbee-clusters`
 The manifest wants the **numeric** cluster id (6, 1, …); the code wants the
 `CLUSTER` constant. Mixing them (a number where a constant is expected) fails
 silently — the capability just never updates.
+
+### A refusal and a silence are not the same evidence
+
+When probing a device, keep these strictly apart:
+
+- **`UNSUPPORTED_CLUSTER`** — the device *answered*, saying it does not
+  implement that cluster **on that endpoint**. Real evidence.
+- **A timeout** — the device said *nothing*. Proves nothing at all: it is
+  usually congestion, and this app's own parallel sub-device init is a common
+  cause of it.
+
+Reading timeouts as refusals is how a wrong endpoint map got mistaken for
+broken firmware. If a probe matters, run it **serialised, with a gap between
+requests, and after init has settled** — these devices drop requests that
+arrive in a burst, and the same read can succeed on one run and time out on the
+next.
+
+### No `configureAttributeReporting` = values that never update
+
+This bit the Shelly EM driver: the tiles showed a correct value read once at
+init, then froze forever. `registerCapability(..., { report: 'attr',
+reportParser })` only makes Homey **listen**; nothing tells the device to
+**send**. Without `reportOpts.configureAttributeReporting` the device stays
+silent and the capability never changes again.
+
+Two things are required, and missing either one produces the same silent
+freeze:
+
+1. `reportOpts: { configureAttributeReporting: { minInterval, maxInterval,
+   minChange } }` in `registerCapability`.
+2. The cluster listed in the driver's **`bindings`** array in `app.json` — a
+   device cannot report an unbound cluster. It is easy to list a cluster under
+   `clusters` (what the device *has*) and forget `bindings` (what it may report
+   to us).
+
+`minChange` is in **raw** cluster units, before multiplier/divisor. With a
+divisor of 1,000,000 a `minChange` of 1 means 0.000001 kWh — effectively
+"report constantly". Scale it from the divisor.
+
+### Changing `bindings` requires re-pairing — reads will lie to you
+
+Bindings are written into the **device's own binding table at pairing time**,
+from the manifest. There is no runtime API for it: `ZigBeeNode` exposes only
+`handleFrame`/`sendFrame`, and `configureAttributeReporting()` does not bind.
+So editing `bindings` in `app.json` and reinstalling changes **nothing** for
+devices already paired.
+
+The trap is that this fails *asymmetrically*:
+
+- **Reading an attribute does not need a binding** — so a manual read succeeds
+  and everything looks healthy.
+- **Receiving reports does** — so the tile takes its value once at init and
+  then never moves again.
+
+"Reads fine, never updates" is therefore the signature of a missing binding,
+not of a device that refuses to report. Proven on the Shelly by logging inside
+the `reportParser`: ep2 logged a report every minute, ep3 logged none at all,
+until a re-pair wrote the binding.
 
 ### Battery devices sleep — configure reporting, don't poll
 

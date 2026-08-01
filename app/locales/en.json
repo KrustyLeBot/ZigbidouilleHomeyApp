@@ -1,10 +1,17 @@
 {
   "settings": {
-    "err_title": "Errors",
-    "err_intro": "Recent errors from drivers (failed cluster binds, capability writes). Newest first.",
-    "err_empty": "No errors.",
+    "err_title": "Log",
+    "err_intro": "Recent driver steps and errors (pairing, init, cluster binds). Newest first. Survives an app restart.",
+    "err_empty": "Log is empty.",
     "refresh": "Refresh",
     "clear": "Clear",
-    "confirm_clear": "Clear the error list?"
+    "confirm_clear": "Clear the error list?",
+    "verbose": "Verbose logging",
+    "verbose_hint": "Adds init steps, reporting setup and commands sent. Too noisy for everyday use, but turn it on when bringing up a new device. Takes effect immediately.",
+    "zdump_title": "Zigbee dump",
+    "zdump_intro": "Endpoints and clusters of every device paired to this app. Load it, then copy the JSON to share a device's Zigbee interview.",
+    "zdump_load": "Load Zigbee dump",
+    "copy": "Copy",
+    "copied": "Copied"
   }
 }

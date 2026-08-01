@@ -1,6 +1,6 @@
 {
   "id": "com.jerome.zigbidouille",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "compatibility": ">=5.0.0",
   "sdk": 3,
   "platforms": [
@@ -20,7 +20,8 @@
   "permissions": [],
   "images": {
     "small": "/assets/images/small.png",
-    "large": "/assets/images/large.png"
+    "large": "/assets/images/large.png",
+    "xlarge": "/assets/images/xlarge.png"
   },
   "author": {
     "name": "Jerome"
@@ -51,7 +52,8 @@
       ],
       "images": {
         "small": "/drivers/co-hs720es/assets/images/small.png",
-        "large": "/drivers/co-hs720es/assets/images/large.png"
+        "large": "/drivers/co-hs720es/assets/images/large.png",
+        "xlarge": "/drivers/co-hs720es/assets/images/xlarge.png"
       },
       "zigbee": {
         "manufacturerName": [
@@ -82,6 +84,144 @@
           }
         }
       }
+    },
+    {
+      "id": "shelly-em-gen4",
+      "name": {
+        "en": "Shelly EM Gen4",
+        "fr": "Shelly EM Gen4"
+      },
+      "class": "sensor",
+      "capabilities": [
+        "measure_power",
+        "meter_power"
+      ],
+      "platforms": [
+        "local"
+      ],
+      "connectivity": [
+        "zigbee"
+      ],
+      "images": {
+        "small": "/drivers/shelly-em-gen4/assets/images/small.png",
+        "large": "/drivers/shelly-em-gen4/assets/images/large.png",
+        "xlarge": "/drivers/shelly-em-gen4/assets/images/xlarge.png"
+      },
+      "settings": [
+        {
+          "id": "cumulative",
+          "type": "checkbox",
+          "label": {
+            "en": "Whole-home meter (cumulative)",
+            "fr": "Compteur global du foyer (cumulatif)"
+          },
+          "hint": {
+            "en": "Enable if this clamp is on the main incomer and measures the whole home. Homey then treats it as the total and subtracts other metered devices, showing the rest as \"other\". Leave off for a sub-load (e.g. heating).",
+            "fr": "Activez si cette pince est sur l'arrivée générale et mesure tout le foyer. Homey le considère alors comme le total et en soustrait les autres appareils mesurés. Laissez décoché pour une charge spécifique (ex. chauffage)."
+          },
+          "value": false
+        }
+      ],
+      "zigbee": {
+        "manufacturerName": [
+          "Shelly"
+        ],
+        "productId": [
+          "EM"
+        ],
+        "endpoints": {
+          "1": {
+            "clusters": [
+              0,
+              3,
+              4,
+              5,
+              6
+            ],
+            "bindings": [
+              6
+            ]
+          },
+          "2": {
+            "clusters": [
+              0,
+              1794,
+              2820
+            ],
+            "bindings": [
+              1794,
+              2820
+            ]
+          },
+          "3": {
+            "clusters": [
+              0,
+              1794,
+              2820
+            ],
+            "bindings": [
+              1794,
+              2820
+            ]
+          }
+        },
+        "learnmode": {
+          "image": "/drivers/shelly-em-gen4/assets/learnmode.svg",
+          "instruction": {
+            "en": "1) Switch the Shelly to Zigbee mode: in its web interface, Settings → Switch to Zigbee (firmware 1.7.0+), or press the button 5× quickly on older firmware, then wait ~10s for it to reboot. 2) Press the button 3× quickly to start pairing (stays open ~2 min), close to the Homey. It appears as three devices: the two metering channels and the dry contact.",
+            "fr": "1) Passez le Shelly en mode Zigbee : dans son interface web, Réglages → Passer en Zigbee (firmware 1.7.0+), ou 5 appuis rapides sur le bouton (firmware plus ancien), puis attendez ~10 s le redémarrage. 2) Faites 3 appuis rapides pour lancer l'appairage (ouvert ~2 min), près du Homey. Il apparaît en trois appareils : les deux voies de mesure et le contact sec."
+          }
+        },
+        "devices": {
+          "channel2": {
+            "class": "sensor",
+            "capabilities": [
+              "measure_power",
+              "meter_power"
+            ],
+            "name": {
+              "en": "Shelly EM Gen4 – Channel B",
+              "fr": "Shelly EM Gen4 – Voie B"
+            },
+            "images": {
+              "small": "/drivers/shelly-em-gen4/assets/images/small.png",
+              "large": "/drivers/shelly-em-gen4/assets/images/large.png",
+              "xlarge": "/drivers/shelly-em-gen4/assets/images/xlarge.png"
+            },
+            "settings": [
+              {
+                "id": "cumulative",
+                "type": "checkbox",
+                "label": {
+                  "en": "Whole-home meter (cumulative)",
+                  "fr": "Compteur global du foyer (cumulatif)"
+                },
+                "hint": {
+                  "en": "Enable if this clamp is on the main incomer and measures the whole home. Leave off for a sub-load (e.g. heating).",
+                  "fr": "Activez si cette pince est sur l'arrivée générale et mesure tout le foyer. Laissez décoché pour une charge spécifique (ex. chauffage)."
+                },
+                "value": false
+              }
+            ]
+          },
+          "relay": {
+            "class": "socket",
+            "capabilities": [
+              "onoff"
+            ],
+            "name": {
+              "en": "Shelly EM Gen4 – Dry contact",
+              "fr": "Shelly EM Gen4 – Contact sec"
+            },
+            "images": {
+              "small": "/drivers/shelly-em-gen4/assets/images/small.png",
+              "large": "/drivers/shelly-em-gen4/assets/images/large.png",
+              "xlarge": "/drivers/shelly-em-gen4/assets/images/xlarge.png"
+            },
+            "settings": []
+          }
+        }
+      }
     }
   ],
   "brandColor": "#00A6A6",
@@ -93,6 +233,10 @@
     "clearErrors": {
       "method": "POST",
       "path": "/errors/clear"
+    },
+    "getZigbee": {
+      "method": "GET",
+      "path": "/zigbee"
     }
   }
 }

@@ -21,8 +21,18 @@
       li:last-child { border-bottom: none; }
       .ctx { font-weight: 600; }
       .msg { color: #c00; }
+      /* Info breadcrumbs share the list with errors so ordering stays visible;
+         muted so real failures still stand out. */
+      li.info .msg { color: #666; }
+      li.info .ctx { font-weight: 500; color: #666; }
       .time { color: #999; font-size: 11px; }
       .empty { color: #999; font-size: 13px; }
+      .verbose { display: flex; align-items: center; gap: 8px; font-size: 14px; margin-bottom: 4px; }
+      h2.section { margin-top: 28px; }
+      textarea {
+        width: 100%; height: 260px; box-sizing: border-box; margin-top: 8px;
+        font-family: monospace; font-size: 11px; border: 1px solid #ccc; border-radius: 4px;
+      }
     </style>
   </head>
   <body>
@@ -31,10 +41,27 @@
 
     <div class="row">
       <button type="button" class="primary" id="refresh"></button>
+      <button type="button" id="err-copy"></button>
       <button type="button" id="clear"></button>
     </div>
 
+    <label class="verbose">
+      <input type="checkbox" id="verbose" />
+      <span id="t-verbose"></span>
+    </label>
+    <p class="intro" id="t-verbose-hint"></p>
+
     <ul id="list"></ul>
+    <!-- Off-screen holder: execCommand('copy') needs a real selectable field. -->
+    <textarea id="err-copy-buf" style="position:absolute;left:-9999px;top:-9999px;"></textarea>
+
+    <h2 class="section" id="t-zdump-title"></h2>
+    <p class="intro" id="t-zdump-intro"></p>
+    <div class="row">
+      <button type="button" class="primary" id="zdump-load"></button>
+      <button type="button" id="zdump-copy"></button>
+    </div>
+    <textarea id="zdump-out" readonly></textarea>
 
     <script type="text/javascript">
       function onHomeyReady(Homey) {
@@ -44,7 +71,14 @@
         document.getElementById('t-title').textContent = __('err_title');
         document.getElementById('t-intro').textContent = __('err_intro');
         document.getElementById('refresh').textContent = __('refresh');
+        document.getElementById('err-copy').textContent = __('copy');
         document.getElementById('clear').textContent = __('clear');
+        document.getElementById('t-verbose').textContent = __('verbose');
+        document.getElementById('t-verbose-hint').textContent = __('verbose_hint');
+        document.getElementById('t-zdump-title').textContent = __('zdump_title');
+        document.getElementById('t-zdump-intro').textContent = __('zdump_intro');
+        document.getElementById('zdump-load').textContent = __('zdump_load');
+        document.getElementById('zdump-copy').textContent = __('copy');
 
         function fmt(t) {
           return new Date(t).toLocaleString();
@@ -57,18 +91,35 @@
           }
           listEl.innerHTML = entries
             .map((e) =>
-              '<li><div class="ctx">' + e.context + '</div>' +
+              '<li class="' + (e.level === 'error' ? 'err' : 'info') + '">' +
+              '<div class="ctx">' + e.context + '</div>' +
               '<div class="msg">' + e.message + '</div>' +
               '<div class="time">' + fmt(e.t) + '</div></li>')
             .join('');
         }
 
+        // Kept so the Copy button can emit the same list as plain text.
+        let lastEntries = [];
+
         function load() {
           Homey.api('GET', '/errors', null, (err, result) => {
             if (err) { listEl.innerHTML = '<li class="msg">' + err + '</li>'; return; }
-            render(result && result.entries);
+            lastEntries = (result && result.entries) || [];
+            render(lastEntries);
           });
         }
+
+        document.getElementById('err-copy').addEventListener('click', () => {
+          const buf = document.getElementById('err-copy-buf');
+          buf.value = lastEntries.length
+            ? lastEntries
+                .map((e) => fmt(e.t) + '\t' + (e.level === 'error' ? 'ERR ' : 'info') + '\t' + e.context + '\t' + e.message)
+                .join('\n')
+            : __('err_empty');
+          buf.select();
+          document.execCommand('copy');
+          document.getElementById('err-copy').textContent = __('copied');
+        });
 
         document.getElementById('refresh').addEventListener('click', load);
         document.getElementById('clear').addEventListener('click', () => {
@@ -76,6 +127,36 @@
             if (err || !ok) return;
             Homey.api('POST', '/errors/clear', null, () => load());
           });
+        });
+
+        // --- verbose logging toggle ---
+        // Stored in app settings so drivers can read it live: flipping it takes
+        // effect on the next thing they log, with no reinstall.
+        const verboseEl = document.getElementById('verbose');
+        Homey.get('verbose', (err, value) => {
+          if (!err) verboseEl.checked = Boolean(value);
+        });
+        verboseEl.addEventListener('change', () => {
+          Homey.set('verbose', verboseEl.checked, (err) => {
+            if (err) Homey.alert(err.message || String(err));
+          });
+        });
+
+        // --- Zigbee interview dump ---
+        const zoutEl = document.getElementById('zdump-out');
+
+        document.getElementById('zdump-load').addEventListener('click', () => {
+          zoutEl.value = '…';
+          Homey.api('GET', '/zigbee', null, (err, result) => {
+            zoutEl.value = err
+              ? String(err.message || err)
+              : JSON.stringify(result.devices, null, 2);
+          });
+        });
+        document.getElementById('zdump-copy').addEventListener('click', () => {
+          zoutEl.select();
+          document.execCommand('copy');
+          document.getElementById('zdump-copy').textContent = __('copied');
         });
 
         load();

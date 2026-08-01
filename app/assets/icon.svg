@@ -1,5 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
-  <rect width="256" height="256" rx="48" fill="#00A6A6"/>
-  <path d="M78 82 h100 l-92 92 h100" fill="none" stroke="#ffffff" stroke-width="20"
-        stroke-linecap="round" stroke-linejoin="round"/>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- App icon: a "Z" (Zigbidouille / Zigbee), stroked to match the drivers. -->
+  <path d="M18 14 H46 L18 50 H46"
+        fill="none" stroke="#374151" stroke-width="5"
+        stroke-linejoin="round" stroke-linecap="round"/>
 </svg>
