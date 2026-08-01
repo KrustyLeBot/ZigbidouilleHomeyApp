@@ -48,6 +48,24 @@ class ErrLog {
     this.push('info', context, String(message));
   }
 
+  // Same, but dropped unless verbose logging is switched on in app settings.
+  // Lives here rather than on a device base class so every driver can use it,
+  // whatever protocol it speaks — the Zigbee devices and the miIO vacuum share
+  // this one switch.
+  debug(context, message) {
+    if (!this.verbose()) return;
+    this.push('info', context, String(message));
+  }
+
+  verbose() {
+    if (!this.homey) return false;
+    try {
+      return Boolean(this.homey.settings.get('verbose'));
+    } catch (err) {
+      return false;
+    }
+  }
+
   push(level, context, message) {
     this.entries.unshift({ t: Date.now(), level, context, message });
     if (this.entries.length > MAX) this.entries.length = MAX;

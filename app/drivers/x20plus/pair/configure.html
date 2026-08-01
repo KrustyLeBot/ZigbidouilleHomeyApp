@@ -1,0 +1,72 @@
+<style>
+  .field { margin-bottom: 16px; }
+  .field label { display: block; margin-bottom: 4px; font-weight: 600; }
+  .field input {
+    width: 100%;
+    padding: 10px;
+    box-sizing: border-box;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+  }
+  .hint { font-size: 12px; color: #888; margin-top: 4px; }
+  button {
+    padding: 10px 20px;
+    font-size: 14px;
+    border-radius: 4px;
+    border: none;
+    background: #FF6900;
+    color: #fff;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .status { margin-top: 16px; min-height: 20px; font-size: 14px; }
+  .status.error { color: #c00; }
+  .status.busy { color: #888; }
+</style>
+
+<form id="pair-form">
+  <div class="field">
+    <label for="address">IP address</label>
+    <input type="text" id="address" placeholder="192.168.1.x" required />
+    <div class="hint">Give the robot a fixed IP in your router first.</div>
+  </div>
+
+  <div class="field">
+    <label for="token">Token</label>
+    <input type="text" id="token" placeholder="32 hex characters" required />
+    <div class="hint">Extract it with Xiaomi Cloud Tokens Extractor.</div>
+  </div>
+
+  <button type="submit" id="connect">Connect</button>
+  <div class="status" id="status"></div>
+</form>
+
+<script type="application/javascript">
+  // Homey is a global in pair views; no onHomeyReady/ready() needed here.
+  document.getElementById('pair-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const button = document.getElementById('connect');
+    const statusEl = document.getElementById('status');
+    const address = document.getElementById('address').value.trim();
+    const token = document.getElementById('token').value.trim();
+
+    button.disabled = true;
+    statusEl.className = 'status busy';
+    statusEl.textContent = 'Connecting to the robot...';
+
+    try {
+      // Driver validates by doing a real handshake before the device is made.
+      const device = await Homey.emit('validate', { address, token });
+      statusEl.className = 'status';
+      statusEl.textContent = 'Connected.';
+      await Homey.createDevice(device);
+      Homey.done();
+    } catch (err) {
+      statusEl.className = 'status error';
+      statusEl.textContent = (err && err.message) || String(err);
+      button.disabled = false;
+    }
+  });
+</script>

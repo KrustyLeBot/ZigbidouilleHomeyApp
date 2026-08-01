@@ -82,7 +82,7 @@ class ZigbidouilleDevice extends ZigBeeDevice {
   // Toggle: app Settings -> Verbose logging (takes effect immediately, no
   // reinstall).
   debugNote(context, message) {
-    if (!this.homey.settings.get('verbose')) return;
+    if (!errlog.verbose()) return;
     this.note(context, message);
   }
 

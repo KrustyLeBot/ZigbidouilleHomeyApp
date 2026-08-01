@@ -1,14 +1,25 @@
 # Working on this repo
 
-Homey app that adapts **Zigbee devices that have no dedicated Homey app** — the
-kind that pair as a bare "generic Zigbee device" or not at all. Each unsupported
-device gets a small driver here that maps its Zigbee clusters onto Homey
-capabilities.
+Homey app that adapts **devices with no usable Homey app of their own** — the
+ones that pair as a bare "generic Zigbee device" or not at all, and the ones
+whose vendor app flattens away everything worth automating. Each gets a small
+driver here.
 
-Built on the official [`homey-zigbeedriver`](https://athombv.github.io/node-homey-zigbeedriver/)
-and [`zigbee-clusters`](https://github.com/athombv/node-zigbee-clusters) — never
-raw Zigbee frames. No cloud, no bridge: Homey Pro's own Zigbee radio talks to the
-device directly.
+**The app is not Zigbee-only.** Homey declares `connectivity` *per driver*, so
+one app can host several protocols side by side:
+
+| Protocol | Drivers | Stack |
+|---|---|---|
+| `zigbee` | `co-hs720es`, `shelly-em-gen4` | [`homey-zigbeedriver`](https://athombv.github.io/node-homey-zigbeedriver/) + [`zigbee-clusters`](https://github.com/athombv/node-zigbee-clusters) — never raw frames |
+| `lan` | `x20plus` (Xiaomi vacuum) | miIO over UDP + AES-128, `lib/miio-client.js`, self-contained (dgram + crypto only) |
+
+Adding Matter or anything else means adding drivers, not restructuring: only the
+device layer is protocol-specific. Everything shared — the log, the verbose
+switch, the settings page — is protocol-neutral, and new code should keep it
+that way. Put anything reusable in `lib/errlog.js` rather than a Zigbee-only
+base class.
+
+Everything runs locally. No cloud, no bridge, no account.
 
 ## Conventions
 
@@ -110,17 +121,128 @@ invisible on screen.
 
 Both live in the app's settings page, so nothing needs the CLI:
 
-- **Verbose logging** (checkbox) — turns on the `debugNote()` breadcrumbs:
-  init steps, endpoint chosen per tile, reporting setup, commands sent. Off by
+The settings page is three tabs: **Log**, **Zigbee**, **Vacuum (miIO)**.
+
+- **Verbose logging** (checkbox, Log tab) — turns on the breadcrumbs:
+  `debugNote()` on Zigbee devices, `errlog.debug()` anywhere else (the vacuum
+  logs every raw miIO poll through it). One switch for all protocols. Off by
   default because it is several lines per device per restart; **turn it on
   first when bringing up a new device**, off again once it works. Applies
   immediately, no reinstall.
-- **Zigbee dump** (button) — endpoints and clusters of every device paired to
-  this app, as JSON. This is the interview, readable without transcribing
-  Homey's developer tools.
+- **The log itself** is shared by every driver and filterable per device — the
+  filter reads the `Device name: what happened` prefix, so keep logging in that
+  shape.
+- **Zigbee dump** (Zigbee tab) — endpoints and clusters of every Zigbee device
+  paired to this app, as JSON. This is the interview, readable without
+  transcribing Homey's developer tools.
+- **Raw miIO log** (Vacuum tab) — the vacuum's per-poll CSV, and the tool that
+  decoded both the mid-clean recharge and the whole mop station cycle. Separate
+  from the app log on purpose: it is dense machine data meant to be exported and
+  diffed, not read line by line. Every unexplained robot behaviour starts here.
 
 The log itself is persisted, so it survives the app restart that a failed
 pairing can cause.
+
+## Hard rules — the miIO vacuum (`x20plus`)
+
+These came from probing a real robot; the published spec for this model is for a
+different variant (`d109gl`) and is **wrong** for the `c102gl`. Full detective
+work in [FINDINGS.md](FINDINGS.md) — read it before touching anything
+protocol-related.
+
+### No local state that mirrors the robot
+
+Anything the robot reports must be **read from the robot every poll**, never
+remembered and reused. Local mirrors go stale across app restarts and whenever
+the robot is driven from the Xiaomi app or its own button.
+
+Flow conditions must read `getCapabilityValue('vacuum_status')`, not instance
+variables. A condition once compared the raw status (`3`) to a state id
+(`paused_cleaning`) and silently never matched.
+
+### Verify field meanings against the Xiaomi app
+
+Do not infer what a MIoT field means from a plausible-looking pattern. `4/3` was
+once read as "paused from" because it happened to hold 6 and 11 during two
+pauses — it is the **cleaned area**. A field that climbs during one uninterrupted
+activity is a counter, not a code.
+
+### Field map (do not mix these up)
+
+| field | meaning |
+|-------|---------|
+| **`2/1`** | **status** — `1` vacuum · `12` vacuum+mop · `3` paused · `4` error · `5` returning · `6`/`13` docked · `8` drying · `9` washing · `10` returning to wash · `11` mapping · `22` emptying the bin |
+| **`4/7`** | **pending task** — `0` none · `1` whole-home clean · `3` room · `5` mapping · `6` paused mid-clean · `11` paused mid-return · `16` blocked mid-return |
+| **`4/3`** | **cleaned area in m²** — matches the Xiaomi app exactly |
+| `4/2` | cleaning time in minutes |
+| `4/1` | secondary status enum, unused by the app |
+| `2/2` | fault — non-zero in plenty of healthy states, **never** an error signal on its own |
+| `2/5` | minutes left on the mop drying cycle (status 8 only) |
+| `2/6` | `0` mop fitted, `2` vacuum only |
+| `4/25` | station — `0` idle · `1` washing · `2` drying · `3` driving home to wash |
+| `15/5` | `1` while the station empties the dust bin |
+
+### "Docked" does not mean "done", and status 1 is not "cleaning"
+
+Both stopped being true the day vacuum+mop was enabled. The robot **returns to
+its dock mid-clean** to rinse the mop and reports status `6` while sitting there,
+and it cleans under status `12`, not `1`.
+
+- "the job is over" = on the dock **and** `4/7 == 0` → `isJobDone()`
+- "it is cleaning" = `CLEANING_STATUSES`, never a single value
+
+Testing the dock alone fired `task_completed` mid-job and froze
+`last_cleaned_area` at 16 m² of a 28 m² run. Testing `status === 1` alone stopped
+arming completion altogether once the mop was switched on. `4/7` is the only
+field that separates the two: it holds the pending task across the whole job,
+dock visits included.
+
+### Actions take a bare object, reads take an array
+
+`get_properties` params is an **array** of `{did, siid, piid}`; `action` params
+is a **bare object**. Wrapping the action in an array makes the robot reply
+`-9999` and silently do nothing.
+
+### The poll uses WATCHED, not PROPERTIES
+
+`device.js` polls `WATCHED` (from `lib/recorder.js`), whose keys are raw dids
+(`s4p3`, `s4p7`). Reading `values.clean_area` there yields `undefined` and the
+capability is silently never written. Keep the two lists in sync or read the raw
+did.
+
+### Timeline booleans are toggled, never set in true/false pairs
+
+Homey's per-device timeline only records **boolean capability changes**, and a
+`true -> false` transition logs an entry too. So each state has one hidden
+boolean that is **toggled** on entry (the value is meaningless) and the others
+are left untouched. Setting them all true/false produced phantom "started"
+events. Toggle **only when the displayed state changes**, never every poll.
+
+### Long enum labels need uiComponent `picker`, not `sensor`
+
+`sensor` renders in a fixed-width icon grid on mobile: anything past ~20
+characters is ellipsed, and it never wraps. `picker` renders full-width and
+works fine on a `setable: false` capability.
+
+### Stuck notifications run every poll, not on state change
+
+`updateStuckNotification()` is called on **every** poll, before the "status
+changed" gate. It once lived inside `fireTriggers`, which only runs on a change —
+so a pause whose transition poll was lost to a network timeout never armed its
+timer and never notified.
+
+One trigger card per stuck state (`paused_cleaning`, `paused_returning`,
+`error_returning`, `error`), each named exactly like the state so the card is
+looked up by state id. All share the 90 s confirm delay and the
+one-notification-per-episode guard.
+
+### Two resume actions, deliberately
+
+`4/7` now says reliably which activity was paused, and the app still ships **two
+explicit resume cards**. Resuming a paused dock-return with "resume cleaning"
+starts a **full clean of the whole home** — the destructive case, most likely
+with nobody there to stop it. The user's flow picks; the app never guesses. Do
+not add an auto-resume.
 
 ## Hard rules (Homey Zigbee, learned the hard way elsewhere)
 
@@ -252,6 +374,46 @@ homey app validate --level debug   # CLI 4.x needs Node >= 24; on Node 22 use ho
 homey app run                      # needs Docker Desktop; live logs while pairing
 ```
 
-There is **no `.env`**: Zigbee pairing is a radio handshake, there are no tokens
-or accounts. (The Xiaomi sibling app needs one because miIO is IP + secret token;
-this one does not.)
+Zigbee pairing is a radio handshake — no tokens, no accounts, nothing secret.
+
+The **vacuum is the exception**: miIO needs the robot's IP and its 32-character
+token. Those live in the device's own Homey settings (entered during pairing),
+and in a gitignored `.env` at the repo root for the standalone probe scripts.
+**The token is a password — never commit it, never echo it into docs or logs.**
+
+### Probing a device directly (`probe/`)
+
+Standalone scripts that talk to a device **without Homey in the way** — the
+fastest loop for protocol work, since there is no app to reinstall. One
+subfolder per device, named after its driver; see [probe/README.md](probe/README.md).
+They read the repo-root `.env` for credentials.
+
+No dependencies to install: `probe/x20plus/miio-client.js` is a copy of the
+app's, which needs only `dgram` + `crypto`. (It used to pull the `miio` package
+from GitHub; the scripts only ever called `call`/`handshake`/`destroy`, all of
+which the app's client already provides.)
+
+```bash
+cd probe/x20plus
+node probe.js          # watch status live
+node probe.js scan     # dump candidate properties once, then exit
+node probe.js actions  # list resume-action candidates (does NOT run them)
+```
+
+Credentials come from the repo-root `.env`; pass `<ip> <token>` before the mode
+to override.
+
+`sweep.js` is the discovery tool: it brute-forces every `siid`/`piid` in a range
+and reports which ones exist, to hunt for flags the app does not know about. Its
+real power is **diffing two states**:
+
+```bash
+node sweep.js > normal.txt
+# put the robot in the odd state (lift it, start the mop cycle, ...)
+node sweep.js > lifted.txt
+node sweep.js diff normal.txt lifted.txt
+```
+
+That diff is how unknown fields get identified — far more reliable than guessing
+from a published spec, which for this model is simply wrong. Note the robot
+drops oversized `get_properties` requests, hence the batching in the script.

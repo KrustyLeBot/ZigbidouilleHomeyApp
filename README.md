@@ -1,40 +1,47 @@
-# Zigbidouille — Homey app for orphan Zigbee devices
+# Zigbidouille — Homey app for devices nobody else supports
 
-A Homey app for **Zigbee devices that don't have a dedicated Homey app** — the
-cheap sensors, plugs and switches that pair as a nameless "generic Zigbee device"
-(or refuse to pair at all) because no developer ever wrote a driver for them.
+A Homey app for **devices that don't have a dedicated Homey app** — the cheap
+sensors, plugs and switches that pair as a nameless "generic Zigbee device" (or
+refuse to pair at all), and the appliances whose vendor app collapses everything
+useful into a handful of standard values.
 
 Zigbidouille is that missing driver, per device. Each unsupported model gets a
-small driver that maps its Zigbee clusters onto proper Homey capabilities, flow
+small driver that maps whatever it speaks onto proper Homey capabilities, flow
 cards and Insights — the same first-class experience a supported device gets.
 
-Everything runs **locally** on Homey Pro's own Zigbee radio. No cloud, no bridge,
-no account, no token.
+**Protocol-agnostic by design.** Homey declares connectivity *per driver*, so a
+single app can host several at once. Today: **Zigbee** (via the Homey radio) and
+**LAN** (miIO over UDP, for the vacuum). Matter or anything else can join later
+without restructuring anything — only the device layer differs, and the shared
+plumbing (logging, debugging, settings) is protocol-neutral.
+
+Everything runs **locally**. No cloud, no bridge, no account.
 
 The app is bilingual (English / French): it follows Homey's language. Internal
 identifiers are English; only the display names are translated.
 
 ## What it does
 
-- **Adopts unsupported Zigbee devices** — you pair the device, it binds to a
-  Zigbidouille driver that knows its clusters, and it shows up as a normal Homey
-  device with working tiles and flow cards.
+- **Adopts unsupported devices** — you pair the device, it binds to a
+  Zigbidouille driver that knows how to talk to it, and it shows up as a normal
+  Homey device with working tiles and flow cards.
 - **Built on the official SDK** — [`homey-zigbeedriver`](https://athombv.github.io/node-homey-zigbeedriver/)
-  and [`zigbee-clusters`](https://github.com/athombv/node-zigbee-clusters), the
-  same libraries Athom's own apps use. No raw frame parsing.
-- **A built-in Zigbee dump** in the app settings — lists every endpoint and
-  cluster of each paired device, so a new device can be interviewed from the app
-  itself instead of transcribing Homey's developer tools by hand.
+  and [`zigbee-clusters`](https://github.com/athombv/node-zigbee-clusters) for
+  Zigbee. No raw frame parsing.
+- **One place to debug everything** — the app settings hold a persisted log
+  shared by every driver (filterable per device), a **Zigbee dump** of endpoints
+  and clusters, the vacuum's **raw miIO trace**, and a **verbose logging**
+  switch that applies to all protocols at once.
 
 ## Supported devices
 
-### Heiman HS-720ES — carbon monoxide detector (`co-hs720es`)
+### Heiman HS-720ES — carbon monoxide detector (`co-hs720es`) · Zigbee
 
 Battery detector using the standard IAS Zone alarm pattern: `alarm_co`,
 `alarm_battery`, `measure_battery`. CO alarms arrive as a push notification the
 moment the detector fires. A good template for any Zigbee alarm sensor.
 
-### Shelly EM Gen4 — 2-channel energy meter + dry contact (`shelly-em-gen4`)
+### Shelly EM Gen4 — 2-channel energy meter + dry contact (`shelly-em-gen4`) · Zigbee
 
 One physical device exposed as **three Homey devices** from a single pairing:
 
@@ -53,6 +60,32 @@ The split into three devices is deliberate — Homey's `cumulative` flag is
 per-device, so two clamps needing different cumulative settings cannot share
 one.
 
+### Xiaomi Robot Vacuum X20+ (`x20plus`) · LAN (miIO)
+
+Talks to the robot **locally over the miIO protocol** (UDP, AES-128) — no cloud.
+It exists because the general-purpose Xiaomi app collapses the robot's real
+states into Homey's five standard vacuum values, throwing away the one
+distinction that matters: **was it interrupted while cleaning, or on its way back
+to the dock?** Those need different handling, and resuming the wrong one starts a
+full clean of the whole home.
+
+- A dedicated `Status` capability with the robot's real states, including the
+  two the standard app merges.
+- **Two separate resume actions** — *Resume cleaning* and *Resume return to
+  dock*. Deliberately separate: the app never guesses which one you meant.
+- Flow triggers for every stuck state, each confirmed after 90 s so a robot that
+  frees itself does not notify.
+- Cleaned area per run in Insights, and a raw miIO CSV export in the settings.
+
+Needs the robot on a fixed local IP and its 32-character miIO token — see
+[INSTALL.md](INSTALL.md).
+
+Every value in this driver was reverse-engineered by probing a real robot: the
+published spec is for a different variant and is **wrong** for this model. See
+[FINDINGS.md](FINDINGS.md), and `probe/` for the scripts that produced it —
+including `sweep.js`, which brute-forces the property space and diffs two robot
+states to identify unknown fields.
+
 ## Why it exists
 
 The Zigbee spec is standard, but device *behaviour* is not: two plugs that both
@@ -66,10 +99,16 @@ flow support.
 Zigbidouille is where you add that missing fingerprint and cluster mapping,
 without forking a big vendor app.
 
+The same reasoning applies beyond Zigbee. A vendor app that technically supports
+your device but flattens what it reports is just as unusable as no app at all —
+which is why the Xiaomi vacuum lives here too, speaking miIO over the LAN.
+
 ## Adopting a new device (the short version)
 
-Full detail — including how to read a device's clusters — is in
-[CLAUDE.md](CLAUDE.md).
+Full detail is in [CLAUDE.md](CLAUDE.md). The steps below are the Zigbee path; a
+device on another protocol skips the fingerprint/cluster parts and implements
+its own client (see `lib/miio-client.js` for how the vacuum does it), but the
+shared plumbing — logging, verbose switch, settings — is the same.
 
 0. **Check how others mapped it first** — the
    [Zigbee2MQTT converters](https://github.com/Koenkk/zigbee-herdsman-converters)
@@ -91,8 +130,10 @@ Full detail — including how to read a device's clusters — is in
 
 ## Requirements
 
-- Homey Pro (SDK 3, local platform) with a built-in Zigbee radio.
-- The device physically in Zigbee range during pairing.
+- Homey Pro (SDK 3, local platform); a built-in Zigbee radio for the Zigbee
+  drivers.
+- Zigbee devices physically in range during pairing; LAN devices reachable on
+  the network (the vacuum also needs a fixed IP and its miIO token).
 - Node >= 24 for the Homey CLI 4.x (see [INSTALL.md](INSTALL.md) for the Node/CLI
   version trap).
 
@@ -114,19 +155,30 @@ pairing instructions to put the device in join mode.
 
 ```
 app/                       the Homey app
-  app.js                   registers app-wide flow cards
-  app.json                 manifest: capabilities, drivers, Zigbee fingerprints, flow
+  app.js                   registers the vacuum's flow cards
+  app.json                 manifest: capabilities, drivers (per-driver connectivity), flow
   lib/
-    zigbee-device.js       shared base class (capability migration, node dump, logging)
-    errlog.js              rolling log, persisted so it survives an app restart
+    errlog.js              rolling log shared by every driver, persisted, verbose-aware
+    zigbee-device.js       Zigbee base class (capability migration, node dump, logging)
+    miio-client.js         miIO client: UDP handshake + AES-128 (vacuum)
+    x20plus.js             the vacuum's MIoT map and state machine
+    recorder.js            raw miIO CSV recorder
   drivers/
-    co-hs720es/            Heiman HS-720ES CO detector
-    shelly-em-gen4/        Shelly EM Gen4 (3 sub-devices from one node)
+    co-hs720es/            Heiman HS-720ES CO detector          — zigbee
+    shelly-em-gen4/        Shelly EM Gen4, 3 sub-devices        — zigbee
+    x20plus/               Xiaomi X20+ vacuum                   — lan (miIO)
   locales/                 en.json / fr.json
-  settings/                app settings page: log + Zigbee dump
+  settings/                app settings: log · Zigbee dump · raw miIO log
+probe/                     standalone scripts — talk to a device without Homey
+  x20plus/                 the vacuum's miIO tooling (one subfolder per device)
+    probe.js               watch status live / scan properties / list actions
+    sweep.js               brute-force siid/piid discovery, and diff two robot states
 docs/                      fingerprints of devices already interviewed
+  Homey Notification.mp3   notification sound, for use in Flows (not used by the app)
+FINDINGS.md                everything learned by probing the real vacuum
 CLAUDE.md                  conventions + the device-adoption workflow + hard rules
 INSTALL.md                 install steps and CLI/Node gotchas
+.env                       robot IP + miIO token — gitignored, never commit it
 ```
 
 ## Credits
@@ -141,3 +193,6 @@ INSTALL.md                 install steps and CLI/Node gotchas
 - [ZHA device handlers](https://github.com/zigpy/zha-device-handlers) — same
   role on the Home Assistant side, useful when a device has no Z2M converter
   yet.
+- miIO protocol reference: [rytilahti/python-miio](https://github.com/rytilahti/python-miio),
+  cross-checked against [shaarkys/com.xiaomi-miio](https://github.com/shaarkys/com.xiaomi-miio).
+  Token extraction: [PiotrMachowski/Xiaomi-cloud-tokens-extractor](https://github.com/PiotrMachowski/Xiaomi-cloud-tokens-extractor).

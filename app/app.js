@@ -1,7 +1,7 @@
 'use strict';
 
 const Homey = require('homey');
-// Uncomment while debugging a new device to dump every Zigbee frame the app
+// Uncomment while debugging a new Zigbee device to dump every frame the app
 // sends/receives to the app logs. Very noisy — leave off in normal use.
 // const { Cluster, debug } = require('zigbee-clusters');
 
@@ -15,6 +15,39 @@ class ZigbidouilleApp extends Homey.App {
     errlog.init(this.homey);
     errlog.info('app', 'Zigbidouille started');
     this.log('Zigbidouille started');
+
+    this.registerVacuumFlows();
+  }
+
+  // Flow cards for the miIO vacuum (drivers/x20plus). Zigbee drivers here need
+  // none: their capabilities give Homey the standard cards for free. The vacuum
+  // exposes actions with no matching capability, so they are wired by hand.
+  registerVacuumFlows() {
+    // Two explicit resume actions, deliberately. From a paused dock-return,
+    // sending "resume cleaning" starts a brand-new clean of the whole home, so
+    // the flow author picks — the app never guesses.
+    const actions = {
+      start_cleaning: (device) => device.startCleaning(),
+      resume_cleaning: (device) => device.resumeCleaning(),
+      resume_returning: (device) => device.resumeReturning(),
+      pause: (device) => device.pause(),
+    };
+
+    for (const [card, run] of Object.entries(actions)) {
+      this.homey.flow.getActionCard(card).registerRunListener(({ device }) => run(device));
+    }
+
+    // Conditions read the capability, never an instance variable: it holds the
+    // displayed state, is refreshed every poll, and matches the ids the cards
+    // offer. A condition once compared a raw status code to a state id and
+    // silently never matched.
+    this.homey.flow
+      .getConditionCard('is_paused_from')
+      .registerRunListener(({ device, reason }) => device.getCapabilityValue('vacuum_status') === `paused_${reason}`);
+
+    this.homey.flow
+      .getConditionCard('status_is')
+      .registerRunListener(({ device, status }) => device.getCapabilityValue('vacuum_status') === status);
   }
 }
 

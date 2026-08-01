@@ -12,6 +12,39 @@
     "zdump_intro": "Endpoints et clusters de chaque appareil appairé à cette app. Chargez-le, puis copiez le JSON pour partager l'interview Zigbee d'un appareil.",
     "zdump_load": "Charger le dump Zigbee",
     "copy": "Copier",
-    "copied": "Copié"
+    "copied": "Copié",
+    "log_title": "Journal brut (MIoT)",
+    "log_intro": "Valeurs brutes, pour analyser une recharge en cours de nettoyage. Lance un nettoyage complet, puis exporte et partage le CSV.",
+    "load": "Charger",
+    "lines": "lignes",
+    "confirm_clear_log": "Effacer le journal brut ?",
+    "tab_log": "Journal",
+    "tab_zigbee": "Zigbee",
+    "tab_miio": "Aspirateur (miIO)",
+    "all_devices": "Tous les appareils"
+  },
+  "unreachable": "Le robot ne répond pas",
+  "pair": {
+    "bad_token": "Le token doit faire 32 caractères hexadécimaux",
+    "no_reply": "Pas de réponse du robot. Vérifie l'IP, et réveille-le dans l'app Xiaomi."
+  },
+  "state": {
+    "cleaning": "Nettoyage en cours",
+    "mopping": "Aspiration et lavage",
+    "recharging": "Recharge mi-nettoyage",
+    "paused_cleaning": "Nettoyage en pause",
+    "returning": "Retour à la base",
+    "returning_wash": "Retour pour laver la serpillière",
+    "paused_returning": "Retour à la base en pause",
+    "washing": "Lavage de la serpillière",
+    "drying": "Séchage de la serpillière",
+    "mapping": "Cartographie en cours",
+    "charging": "En charge",
+    "docked": "Sur la base, chargé",
+    "station": "Station en marche",
+    "idle": "Au repos",
+    "unknown": "Inconnu",
+    "error_returning": "Bloqué en retour à la base",
+    "error": "Erreur"
   }
 }

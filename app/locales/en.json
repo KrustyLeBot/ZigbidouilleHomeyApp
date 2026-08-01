@@ -12,6 +12,39 @@
     "zdump_intro": "Endpoints and clusters of every device paired to this app. Load it, then copy the JSON to share a device's Zigbee interview.",
     "zdump_load": "Load Zigbee dump",
     "copy": "Copy",
-    "copied": "Copied"
+    "copied": "Copied",
+    "log_title": "Raw log (MIoT)",
+    "log_intro": "Raw values, to analyse a mid-clean recharge. Run a full clean, then export and share the CSV.",
+    "load": "Load",
+    "lines": "lines",
+    "confirm_clear_log": "Clear the raw log?",
+    "tab_log": "Log",
+    "tab_zigbee": "Zigbee",
+    "tab_miio": "Vacuum (miIO)",
+    "all_devices": "All devices"
+  },
+  "unreachable": "Robot not responding",
+  "pair": {
+    "bad_token": "Token must be 32 hexadecimal characters",
+    "no_reply": "No reply from the robot. Check the IP, and wake it in the Xiaomi app."
+  },
+  "state": {
+    "cleaning": "Cleaning",
+    "mopping": "Vacuuming and mopping",
+    "recharging": "Recharging mid-clean",
+    "paused_cleaning": "Cleaning paused",
+    "returning": "Returning to dock",
+    "returning_wash": "Returning to wash the mop",
+    "paused_returning": "Return to dock paused",
+    "washing": "Washing the mop",
+    "drying": "Drying the mop",
+    "mapping": "Building the map",
+    "charging": "Charging",
+    "docked": "Docked, charged",
+    "station": "Station working",
+    "idle": "Idle",
+    "unknown": "Unknown",
+    "error_returning": "Blocked returning to dock",
+    "error": "Error"
   }
 }

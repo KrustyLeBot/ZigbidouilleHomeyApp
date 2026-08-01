@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Same robot body as icon.svg, offset left to leave room for the waves,
+       so the status tile reads as a sibling of the two area tiles. -->
+  <circle cx="26" cy="32" r="18" fill="none" stroke="#374151" stroke-width="4"/>
+  <circle cx="26" cy="32" r="6" fill="#374151"/>
+  <circle cx="26" cy="19" r="2.5" fill="#374151"/>
+  <!-- Activity waves: the robot is reporting something. -->
+  <path d="M48 24 a12 12 0 0 1 0 16" fill="none" stroke="#374151" stroke-width="4" stroke-linecap="round"/>
+  <path d="M55 18 a20 20 0 0 1 0 28" fill="none" stroke="#374151" stroke-width="4" stroke-linecap="round" opacity="0.45"/>
+</svg>

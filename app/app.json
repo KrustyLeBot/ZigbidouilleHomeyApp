@@ -15,7 +15,8 @@
     "fr": "Des drivers Homey pour les appareils Zigbee qui n'ont pas d'app dédiée."
   },
   "category": [
-    "tools"
+    "tools",
+    "appliances"
   ],
   "permissions": [],
   "images": {
@@ -222,6 +223,111 @@
           }
         }
       }
+    },
+    {
+      "id": "x20plus",
+      "name": {
+        "en": "Xiaomi Robot Vacuum X20+",
+        "fr": "Xiaomi Robot Vacuum X20+"
+      },
+      "class": "other",
+      "capabilities": [
+        "vacuum_status",
+        "measure_battery",
+        "vacuum_clean_area",
+        "last_cleaned_area",
+        "evt_cleaning",
+        "evt_mopping",
+        "evt_recharging",
+        "evt_paused_cleaning",
+        "evt_returning",
+        "evt_returning_wash",
+        "evt_paused_returning",
+        "evt_washing",
+        "evt_drying",
+        "evt_mapping",
+        "evt_idle",
+        "evt_docked",
+        "evt_completed",
+        "evt_charging",
+        "evt_station",
+        "evt_unknown",
+        "evt_error_returning",
+        "evt_error"
+      ],
+      "platforms": [
+        "local"
+      ],
+      "connectivity": [
+        "lan"
+      ],
+      "images": {
+        "small": "/drivers/x20plus/assets/images/small.png",
+        "large": "/drivers/x20plus/assets/images/large.png",
+        "xlarge": "/drivers/x20plus/assets/images/xlarge.png"
+      },
+      "pair": [
+        {
+          "id": "configure"
+        }
+      ],
+      "settings": [
+        {
+          "id": "address",
+          "type": "text",
+          "label": {
+            "en": "IP address",
+            "fr": "Adresse IP"
+          },
+          "value": ""
+        },
+        {
+          "id": "token",
+          "type": "text",
+          "label": {
+            "en": "Token",
+            "fr": "Token"
+          },
+          "value": ""
+        },
+        {
+          "id": "poll_interval",
+          "type": "number",
+          "label": {
+            "en": "Poll interval (seconds)",
+            "fr": "Fréquence de lecture (secondes)"
+          },
+          "hint": {
+            "en": "How often the robot is read. Lower = faster notifications, more network traffic.",
+            "fr": "Fréquence de lecture du robot. Plus bas = notifications plus rapides, plus de trafic réseau."
+          },
+          "value": 10,
+          "min": 5,
+          "max": 300,
+          "units": {
+            "en": "s",
+            "fr": "s"
+          }
+        },
+        {
+          "id": "logging",
+          "type": "checkbox",
+          "label": {
+            "en": "Record log",
+            "fr": "Enregistrer le journal"
+          },
+          "hint": {
+            "en": "Records raw robot values so a mid-clean recharge can be analysed. Export from the app settings.",
+            "fr": "Enregistre les valeurs brutes du robot pour analyser une recharge en cours de nettoyage. Export depuis les réglages de l app."
+          },
+          "value": true
+        }
+      ],
+      "energy": {
+        "batteries": [
+          "INTERNAL"
+        ]
+      }
     }
   ],
   "brandColor": "#00A6A6",
@@ -237,6 +343,861 @@
     "getZigbee": {
       "method": "GET",
       "path": "/zigbee"
+    },
+    "getLog": {
+      "method": "GET",
+      "path": "/log"
+    },
+    "clearLog": {
+      "method": "POST",
+      "path": "/log/clear"
     }
+  },
+  "capabilities": {
+    "vacuum_status": {
+      "type": "enum",
+      "title": {
+        "en": "Status",
+        "fr": "État"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "picker",
+      "values": [
+        {
+          "id": "cleaning",
+          "title": {
+            "en": "Cleaning",
+            "fr": "Nettoyage en cours"
+          }
+        },
+        {
+          "id": "mopping",
+          "title": {
+            "en": "Vacuuming and mopping",
+            "fr": "Aspiration et lavage"
+          }
+        },
+        {
+          "id": "recharging",
+          "title": {
+            "en": "Recharging mid-clean",
+            "fr": "Recharge mi-nettoyage"
+          }
+        },
+        {
+          "id": "paused_cleaning",
+          "title": {
+            "en": "Cleaning paused",
+            "fr": "Nettoyage en pause"
+          }
+        },
+        {
+          "id": "returning",
+          "title": {
+            "en": "Returning to dock",
+            "fr": "Retour à la base"
+          }
+        },
+        {
+          "id": "returning_wash",
+          "title": {
+            "en": "Returning to wash the mop",
+            "fr": "Retour pour laver la serpillière"
+          }
+        },
+        {
+          "id": "paused_returning",
+          "title": {
+            "en": "Return to dock paused",
+            "fr": "Retour à la base en pause"
+          }
+        },
+        {
+          "id": "washing",
+          "title": {
+            "en": "Washing the mop",
+            "fr": "Lavage de la serpillière"
+          }
+        },
+        {
+          "id": "drying",
+          "title": {
+            "en": "Drying the mop",
+            "fr": "Séchage de la serpillière"
+          }
+        },
+        {
+          "id": "mapping",
+          "title": {
+            "en": "Building the map",
+            "fr": "Cartographie en cours"
+          }
+        },
+        {
+          "id": "charging",
+          "title": {
+            "en": "Charging",
+            "fr": "En charge"
+          }
+        },
+        {
+          "id": "docked",
+          "title": {
+            "en": "Docked, charged",
+            "fr": "Sur la base, chargé"
+          }
+        },
+        {
+          "id": "station",
+          "title": {
+            "en": "Station working",
+            "fr": "Station en marche"
+          }
+        },
+        {
+          "id": "idle",
+          "title": {
+            "en": "Idle",
+            "fr": "Au repos"
+          }
+        },
+        {
+          "id": "error_returning",
+          "title": {
+            "en": "Blocked returning to dock",
+            "fr": "Bloqué en retour à la base"
+          }
+        },
+        {
+          "id": "error",
+          "title": {
+            "en": "Error",
+            "fr": "Erreur"
+          }
+        },
+        {
+          "id": "unknown",
+          "title": {
+            "en": "Unknown",
+            "fr": "Inconnu"
+          }
+        }
+      ],
+      "icon": "/assets/status.svg"
+    },
+    "vacuum_clean_area": {
+      "type": "number",
+      "title": {
+        "en": "Currently cleaned area",
+        "fr": "Surface nettoyée en cours"
+      },
+      "units": {
+        "en": "m²",
+        "fr": "m²"
+      },
+      "decimals": 0,
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "insights": true,
+      "icon": "/assets/icon.svg"
+    },
+    "evt_cleaning": {
+      "type": "boolean",
+      "title": {
+        "en": "Cleaning",
+        "fr": "Nettoyage en cours"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": null,
+      "insights": true
+    },
+    "evt_mopping": {
+      "type": "boolean",
+      "title": {
+        "en": "Vacuuming and mopping",
+        "fr": "Aspiration et lavage"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": null,
+      "insights": true
+    },
+    "evt_returning_wash": {
+      "type": "boolean",
+      "title": {
+        "en": "Returning to wash the mop",
+        "fr": "Retour pour laver la serpillière"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": null,
+      "insights": true
+    },
+    "evt_washing": {
+      "type": "boolean",
+      "title": {
+        "en": "Washing the mop",
+        "fr": "Lavage de la serpillière"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": null,
+      "insights": true
+    },
+    "evt_drying": {
+      "type": "boolean",
+      "title": {
+        "en": "Drying the mop",
+        "fr": "Séchage de la serpillière"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": null,
+      "insights": true
+    },
+    "evt_mapping": {
+      "type": "boolean",
+      "title": {
+        "en": "Building the map",
+        "fr": "Cartographie en cours"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": null,
+      "insights": true
+    },
+    "evt_idle": {
+      "type": "boolean",
+      "title": {
+        "en": "Idle",
+        "fr": "Au repos"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": null,
+      "insights": true
+    },
+    "evt_recharging": {
+      "type": "boolean",
+      "title": {
+        "en": "Recharging mid-clean",
+        "fr": "Recharge mi-nettoyage"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": null,
+      "insights": true
+    },
+    "evt_paused_cleaning": {
+      "type": "boolean",
+      "title": {
+        "en": "Cleaning paused",
+        "fr": "Nettoyage en pause"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": null,
+      "insights": true
+    },
+    "evt_returning": {
+      "type": "boolean",
+      "title": {
+        "en": "Returning to dock",
+        "fr": "Retour à la base"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": null,
+      "insights": true
+    },
+    "evt_paused_returning": {
+      "type": "boolean",
+      "title": {
+        "en": "Return to dock paused",
+        "fr": "Retour à la base en pause"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": null,
+      "insights": true
+    },
+    "evt_docked": {
+      "type": "boolean",
+      "title": {
+        "en": "Docked, charged",
+        "fr": "Sur la base, chargé"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": null,
+      "insights": true
+    },
+    "evt_completed": {
+      "type": "boolean",
+      "title": {
+        "en": "Cleaning finished",
+        "fr": "Nettoyage terminé"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": null,
+      "insights": true
+    },
+    "evt_charging": {
+      "type": "boolean",
+      "title": {
+        "en": "Charging",
+        "fr": "En charge"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": null,
+      "insights": true
+    },
+    "evt_station": {
+      "type": "boolean",
+      "title": {
+        "en": "Station working",
+        "fr": "Station en marche"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": null,
+      "insights": true
+    },
+    "evt_unknown": {
+      "type": "boolean",
+      "title": {
+        "en": "Unknown",
+        "fr": "Inconnu"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": null,
+      "insights": true
+    },
+    "last_cleaned_area": {
+      "type": "number",
+      "title": {
+        "en": "Last cleaned area",
+        "fr": "Dernière surface nettoyée"
+      },
+      "units": {
+        "en": "m²",
+        "fr": "m²"
+      },
+      "decimals": 0,
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "insights": true,
+      "icon": "/assets/icon.svg"
+    },
+    "evt_error_returning": {
+      "type": "boolean",
+      "title": {
+        "en": "Blocked returning to dock",
+        "fr": "Bloqué en retour à la base"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": null,
+      "insights": true
+    },
+    "evt_error": {
+      "type": "boolean",
+      "title": {
+        "en": "Error",
+        "fr": "Erreur"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": null,
+      "insights": true
+    }
+  },
+  "flow": {
+    "triggers": [
+      {
+        "id": "paused_cleaning",
+        "title": {
+          "en": "Cleaning was interrupted",
+          "fr": "Le nettoyage a été interrompu"
+        },
+        "hint": {
+          "en": "The robot paused while cleaning. Resume with 'Resume cleaning'.",
+          "fr": "Le robot s'est arrêté pendant le nettoyage. Reprendre avec « Reprendre le nettoyage »."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=x20plus"
+          }
+        ],
+        "tokens": [
+          {
+            "name": "battery",
+            "type": "number",
+            "title": {
+              "en": "Battery",
+              "fr": "Batterie"
+            }
+          },
+          {
+            "name": "area",
+            "type": "number",
+            "title": {
+              "en": "Cleaned area",
+              "fr": "Surface nettoyée"
+            }
+          }
+        ]
+      },
+      {
+        "id": "paused_returning",
+        "title": {
+          "en": "Return to dock was interrupted",
+          "fr": "Le retour à la base a été interrompu"
+        },
+        "hint": {
+          "en": "The robot paused on its way home. Resume with 'Resume return to dock' - never with 'Resume cleaning', which would start a new full clean.",
+          "fr": "Le robot s'est arrêté en rentrant. Reprendre avec « Reprendre le retour à la base » - jamais avec « Reprendre le nettoyage », qui lancerait un nettoyage complet."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=x20plus"
+          }
+        ],
+        "tokens": [
+          {
+            "name": "battery",
+            "type": "number",
+            "title": {
+              "en": "Battery",
+              "fr": "Batterie"
+            }
+          },
+          {
+            "name": "area",
+            "type": "number",
+            "title": {
+              "en": "Cleaned area",
+              "fr": "Surface nettoyée"
+            }
+          }
+        ]
+      },
+      {
+        "id": "error_returning",
+        "title": {
+          "en": "Robot is blocked returning to dock",
+          "fr": "Le robot est bloqué en retour à la base"
+        },
+        "hint": {
+          "en": "The robot hit an obstacle on its way home and is waiting. Resume with 'Resume return to dock'.",
+          "fr": "Le robot a rencontré un obstacle en rentrant et attend. Reprendre avec « Reprendre le retour à la base »."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=x20plus"
+          }
+        ],
+        "tokens": [
+          {
+            "name": "battery",
+            "type": "number",
+            "title": {
+              "en": "Battery",
+              "fr": "Batterie"
+            }
+          },
+          {
+            "name": "fault",
+            "type": "number",
+            "title": {
+              "en": "Fault code",
+              "fr": "Code d'erreur"
+            }
+          },
+          {
+            "name": "area",
+            "type": "number",
+            "title": {
+              "en": "Cleaned area",
+              "fr": "Surface nettoyée"
+            }
+          }
+        ]
+      },
+      {
+        "id": "error",
+        "title": {
+          "en": "Robot is blocked (error)",
+          "fr": "Le robot est bloqué (erreur)"
+        },
+        "hint": {
+          "en": "The robot stopped on an error outside a dock return. Beware: 'Resume cleaning' from here may start a new full clean.",
+          "fr": "Le robot s'est arrêté sur une erreur hors retour à la base. Attention : « Reprendre le nettoyage » peut relancer un nettoyage complet."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=x20plus"
+          }
+        ],
+        "tokens": [
+          {
+            "name": "battery",
+            "type": "number",
+            "title": {
+              "en": "Battery",
+              "fr": "Batterie"
+            }
+          },
+          {
+            "name": "fault",
+            "type": "number",
+            "title": {
+              "en": "Fault code",
+              "fr": "Code d'erreur"
+            }
+          },
+          {
+            "name": "area",
+            "type": "number",
+            "title": {
+              "en": "Cleaned area",
+              "fr": "Surface nettoyée"
+            }
+          }
+        ]
+      },
+      {
+        "id": "status_changed",
+        "title": {
+          "en": "Status changed",
+          "fr": "L'état a changé"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=x20plus"
+          }
+        ],
+        "tokens": [
+          {
+            "name": "status",
+            "type": "string",
+            "title": {
+              "en": "Status",
+              "fr": "État"
+            }
+          },
+          {
+            "name": "battery",
+            "type": "number",
+            "title": {
+              "en": "Battery",
+              "fr": "Batterie"
+            }
+          }
+        ]
+      },
+      {
+        "id": "task_completed",
+        "title": {
+          "en": "Cleaning finished",
+          "fr": "Nettoyage terminé"
+        },
+        "hint": {
+          "en": "Fires when the robot returns to the dock after actually cleaning. Does not fire on a mid-clean recharge, nor when it just moves around without cleaning.",
+          "fr": "Se déclenche quand le robot rentre à la base après avoir réellement nettoyé. Ne se déclenche pas lors d une recharge en cours de nettoyage, ni s il se déplace sans nettoyer."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=x20plus"
+          }
+        ],
+        "tokens": [
+          {
+            "name": "battery",
+            "type": "number",
+            "title": {
+              "en": "Battery",
+              "fr": "Batterie"
+            }
+          },
+          {
+            "name": "area",
+            "type": "number",
+            "title": {
+              "en": "Cleaned area",
+              "fr": "Surface nettoyée"
+            }
+          }
+        ]
+      }
+    ],
+    "conditions": [
+      {
+        "id": "is_paused_from",
+        "title": {
+          "en": "Robot was !{{|not}} interrupted while...",
+          "fr": "Le robot !{{a|n'a pas}} été interrompu pendant..."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=x20plus"
+          },
+          {
+            "name": "reason",
+            "type": "dropdown",
+            "values": [
+              {
+                "id": "cleaning",
+                "title": {
+                  "en": "cleaning",
+                  "fr": "le nettoyage"
+                }
+              },
+              {
+                "id": "returning",
+                "title": {
+                  "en": "returning to dock",
+                  "fr": "le retour à la base"
+                }
+              }
+            ]
+          }
+        ],
+        "titleFormatted": {
+          "en": "Robot was !{{|not}} interrupted while [[reason]]",
+          "fr": "Le robot !{{a|n'a pas}} été interrompu pendant [[reason]]"
+        }
+      },
+      {
+        "id": "status_is",
+        "title": {
+          "en": "Status !{{is|is not}}",
+          "fr": "L'état !{{est|n'est pas}}"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=x20plus"
+          },
+          {
+            "name": "status",
+            "type": "dropdown",
+            "values": [
+              {
+                "id": "cleaning",
+                "title": {
+                  "en": "Cleaning",
+                  "fr": "Nettoyage en cours"
+                }
+              },
+              {
+                "id": "mopping",
+                "title": {
+                  "en": "Vacuuming and mopping",
+                  "fr": "Aspiration et lavage"
+                }
+              },
+              {
+                "id": "recharging",
+                "title": {
+                  "en": "Recharging mid-clean",
+                  "fr": "Recharge mi-nettoyage"
+                }
+              },
+              {
+                "id": "paused_cleaning",
+                "title": {
+                  "en": "Cleaning paused",
+                  "fr": "Nettoyage en pause"
+                }
+              },
+              {
+                "id": "returning",
+                "title": {
+                  "en": "Returning to dock",
+                  "fr": "Retour à la base"
+                }
+              },
+              {
+                "id": "returning_wash",
+                "title": {
+                  "en": "Returning to wash the mop",
+                  "fr": "Retour pour laver la serpillière"
+                }
+              },
+              {
+                "id": "paused_returning",
+                "title": {
+                  "en": "Return to dock paused",
+                  "fr": "Retour à la base en pause"
+                }
+              },
+              {
+                "id": "washing",
+                "title": {
+                  "en": "Washing the mop",
+                  "fr": "Lavage de la serpillière"
+                }
+              },
+              {
+                "id": "drying",
+                "title": {
+                  "en": "Drying the mop",
+                  "fr": "Séchage de la serpillière"
+                }
+              },
+              {
+                "id": "mapping",
+                "title": {
+                  "en": "Building the map",
+                  "fr": "Cartographie en cours"
+                }
+              },
+              {
+                "id": "charging",
+                "title": {
+                  "en": "Charging",
+                  "fr": "En charge"
+                }
+              },
+              {
+                "id": "docked",
+                "title": {
+                  "en": "Docked, charged",
+                  "fr": "Sur la base, chargé"
+                }
+              },
+              {
+                "id": "station",
+                "title": {
+                  "en": "Station working",
+                  "fr": "Station en marche"
+                }
+              },
+              {
+                "id": "idle",
+                "title": {
+                  "en": "Idle",
+                  "fr": "Au repos"
+                }
+              },
+              {
+                "id": "error_returning",
+                "title": {
+                  "en": "Blocked returning to dock",
+                  "fr": "Bloqué en retour à la base"
+                }
+              },
+              {
+                "id": "error",
+                "title": {
+                  "en": "Error",
+                  "fr": "Erreur"
+                }
+              },
+              {
+                "id": "unknown",
+                "title": {
+                  "en": "Unknown",
+                  "fr": "Inconnu"
+                }
+              }
+            ]
+          }
+        ],
+        "titleFormatted": {
+          "en": "Status !{{is|is not}} [[status]]",
+          "fr": "L'état !{{est|n'est pas}} [[status]]"
+        }
+      }
+    ],
+    "actions": [
+      {
+        "id": "start_cleaning",
+        "title": {
+          "en": "Start cleaning",
+          "fr": "Démarrer le nettoyage"
+        },
+        "hint": {
+          "en": "Starts a full clean from the dock.",
+          "fr": "Lance un nettoyage complet depuis la base."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=x20plus"
+          }
+        ]
+      },
+      {
+        "id": "resume_cleaning",
+        "title": {
+          "en": "Resume cleaning",
+          "fr": "Reprendre le nettoyage"
+        },
+        "hint": {
+          "en": "Only use when the robot was interrupted while cleaning. If it was returning to dock, this starts a new full clean instead.",
+          "fr": "À utiliser uniquement si le robot a été interrompu pendant le nettoyage. S'il rentrait à la base, ceci lance un nouveau nettoyage complet."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=x20plus"
+          }
+        ]
+      },
+      {
+        "id": "resume_returning",
+        "title": {
+          "en": "Resume return to dock",
+          "fr": "Reprendre le retour à la base"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=x20plus"
+          }
+        ]
+      },
+      {
+        "id": "pause",
+        "title": {
+          "en": "Pause",
+          "fr": "Mettre en pause"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=x20plus"
+          }
+        ]
+      }
+    ]
   }
 }

@@ -9,83 +9,150 @@
     <style>
       body { font-family: -apple-system, system-ui, sans-serif; padding: 16px; color: #222; }
       h2 { font-size: 18px; margin: 0 0 4px; }
-      .intro { font-size: 13px; color: #888; margin: 0 0 16px; }
-      .row { display: flex; gap: 8px; margin-bottom: 16px; }
+      .intro { font-size: 13px; color: #888; margin: 0 0 12px; }
+
+      /* Tabs keep the three tools apart: the app log, the Zigbee interview and
+         the vacuum's raw miIO trace have nothing to do with each other, and
+         stacking them made every panel push the next one off-screen. */
+      .tabs { display: flex; gap: 4px; border-bottom: 1px solid #ddd; margin-bottom: 16px; }
+      .tab {
+        padding: 8px 14px; font-size: 14px; cursor: pointer;
+        border: none; background: none; color: #666;
+        border-bottom: 2px solid transparent;
+      }
+      .tab.active { color: #00A6A6; border-bottom-color: #00A6A6; font-weight: 600; }
+      .panel { display: none; }
+      .panel.active { display: block; }
+
+      .row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
       button {
         padding: 8px 16px; font-size: 14px; border-radius: 4px;
         border: 1px solid #ccc; background: #f5f5f5; color: #333; cursor: pointer;
       }
       button.primary { background: #00A6A6; color: #fff; border-color: #00A6A6; }
-      ul { list-style: none; padding: 0; margin: 0; }
+      select { padding: 7px 8px; font-size: 14px; border-radius: 4px; border: 1px solid #ccc; }
+
+      /* Scrolls inside its own box instead of growing the page. */
+      ul {
+        list-style: none; padding: 0 8px; margin: 0;
+        max-height: 340px; overflow-y: auto;
+        border: 1px solid #ddd; border-radius: 4px;
+      }
       li { border-bottom: 1px solid #eee; padding: 8px 0; font-size: 13px; }
       li:last-child { border-bottom: none; }
       .ctx { font-weight: 600; }
       .msg { color: #c00; }
-      /* Info breadcrumbs share the list with errors so ordering stays visible;
-         muted so real failures still stand out. */
       li.info .msg { color: #666; }
       li.info .ctx { font-weight: 500; color: #666; }
       .time { color: #999; font-size: 11px; }
       .empty { color: #999; font-size: 13px; }
-      .verbose { display: flex; align-items: center; gap: 8px; font-size: 14px; margin-bottom: 4px; }
-      h2.section { margin-top: 28px; }
+
       textarea {
-        width: 100%; height: 260px; box-sizing: border-box; margin-top: 8px;
-        font-family: monospace; font-size: 11px; border: 1px solid #ccc; border-radius: 4px;
+        width: 100%; height: 300px; box-sizing: border-box;
+        font-family: monospace; font-size: 11px;
+        border: 1px solid #ccc; border-radius: 4px;
       }
+      .verbose { display: flex; align-items: center; gap: 8px; font-size: 14px; margin: 12px 0 4px; }
     </style>
   </head>
   <body>
-    <h2 id="t-title"></h2>
-    <p class="intro" id="t-intro"></p>
-
-    <div class="row">
-      <button type="button" class="primary" id="refresh"></button>
-      <button type="button" id="err-copy"></button>
-      <button type="button" id="clear"></button>
+    <div class="tabs">
+      <button type="button" class="tab active" data-panel="log" id="t-tab-log"></button>
+      <button type="button" class="tab" data-panel="zigbee" id="t-tab-zigbee"></button>
+      <button type="button" class="tab" data-panel="miio" id="t-tab-miio"></button>
     </div>
 
-    <label class="verbose">
-      <input type="checkbox" id="verbose" />
-      <span id="t-verbose"></span>
-    </label>
-    <p class="intro" id="t-verbose-hint"></p>
+    <!-- Log -->
+    <section class="panel active" id="panel-log">
+      <h2 id="t-err-title"></h2>
+      <p class="intro" id="t-err-intro"></p>
+      <div class="row">
+        <button type="button" class="primary" id="refresh"></button>
+        <button type="button" id="err-copy"></button>
+        <button type="button" id="clear"></button>
+        <select id="device-filter"><option value="">—</option></select>
+      </div>
+      <ul id="list"></ul>
+      <textarea id="err-copy-buf" style="position:absolute;left:-9999px;top:-9999px;"></textarea>
 
-    <ul id="list"></ul>
-    <!-- Off-screen holder: execCommand('copy') needs a real selectable field. -->
-    <textarea id="err-copy-buf" style="position:absolute;left:-9999px;top:-9999px;"></textarea>
+      <label class="verbose">
+        <input type="checkbox" id="verbose" />
+        <span id="t-verbose"></span>
+      </label>
+      <p class="intro" id="t-verbose-hint"></p>
+    </section>
 
-    <h2 class="section" id="t-zdump-title"></h2>
-    <p class="intro" id="t-zdump-intro"></p>
-    <div class="row">
-      <button type="button" class="primary" id="zdump-load"></button>
-      <button type="button" id="zdump-copy"></button>
-    </div>
-    <textarea id="zdump-out" readonly></textarea>
+    <!-- Zigbee dump -->
+    <section class="panel" id="panel-zigbee">
+      <h2 id="t-zdump-title"></h2>
+      <p class="intro" id="t-zdump-intro"></p>
+      <div class="row">
+        <button type="button" class="primary" id="zdump-load"></button>
+        <button type="button" id="zdump-copy"></button>
+      </div>
+      <textarea id="zdump-out" readonly></textarea>
+    </section>
+
+    <!-- Raw miIO log (vacuum) -->
+    <section class="panel" id="panel-miio">
+      <h2 id="t-log-title"></h2>
+      <p class="intro" id="t-log-intro"></p>
+      <div class="row">
+        <button type="button" class="primary" id="log-load"></button>
+        <button type="button" id="log-copy"></button>
+        <button type="button" id="log-clear"></button>
+        <span id="log-count" style="font-size:13px;color:#666;"></span>
+      </div>
+      <textarea id="log" readonly></textarea>
+    </section>
 
     <script type="text/javascript">
       function onHomeyReady(Homey) {
         const __ = (k) => Homey.__('settings.' + k);
-        const listEl = document.getElementById('list');
+        const $ = (id) => document.getElementById(id);
 
-        document.getElementById('t-title').textContent = __('err_title');
-        document.getElementById('t-intro').textContent = __('err_intro');
-        document.getElementById('refresh').textContent = __('refresh');
-        document.getElementById('err-copy').textContent = __('copy');
-        document.getElementById('clear').textContent = __('clear');
-        document.getElementById('t-verbose').textContent = __('verbose');
-        document.getElementById('t-verbose-hint').textContent = __('verbose_hint');
-        document.getElementById('t-zdump-title').textContent = __('zdump_title');
-        document.getElementById('t-zdump-intro').textContent = __('zdump_intro');
-        document.getElementById('zdump-load').textContent = __('zdump_load');
-        document.getElementById('zdump-copy').textContent = __('copy');
+        // --- labels ---
+        const labels = {
+          't-tab-log': 'tab_log', 't-tab-zigbee': 'tab_zigbee', 't-tab-miio': 'tab_miio',
+          't-err-title': 'err_title', 't-err-intro': 'err_intro',
+          'refresh': 'refresh', 'err-copy': 'copy', 'clear': 'clear',
+          't-verbose': 'verbose', 't-verbose-hint': 'verbose_hint',
+          't-zdump-title': 'zdump_title', 't-zdump-intro': 'zdump_intro',
+          'zdump-load': 'zdump_load', 'zdump-copy': 'copy',
+          't-log-title': 'log_title', 't-log-intro': 'log_intro',
+          'log-load': 'load', 'log-copy': 'copy', 'log-clear': 'clear',
+        };
+        for (const [id, key] of Object.entries(labels)) $(id).textContent = __(key);
 
-        function fmt(t) {
-          return new Date(t).toLocaleString();
+        // --- tabs ---
+        document.querySelectorAll('.tab').forEach((tab) => {
+          tab.addEventListener('click', () => {
+            document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+            document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
+            tab.classList.add('active');
+            $('panel-' + tab.dataset.panel).classList.add('active');
+          });
+        });
+
+        // --- log ---
+        const listEl = $('list');
+        const filterEl = $('device-filter');
+        let lastEntries = [];
+
+        const fmt = (t) => new Date(t).toLocaleString();
+
+        // Entries are logged as "Device name: what happened", so the part before
+        // the first colon is the device — that is what the filter offers.
+        const deviceOf = (e) => (e.context.includes(':') ? e.context.split(':')[0].trim() : '');
+
+        function visible() {
+          const want = filterEl.value;
+          return want ? lastEntries.filter((e) => deviceOf(e) === want) : lastEntries;
         }
 
-        function render(entries) {
-          if (!entries || entries.length === 0) {
+        function render() {
+          const entries = visible();
+          if (!entries.length) {
             listEl.innerHTML = '<li class="empty">' + __('err_empty') + '</li>';
             return;
           }
@@ -98,65 +165,88 @@
             .join('');
         }
 
-        // Kept so the Copy button can emit the same list as plain text.
-        let lastEntries = [];
+        function refreshFilter() {
+          const names = [...new Set(lastEntries.map(deviceOf).filter(Boolean))].sort();
+          const current = filterEl.value;
+          filterEl.innerHTML = '<option value="">' + __('all_devices') + '</option>'
+            + names.map((n) => '<option value="' + n + '">' + n + '</option>').join('');
+          if (names.includes(current)) filterEl.value = current;
+        }
 
         function load() {
           Homey.api('GET', '/errors', null, (err, result) => {
             if (err) { listEl.innerHTML = '<li class="msg">' + err + '</li>'; return; }
             lastEntries = (result && result.entries) || [];
-            render(lastEntries);
+            refreshFilter();
+            render();
           });
         }
 
-        document.getElementById('err-copy').addEventListener('click', () => {
-          const buf = document.getElementById('err-copy-buf');
-          buf.value = lastEntries.length
-            ? lastEntries
-                .map((e) => fmt(e.t) + '\t' + (e.level === 'error' ? 'ERR ' : 'info') + '\t' + e.context + '\t' + e.message)
-                .join('\n')
+        filterEl.addEventListener('change', render);
+        $('refresh').addEventListener('click', load);
+
+        $('err-copy').addEventListener('click', () => {
+          const buf = $('err-copy-buf');
+          const entries = visible();
+          buf.value = entries.length
+            ? entries.map((e) => fmt(e.t) + '\t' + (e.level === 'error' ? 'ERR ' : 'info') + '\t' + e.context + '\t' + e.message).join('\n')
             : __('err_empty');
           buf.select();
           document.execCommand('copy');
-          document.getElementById('err-copy').textContent = __('copied');
+          $('err-copy').textContent = __('copied');
         });
 
-        document.getElementById('refresh').addEventListener('click', load);
-        document.getElementById('clear').addEventListener('click', () => {
+        $('clear').addEventListener('click', () => {
           Homey.confirm(__('confirm_clear'), 'warning', (err, ok) => {
             if (err || !ok) return;
             Homey.api('POST', '/errors/clear', null, () => load());
           });
         });
 
-        // --- verbose logging toggle ---
-        // Stored in app settings so drivers can read it live: flipping it takes
-        // effect on the next thing they log, with no reinstall.
-        const verboseEl = document.getElementById('verbose');
-        Homey.get('verbose', (err, value) => {
-          if (!err) verboseEl.checked = Boolean(value);
-        });
+        // --- verbose toggle (shared by every driver, whatever the protocol) ---
+        const verboseEl = $('verbose');
+        Homey.get('verbose', (err, value) => { if (!err) verboseEl.checked = Boolean(value); });
         verboseEl.addEventListener('change', () => {
           Homey.set('verbose', verboseEl.checked, (err) => {
             if (err) Homey.alert(err.message || String(err));
           });
         });
 
-        // --- Zigbee interview dump ---
-        const zoutEl = document.getElementById('zdump-out');
-
-        document.getElementById('zdump-load').addEventListener('click', () => {
+        // --- Zigbee dump ---
+        const zoutEl = $('zdump-out');
+        $('zdump-load').addEventListener('click', () => {
           zoutEl.value = '…';
           Homey.api('GET', '/zigbee', null, (err, result) => {
-            zoutEl.value = err
-              ? String(err.message || err)
-              : JSON.stringify(result.devices, null, 2);
+            zoutEl.value = err ? String(err.message || err) : JSON.stringify(result.devices, null, 2);
           });
         });
-        document.getElementById('zdump-copy').addEventListener('click', () => {
+        $('zdump-copy').addEventListener('click', () => {
           zoutEl.select();
           document.execCommand('copy');
-          document.getElementById('zdump-copy').textContent = __('copied');
+          $('zdump-copy').textContent = __('copied');
+        });
+
+        // --- raw miIO log ---
+        const logEl = $('log');
+        const logCount = $('log-count');
+        function refreshLog() {
+          Homey.api('GET', '/log', null, (err, result) => {
+            if (err) { logCount.textContent = String(err.message || err); return; }
+            logCount.textContent = result.count + ' ' + __('lines');
+            logEl.value = result.csv;
+          });
+        }
+        $('log-load').addEventListener('click', refreshLog);
+        $('log-copy').addEventListener('click', () => {
+          logEl.select();
+          document.execCommand('copy');
+          $('log-copy').textContent = __('copied');
+        });
+        $('log-clear').addEventListener('click', () => {
+          Homey.confirm(__('confirm_clear_log'), 'warning', (err, ok) => {
+            if (err || !ok) return;
+            Homey.api('POST', '/log/clear', null, () => { logEl.value = ''; logCount.textContent = ''; });
+          });
         });
 
         load();

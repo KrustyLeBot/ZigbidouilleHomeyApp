@@ -44,7 +44,24 @@ how you watch a device bind to a driver and see which clusters actually report.
 
 Without it, read logs from: Homey app → Apps → Zigbidouille → Logs.
 
-## Pairing a device
+## Pairing the Xiaomi vacuum (LAN, not Zigbee)
+
+The vacuum is not paired over the radio: it asks for the robot's **IP address**
+and its **32-character miIO token**.
+
+1. Give the robot a **fixed IP** (DHCP reservation in your router).
+2. Extract its token with
+   [Xiaomi Cloud Tokens Extractor](https://github.com/PiotrMachowski/Xiaomi-cloud-tokens-extractor):
+   log in with your Mi Home account, pick your region server, and copy the IP and
+   token listed for the robot. **Treat the token like a password.**
+3. Homey app → Devices → + → Zigbidouille → *Xiaomi Robot Vacuum X20+*, and enter
+   both.
+
+Pairing performs a real miIO handshake and refuses to create the device if the
+robot does not answer — so a wrong IP or token fails immediately rather than
+silently.
+
+## Pairing a Zigbee device
 
 Homey app → Devices → + → Zigbidouille → *(pick the driver for your device)*.
 

@@ -5,6 +5,16 @@
 
 const errlog = require('./lib/errlog');
 
+// The vacuum driver may not exist yet (or at all) on a given install, so this
+// never throws — the settings page just shows an empty raw log.
+function vacuums(homey) {
+  try {
+    return homey.drivers.getDriver('x20plus').getDevices();
+  } catch (err) {
+    return [];
+  }
+}
+
 module.exports = {
   // Merges the in-memory ring with what is persisted in settings. Reading both
   // is deliberate belt-and-braces: it also covers entries written before the
@@ -28,6 +38,21 @@ module.exports = {
 
   async clearErrors() {
     errlog.clear();
+    return { ok: true };
+  },
+
+  // Raw miIO CSV recorded by the vacuum driver. Separate from the app log on
+  // purpose: it is a dense per-poll trace meant to be exported and analysed,
+  // not read line by line.
+  async getLog({ homey }) {
+    const devices = vacuums(homey);
+    if (!devices.length) return { count: 0, csv: '' };
+    const device = devices[0];
+    return { count: device.getLogCount(), csv: device.getLogCsv() };
+  },
+
+  async clearLog({ homey }) {
+    for (const device of vacuums(homey)) await device.clearLog();
     return { ok: true };
   },
 
