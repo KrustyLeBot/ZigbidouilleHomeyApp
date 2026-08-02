@@ -36,6 +36,9 @@ const REPORTING_RETRY_DELAY = 4000;
 // lag — the mesh itself already retries underneath.
 const RELAY_COMMAND_TIMEOUT = 4000;
 
+// Sub-capability, so import and export are two separate registers on one tile.
+const EXPORTED = 'meter_power.exported';
+
 // currentSummationDelivered is a UINT48. Depending on how the ZCL layer decodes
 // a 48-bit value it can surface as a Number, a BigInt, or a 6-byte Buffer, so
 // coerce all three rather than assuming one. Returns null when there is nothing
@@ -226,11 +229,8 @@ class ShellyEmGen4Device extends ZigbidouilleDevice {
   // readings may well come from different clusters, and one missing cluster
   // must not cost us the other tile.
   async registerEnergyChannel(zclNode, endpoint) {
-    // Instantaneous power in W. homey-zigbeedriver's built-in handler reads
-    // activePower from Electrical Measurement and applies the device-reported
-    // AC multiplier/divisor. If Shelly reports raw values without those, add a
-    // reportParser here once real numbers show it needs one.
-    this.tryRegister('measure_power', CLUSTER.ELECTRICAL_MEASUREMENT, endpoint);
+    // Instantaneous power in W, signed: negative = exporting to the grid.
+    this.registerMeasurePower(endpoint);
 
     // CONFIRMED BUG (interviewed 2026-07-30): this Shelly reports Metering
     // divisor = 1,000,000 (unusually large — most devices use 1 or 1000).
@@ -268,6 +268,9 @@ class ShellyEmGen4Device extends ZigbidouilleDevice {
       await this.setCapabilityValue('meter_power', initialKWh).catch((err) =>
         this.recordError('set meter_power initial', err));
     }
+
+    // Exported energy, if this firmware counts it at all.
+    await this.setupExportedEnergy(zclNode, endpoint, scale);
 
     // Confirm the device actually accepted the reporting configuration.
     await this.verifyReporting(endpoint, scale);
@@ -324,6 +327,102 @@ class ShellyEmGen4Device extends ZigbidouilleDevice {
     return { scale: null, initialKWh: null };
   }
 
+  // Exported energy — what a clamp on the main incomer pushes BACK to the grid.
+  //
+  // `meter_power` reads currentSummationDelivered, which only ever climbs on
+  // import: with solar the watts go negative but the kWh total does not move.
+  // Export accumulates in a separate attribute, currentSummationReceived, which
+  // the ZCL spec marks OPTIONAL — so it is probed rather than assumed.
+  //
+  // Probed with its OWN read, not appended to fetchMeteringScale's: an
+  // unsupported attribute in a multi-attribute read can fail the whole request,
+  // and losing multiplier/divisor would cost us the import reading too. This
+  // read is allowed to fail; that is the answer, not an error.
+  //
+  // The capability is added/removed to match what the device actually feeds —
+  // a declared-but-never-written meter_power.exported would sit on "-" forever,
+  // which is indistinguishable from "you have never exported anything".
+  async setupExportedEnergy(zclNode, endpoint, scale) {
+    const metering = zclNode.endpoints[endpoint].clusters[CLUSTER.METERING.NAME];
+    let raw = null;
+
+    try {
+      const attrs = await this.withTimeout(
+        metering.readAttributes(['currentSummationReceived']),
+        METERING_READ_TIMEOUT,
+        `read currentSummationReceived ep${endpoint}`,
+      );
+      raw = toNumber(attrs.currentSummationReceived);
+    } catch (err) {
+      // UNSUPPORTED_ATTRIBUTE here is a real answer: this firmware does not
+      // count export. A timeout is NOT — it proves nothing (see CLAUDE.md), so
+      // the capability is left exactly as it is and the next restart re-probes.
+      const unsupported = /UNSUPPORTED_ATTRIBUTE/i.test(String(err && err.message));
+      this.note(
+        `exported energy @ep${endpoint}`,
+        unsupported ? 'not supported by this firmware' : `probe inconclusive: ${err.message}`,
+      );
+      if (unsupported) await this.dropExportedCapability();
+      return;
+    }
+
+    if (raw === null) {
+      this.note(`exported energy @ep${endpoint}`, 'attribute present but unreadable — skipped');
+      return;
+    }
+
+    if (!this.hasCapability(EXPORTED)) {
+      // Devices paired before this capability existed keep their old list;
+      // migrateCapabilities() deliberately skips multi-sub-device drivers, so
+      // adding it here is what makes the tile appear without re-pairing.
+      try {
+        await this.addCapability(EXPORTED);
+      } catch (err) {
+        this.recordError(`addCapability ${EXPORTED}`, err);
+        return;
+      }
+    }
+
+    // Same scale as the import register — both are UINT48 in the cluster's own
+    // units, so the device's multiplier/divisor applies unchanged.
+    this.note(
+      `exported energy @ep${endpoint}`,
+      JSON.stringify({ raw, kWh: (raw * scale.multiplier) / scale.divisor }),
+    );
+
+    try {
+      this.registerCapability(EXPORTED, CLUSTER.METERING, {
+        endpoint,
+        report: 'currentSummationReceived',
+        reportParser: (report) => {
+          const value = report !== null
+            && typeof report === 'object'
+            && !Buffer.isBuffer(report)
+            && 'currentSummationReceived' in report
+            ? report.currentSummationReceived
+            : report;
+
+          const parsed = toNumber(value);
+          this.debugNote(`report ${EXPORTED} @ep${endpoint}`, `raw=${String(value)}`);
+          if (parsed === null) return null;
+          return (parsed * scale.multiplier) / scale.divisor;
+        },
+      });
+    } catch (err) {
+      this.recordError(`register ${EXPORTED} @ep${endpoint}`, err);
+      return;
+    }
+
+    await this.setCapabilityValue(EXPORTED, (raw * scale.multiplier) / scale.divisor)
+      .catch((err) => this.recordError(`set ${EXPORTED} initial`, err));
+  }
+
+  async dropExportedCapability() {
+    if (!this.hasCapability(EXPORTED)) return;
+    await this.removeCapability(EXPORTED)
+      .catch((err) => this.recordError(`removeCapability ${EXPORTED}`, err));
+  }
+
   // Rejects rather than hanging forever when the device never answers.
   withTimeout(promise, ms, label) {
     return new Promise((resolve, reject) => {
@@ -340,6 +439,50 @@ class ShellyEmGen4Device extends ZigbidouilleDevice {
 
   delay(ms) {
     return new Promise((resolve) => this.homey.setTimeout(resolve, ms));
+  }
+
+  // Instantaneous power, with an OWN reportParser — the library's default one
+  // for measure_power/electricalMeasurement contains:
+  //
+  //     if (value < 0) return null;
+  //
+  // and `null` means "no update" to Homey. On a CT clamp sitting on the main
+  // incomer that is wrong the moment production exceeds consumption: every
+  // export reading is dropped and the tile freezes on the last positive value,
+  // silently, exactly like the meter_power parser bug did. activePower is an
+  // int16 in the ZCL spec precisely so it can go negative, so the sign is kept.
+  //
+  // Scaling is deliberately left at 1 (what the library also does when
+  // acPowerMultiplier/acPowerDivisor were never read): the observed watts match
+  // the Shelly's own display, and this device has already proved that trusting
+  // an unverified device-reported scale is how readings end up orders of
+  // magnitude off. Only the sign handling changes here.
+  registerMeasurePower(endpoint) {
+    try {
+      this.registerCapability('measure_power', CLUSTER.ELECTRICAL_MEASUREMENT, {
+        endpoint,
+        get: 'activePower',
+        getOpts: { getOnStart: true },
+        report: 'activePower',
+        reportParser: (report) => {
+          const value = report !== null
+            && typeof report === 'object'
+            && !Buffer.isBuffer(report)
+            && 'activePower' in report
+            ? report.activePower
+            : report;
+
+          const raw = toNumber(value);
+          this.debugNote(`report measure_power @ep${endpoint}`, `raw=${String(value)}`);
+          if (raw === null) return null; // keep the previous value
+          return raw;
+        },
+        // Reporting is configured by verifyReporting(), not here — see the note
+        // in registerMeterPower about configuring the same attribute twice.
+      });
+    } catch (err) {
+      this.recordError(`register measure_power @ep${endpoint}`, err);
+    }
   }
 
   // Ongoing updates only; the initial value is set explicitly above.
@@ -418,6 +561,20 @@ class ShellyEmGen4Device extends ZigbidouilleDevice {
         maxInterval: 300,
         minChange: Math.max(1, Math.round(scale.divisor / 1000)), // ~1 Wh
       });
+
+      // Only when the probe found the attribute — asking a device to report an
+      // attribute it does not implement earns an error, and on this unit an
+      // error mid-burst is enough to make it stop answering for a while.
+      if (this.hasCapability(EXPORTED)) {
+        attributes.push({
+          endpointId: endpoint,
+          cluster: CLUSTER.METERING,
+          attributeName: 'currentSummationReceived',
+          minInterval: 60,
+          maxInterval: 300,
+          minChange: Math.max(1, Math.round(scale.divisor / 1000)), // ~1 Wh
+        });
+      }
     }
 
     for (const attribute of attributes) {
@@ -453,34 +610,25 @@ class ShellyEmGen4Device extends ZigbidouilleDevice {
     }
   }
 
-  // Mains-powered device, so reporting is the right mechanism (no sleep to work
-  // around) — but it still has to be explicitly configured, same as above.
-  tryRegister(capability, cluster, endpoint) {
-    try {
-      this.registerCapability(capability, cluster, {
-        endpoint,
-        getOpts: { getOnStart: true },
-        // Reporting is configured by verifyReporting(), not here — see the note
-        // in registerMeterPower about configuring the same attribute twice.
-      });
-      // Not logged on success: registerCapability is synchronous and proves
-      // nothing. verifyReporting() reports what the device actually accepted.
-    } catch (err) {
-      this.recordError(`register ${capability} @ep${endpoint}`, err);
-    }
-  }
-
   // Translate the per-device `cumulative` setting into Homey's energy model.
   // A cumulative device is "the whole home": Homey subtracts every other metered
   // device from it and shows the remainder as "other". A non-cumulative meter is
   // just this load's own consumption — the default, so we clear the override
   // rather than pass cumulative:false (which the manifest schema forbids and the
   // runtime rejects the same way). setEnergy() overrides the manifest energy.
+  //
+  // When the clamp also counts export, the two registers are named explicitly:
+  // without cumulativeExportedCapability Homey has no way to know which of the
+  // two meter_power.* capabilities is which, and would read the total as pure
+  // consumption — turning solar production into imported energy on the graph.
   async applyCumulative() {
     const cumulative = Boolean(this.getSetting('cumulative'));
     const energy = cumulative
       ? { cumulative: true, cumulativeImportedCapability: 'meter_power' }
       : {};
+    if (cumulative && this.hasCapability(EXPORTED)) {
+      energy.cumulativeExportedCapability = EXPORTED;
+    }
     await this.setEnergy(energy).catch((err) => this.recordError('setEnergy', err));
   }
 

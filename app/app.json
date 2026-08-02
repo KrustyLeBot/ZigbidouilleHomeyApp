@@ -95,8 +95,23 @@
       "class": "sensor",
       "capabilities": [
         "measure_power",
-        "meter_power"
+        "meter_power",
+        "meter_power.exported"
       ],
+      "capabilitiesOptions": {
+        "meter_power": {
+          "title": {
+            "en": "Energy imported",
+            "fr": "Énergie importée"
+          }
+        },
+        "meter_power.exported": {
+          "title": {
+            "en": "Energy exported",
+            "fr": "Énergie exportée"
+          }
+        }
+      },
       "platforms": [
         "local"
       ],
@@ -178,8 +193,23 @@
             "class": "sensor",
             "capabilities": [
               "measure_power",
-              "meter_power"
+              "meter_power",
+              "meter_power.exported"
             ],
+            "capabilitiesOptions": {
+              "meter_power": {
+                "title": {
+                  "en": "Energy imported",
+                  "fr": "Énergie importée"
+                }
+              },
+              "meter_power.exported": {
+                "title": {
+                  "en": "Energy exported",
+                  "fr": "Énergie exportée"
+                }
+              }
+            },
             "name": {
               "en": "Shelly EM Gen4 – Channel B",
               "fr": "Shelly EM Gen4 – Voie B"

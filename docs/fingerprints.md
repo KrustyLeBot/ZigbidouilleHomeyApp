@@ -99,6 +99,38 @@ serialised — parallel sub-device init drowns probes in meaningless timeouts.
 - **The relay tile silently reverted on tap** because a failing command is
   reverted by Homey with no error surfaced. The driver now owns the `onoff`
   listener and logs the real reason.
+- **Negative power (export) was thrown away.** homey-zigbeedriver's default
+  `measure_power` parser for Electrical Measurement does `if (value < 0) return
+  null;`, and `null` means "no update" — so on a clamp fitted to the main
+  incomer, every reading taken while production exceeded consumption was
+  dropped and the tile froze on the last positive value. `activePower` is an
+  `int16` precisely so it can be negative. The driver now supplies its own
+  parser (`registerMeasurePower`) that keeps the sign.
+
+### Export energy (kWh) — `currentSummationReceived`, confirmed present
+
+`meter_power` reads **`currentSummationDelivered`**, which only ever climbs on
+import. Export accumulates in **`currentSummationReceived`** (also `uint48`,
+**optional** in the ZCL spec), surfaced as the sub-capability
+`meter_power.exported`.
+
+**Confirmed on this unit 2026-08-02**: ep2 answered the read (`raw=0`), accepted
+ConfigureReporting, and pushed an unsolicited report a minute later — so the
+firmware does implement it. Still probed rather than assumed, because the
+attribute is optional and other firmware revisions may not have it: the capability
+is added when the read answers and removed on `UNSUPPORTED_ATTRIBUTE`. A timeout
+changes nothing and re-probes next restart.
+
+The probe uses its **own** read, not appended to the multiplier/divisor one: an
+unsupported attribute can fail a whole multi-attribute request, which would cost
+the import reading too.
+
+`applyCumulative()` sets `cumulativeExportedCapability` alongside
+`cumulativeImportedCapability`. Without it Homey cannot tell the two
+`meter_power.*` registers apart and reads production as consumption.
+
+Still unverified: negative `measure_power` end to end — the unit has only ever
+been observed importing.
 ### What to paste here after interviewing
 
 ```
