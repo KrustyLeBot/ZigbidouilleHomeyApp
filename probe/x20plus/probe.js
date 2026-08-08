@@ -10,22 +10,8 @@
 //   node probe.js <ip> <token> scan         dump candidate properties once
 //   node probe.js <ip> <token> actions      list resume-action candidates (does NOT run them)
 
-const fs = require('fs');
-const path = require('path');
 const MiioClient = require('./miio-client');
-
-// Credentials come from ../.env unless given on the command line.
-function loadEnv() {
-  // Two levels up: probe/x20plus/ -> probe/ -> repo root, where .env lives.
-  const file = path.join(__dirname, '..', '..', '.env');
-  if (!fs.existsSync(file)) return {};
-  const env = {};
-  for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
-    const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*?)\s*$/);
-    if (m) env[m[1]] = m[2];
-  }
-  return env;
-}
+const { loadEnv } = require('../env');
 
 const env = loadEnv();
 const args = process.argv.slice(2);

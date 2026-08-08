@@ -209,6 +209,94 @@ POST /systems/current/sources/current/soundControl/{volumeUp|volumeDown}   5% st
 
 ---
 
+## Xiaomi Robot Vacuum 5 — `xiaomi.vacuum.ov31gl` (driver `vacuum5`)
+
+> **Status: swept live 2026-08-02**, firmware `1.2.20`, model `OV31GL`.
+> Not Zigbee — miIO over UDP, credentials in the repo-root `.env` under
+> `VACUUM5_`. Interviewed with [`probe/vacuum5`](../probe/vacuum5).
+
+**It shares no field numbering with the X20+.** Its service 4 is the *alarm*,
+so there is no `4/7`; every field had to be found again. 164 readable
+properties, against ~30 on the `c102gl`.
+
+### The published spec is wrong again
+
+[home.miot-spec.com](https://home.miot-spec.com/spec/xiaomi.vacuum.ov31gl) gives
+the status enum as `1` Standby · `2` Charging · `4` Working · `5` Paused ·
+`6` Returning · `15` Error · `16` Sweeping+Mopping. The robot reports **`14`
+while docked** and **`1` while cleaning**, and never reported `16` through an
+entire vacuum+mop run. Same lesson as the `d109gl` spec on the X20+: sweep, do
+not read.
+
+The spec also labels `2/3` as `fault`. It is not.
+
+### Field map
+
+| field | meaning |
+|-------|---------|
+| **`2/2`** | **status** — `1` standby off-dock (counters frozen) · `2` on the dock · `4` **cleaning** · `5` paused · `6` returning at the end of the job · `7` at the station (mop prep, or mid-clean rinse) · `9` washing the mop · `14` on the dock · **`20` driving home MID-CLEAN to rinse the mop** |
+| **`2/3`** | **pending task** — `100008` none · `100028` a job is under way |
+| **`2/6`** | **cleaned area, in hundredths of m²** (`5700` = 57 m²) — resets at job start |
+| `2/7` | cleaning time in **seconds** — resets at job start |
+| `2/11` | mop fitted |
+| `2/18` | station, as a JSON **string** `{"mode":n}` — `3` preparing, `1` idle at the dock, `0` while the robot is away |
+| `2/66` | **fault**, as a JSON string `{"ts":…,"fault":[0]}` |
+| `2/90` | minutes left on the drying cycle |
+| `3/1` · `3/2` | battery · charging (`1` on dock, `2` off dock) |
+
+`2/16` carries the room list, `10/3` the cleaning history, `10/5` the maps —
+richer than anything the `c102gl` exposes, and unused so far.
+
+### `2/3` is the `4/7` equivalent — the field the driver depends on
+
+Observed `100008` with the robot idle, and `100028` from the instant a job was
+launched, **held unchanged** across station prep, leaving the dock, cleaning, a
+manual pause, the drive home and the mop wash on the dock.
+
+That is what makes "docked" separable from "done": at 22:24:24 the robot
+reported `status 14` (docked) with `2/3` still `100028`, which is exactly the
+case that once fired `task_completed` mid-job on the X20+ and froze the area at
+16 m² of a 28 m² run.
+
+**Confirmed end to end on 2026-08-08**, over a full 57 m² vacuum+mop run:
+`100028` was set at 07:00:04 and cleared at 08:28:05. Crucially it clears
+**while the robot is still driving home** — a minute and a half before it
+reaches the dock — so the completion fires on arrival, not on the drop.
+
+Replaying that recorded run through the profile produces exactly one
+completion, at 08:29:25, with the full 57 m². The five mid-clean mop rinses
+pass through without ever concluding.
+
+### The five states a single run passes through
+
+```
+7  station      mop prepared before setting off
+4  cleaning     area and time climb here, and ONLY here
+20 returning_wash   home mid-clean to rinse the mop      \  five times
+7  station          rinsing at the dock                  /   in one run
+6  returning    end of job — the task ALREADY reads 100008
+2  docked       arrival: this is where completion fires
+```
+
+Two readings had to be corrected against this log. Status `4` was taken for
+"active but not yet cleaning" and is the cleaning state itself; status `1` was
+taken for cleaning and is standby with frozen counters. And `20` was simply
+unknown — read as the end of the job it would have cut the run short at 10 m²
+of 57.
+
+### Two client bugs this model exposed
+
+- **The robot overwrites the `did` in its reply** with its own numeric device id
+  (`1172803803`), identically on every entry. `getProperties` keyed its result
+  by `entry.did`, so the whole reply collapsed onto one key and every field read
+  `undefined` — with no error. It now keys by request order, cross-checked
+  against the entry's `siid`/`piid`. The X20+ echoes the did back, which is why
+  this went unnoticed.
+- **Structured fields arrive as JSON strings**, not objects (`2/18`, `2/66`).
+  Treating `2/66` as an object made every fault read as 0.
+
+---
+
 ## Philips Hue Dimmer Switch v3 — RWL022 (driver `hue-dimmer-v3`)
 
 > **Status: paired and confirmed 2026-08-01.** The Zigbee dump reports endpoint

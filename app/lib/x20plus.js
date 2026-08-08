@@ -162,15 +162,99 @@ function isJobDone(status, activityRaw) {
   return atDock && activityRaw === ACTIVITY.NONE;
 }
 
+// --- profile interface consumed by lib/miio-vacuum-device.js ---
+//
+// The base class never touches a siid/piid or a status number itself; it asks
+// the profile. Everything below is the X20+ half of that contract.
+
+const { WATCHED } = require('./recorder');
+
+// 2/2. Non-zero in plenty of healthy states, so it is only ever read to enrich
+// a stuck notification — never used as an error signal on its own.
+const FAULT = { siid: 2, piid: 2 };
+
+// The poll returns the recorder's WATCHED set, whose keys are raw dids. Reading
+// `values.clean_area` here would yield undefined and the capability would be
+// silently never written — hence the raw dids.
+function read(values) {
+  return {
+    status: values.status,
+    battery: values.battery,
+    charging: values.charging,
+    activity: values.s4p7, // pending task
+    cleanArea: values.s4p3, // m2, verified against the Xiaomi app
+  };
+}
+
+// This firmware reports the fault as a plain number.
+function readFault(value) {
+  return typeof value === 'number' ? value : 0;
+}
+
+function isCleaning(status) {
+  return CLEANING_STATUSES.includes(status);
+}
+
+// Physically on the dock. STATION (22) is the brief post-dock station cycle, so
+// it counts too. Deliberately NOT including a mid-clean recharge, which reports
+// PAUSED: that one is a job in progress and must keep the run armed.
+function isOnDock(status) {
+  return status === STATUS.DOCKED || status === STATUS.CHARGED || status === STATUS.STATION;
+}
+
+function isDrivingHome(status) {
+  return status === STATUS.RETURNING || status === STATUS.RETURNING_WASH;
+}
+
+function hasPendingTask(activityRaw) {
+  return activityRaw !== undefined && activityRaw !== ACTIVITY.NONE;
+}
+
+// One boolean per display state, pulsed on entry. See the base class.
+const STATE_EVENT = {
+  cleaning: 'evt_cleaning',
+  mopping: 'evt_mopping',
+  recharging: 'evt_recharging',
+  paused_cleaning: 'evt_paused_cleaning',
+  returning: 'evt_returning',
+  returning_wash: 'evt_returning_wash',
+  paused_returning: 'evt_paused_returning',
+  washing: 'evt_washing',
+  drying: 'evt_drying',
+  mapping: 'evt_mapping',
+  charging: 'evt_charging',
+  docked: 'evt_docked',
+  station: 'evt_station',
+  idle: 'evt_idle',
+  error_returning: 'evt_error_returning',
+  error: 'evt_error',
+  unknown: 'evt_unknown',
+};
+
+// States the robot cannot leave on its own, each with a trigger card of the
+// same name. Errors are included: an obstacle the robot clears by itself within
+// the confirm delay is not worth a notification either.
+const STUCK_STATES = ['paused_cleaning', 'paused_returning', 'error_returning', 'error'];
+
 module.exports = {
   PROPERTIES,
+  WATCHED,
   ACTIONS,
   STATUS,
   CLEANING_STATUSES,
   CHARGING,
   ACTIVITY,
+  FAULT,
   STATE_NAMES,
+  STATE_EVENT,
+  STUCK_STATES,
+  read,
+  readFault,
   toState,
   isActive,
   isJobDone,
+  isCleaning,
+  isOnDock,
+  isDrivingHome,
+  hasPendingTask,
 };

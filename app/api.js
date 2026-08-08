@@ -5,14 +5,27 @@
 
 const errlog = require('./lib/errlog');
 
-// The vacuum driver may not exist yet (or at all) on a given install, so this
-// never throws — the settings page just shows an empty raw log.
+// Every miIO vacuum driver. Listing them explicitly rather than hardcoding one:
+// the raw log used to reach only the X20+, so a paired Vacuum 5 recorded its
+// trace faithfully and had no way to show it — the data was there, the export
+// simply never asked for it.
+//
+// Add a new robot's driver id here when adding a driver, or its log is
+// invisible in exactly the same silent way.
+const VACUUM_DRIVERS = ['x20plus', 'vacuum5'];
+
+// A driver may not exist on a given install, so this never throws — the
+// settings page just shows an empty raw log.
 function vacuums(homey) {
-  try {
-    return homey.drivers.getDriver('x20plus').getDevices();
-  } catch (err) {
-    return [];
+  const devices = [];
+  for (const id of VACUUM_DRIVERS) {
+    try {
+      devices.push(...homey.drivers.getDriver(id).getDevices());
+    } catch (err) {
+      // Driver absent from this install: nothing to collect.
+    }
   }
+  return devices;
 }
 
 module.exports = {
@@ -44,11 +57,24 @@ module.exports = {
   // Raw miIO CSV recorded by the vacuum driver. Separate from the app log on
   // purpose: it is a dense per-poll trace meant to be exported and analysed,
   // not read line by line.
+  // Returns EVERY vacuum's trace, one block per robot. It used to return
+  // devices[0] only, which silently hid the second robot behind the first.
+  //
+  // The blocks are not merged into one table on purpose: the two models share
+  // no field numbering, so their CSVs have different columns. A single header
+  // would misalign one of them — and a misaligned column reads as real data.
   async getLog({ homey }) {
     const devices = vacuums(homey);
     if (!devices.length) return { count: 0, csv: '' };
-    const device = devices[0];
-    return { count: device.getLogCount(), csv: device.getLogCsv() };
+
+    let count = 0;
+    const blocks = [];
+    for (const device of devices) {
+      count += device.getLogCount();
+      blocks.push(`# ${device.getName()} (${device.driver.id}) — ${device.getLogCount()} rows\n${device.getLogCsv()}`);
+    }
+
+    return { count, csv: blocks.join('\n\n') };
   },
 
   async clearLog({ homey }) {

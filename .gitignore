@@ -7,3 +7,11 @@ node_modules/
 
 # Local env (Zigbee needs no secrets, but keep this here in case a driver ever does)
 .env
+
+# Probe output — sweep dumps and watch traces. Machine data captured per device
+# state: useful locally for diffing, noise in the history. Keep the scripts, not
+# their output. A trace can also carry the device's own identifiers, so it has
+# no business in a public repo.
+probe/**/*.txt
+probe/**/*.csv
+probe/**/*.json

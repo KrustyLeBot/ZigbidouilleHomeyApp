@@ -33,8 +33,13 @@ const WATCHED = [
 ];
 
 class Recorder {
-  constructor(device) {
+  // `watched` is the field list of the robot being recorded. It is a parameter
+  // rather than the module constant because the two robots share no field
+  // numbering at all: recording the X20+'s map against a Vacuum 5 would write a
+  // CSV of empty columns. Defaults to the X20+ set so an older caller is safe.
+  constructor(device, watched = WATCHED) {
     this.device = device;
+    this.watched = watched;
     this.entries = device.getStoreValue(STORE_KEY) || [];
     this.lastSignature = null;
     this.dirty = false;
@@ -44,11 +49,37 @@ class Recorder {
     return this.device.getSetting('logging') !== false;
   }
 
+  // Some fields carry a self-updating timestamp — the Vacuum 5 reports its
+  // fault as {"ts":1786134260,"fault":[0]}, where ts moves on its own. Included
+  // in the change signature, that alone makes EVERY poll look like a change,
+  // the ring buffer fills in a few hours and the start of the run is overwritten
+  // — losing exactly the part worth reading.
+  //
+  // So the signature ignores `ts`, while the entry itself still stores the raw
+  // value untouched.
+  static signatureOf(values) {
+    const stripped = {};
+    for (const [k, v] of Object.entries(values)) {
+      if (typeof v === 'string' && v.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(v);
+          delete parsed.ts;
+          stripped[k] = JSON.stringify(parsed);
+          continue;
+        } catch (err) {
+          // Not JSON after all: compare it as it came.
+        }
+      }
+      stripped[k] = v;
+    }
+    return JSON.stringify(stripped);
+  }
+
   // Only records when something changed, so the log stays readable and small.
   record(values) {
     if (!this.enabled) return;
 
-    const signature = JSON.stringify(values);
+    const signature = Recorder.signatureOf(values);
     if (signature === this.lastSignature) return;
     this.lastSignature = signature;
 
@@ -74,7 +105,7 @@ class Recorder {
 
   // CSV: opens in a spreadsheet, and is easy to paste back for analysis.
   toCsv() {
-    const cols = ['t', ...WATCHED.map((w) => w.did)];
+    const cols = ['t', ...this.watched.map((w) => w.did)];
     const lines = [cols.join(',')];
     for (const e of this.entries) {
       lines.push(

@@ -124,11 +124,17 @@ Both live in the app's settings page, so nothing needs the CLI:
 The settings page is three tabs: **Log**, **Zigbee**, **Vacuum (miIO)**.
 
 - **Verbose logging** (checkbox, Log tab) — turns on the breadcrumbs:
-  `debugNote()` on Zigbee devices, `errlog.debug()` anywhere else (the vacuum
-  logs every raw miIO poll through it). One switch for all protocols. Off by
+  `debugNote()` on Zigbee devices, `errlog.debug()` anywhere else. Off by
   default because it is several lines per device per restart; **turn it on
   first when bringing up a new device**, off again once it works. Applies
   immediately, no reinstall.
+
+  **The vacuums deliberately stay out of it.** They poll every 10 s, so mirroring
+  each poll into the shared log buried every other device's breadcrumbs — and it
+  was redundant, since the CSV recorder already holds the same values,
+  deduplicated and persisted. They log only what the CSV cannot show: going
+  unreachable, coming back, and a status value the profile does not know
+  (`unknown status raw=N`, at INFO so it appears with everything switched off).
 - **The log itself** is shared by every driver and filterable per device — the
   filter reads the `Device name: what happened` prefix, so keep logging in that
   shape.

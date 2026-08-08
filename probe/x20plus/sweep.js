@@ -10,21 +10,9 @@
 //   node sweep.js > lifted.txt
 //   node sweep.js diff normal.txt lifted.txt
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('fs'); // still needed by parseFile() in diff mode
 const MiioClient = require('./miio-client');
-
-function loadEnv() {
-  // Two levels up: probe/x20plus/ -> probe/ -> repo root, where .env lives.
-  const file = path.join(__dirname, '..', '..', '.env');
-  if (!fs.existsSync(file)) return {};
-  const env = {};
-  for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
-    const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*?)\s*$/);
-    if (m) env[m[1]] = m[2];
-  }
-  return env;
-}
+const { loadEnv } = require('../env');
 
 const MAX_SIID = 20;
 const MAX_PIID = 30;

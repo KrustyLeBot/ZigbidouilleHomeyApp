@@ -11,8 +11,8 @@
     "fr": "Zigbidouille"
   },
   "description": {
-    "en": "Homey drivers for Zigbee devices that have no dedicated app of their own.",
-    "fr": "Des drivers Homey pour les appareils Zigbee qui n'ont pas d'app dédiée."
+    "en": "Homey drivers for devices with no usable app of their own — Zigbee, LAN and beyond.",
+    "fr": "Des drivers Homey pour les appareils sans app exploitable — Zigbee, réseau local et au-delà."
   },
   "category": [
     "tools",
@@ -466,6 +466,108 @@
             "fr": "Ouvrez le dos de la télécommande. Maintenez le petit bouton d'appairage situé à côté de la pile pendant environ 10 secondes, près du Homey, jusqu'à ce que la LED clignote. Ce n'est PAS un des quatre boutons de façade. Si la télécommande était appairée à un pont Hue, retirez-la d'abord de celui-ci."
           }
         }
+      }
+    },
+    {
+      "id": "vacuum5",
+      "name": {
+        "en": "Xiaomi Robot Vacuum 5",
+        "fr": "Xiaomi Robot Vacuum 5"
+      },
+      "class": "other",
+      "capabilities": [
+        "vacuum_status",
+        "measure_battery",
+        "vacuum_clean_area",
+        "last_cleaned_area",
+        "evt_cleaning",
+        "evt_recharging",
+        "evt_paused_cleaning",
+        "evt_returning",
+        "evt_washing",
+        "evt_charging",
+        "evt_docked",
+        "evt_station",
+        "evt_completed",
+        "evt_unknown",
+        "evt_idle",
+        "evt_returning_wash",
+        "evt_paused_returning",
+        "evt_error_returning",
+        "evt_error"
+      ],
+      "platforms": [
+        "local"
+      ],
+      "connectivity": [
+        "lan"
+      ],
+      "images": {
+        "small": "/drivers/vacuum5/assets/images/small.png",
+        "large": "/drivers/vacuum5/assets/images/large.png",
+        "xlarge": "/drivers/vacuum5/assets/images/xlarge.png"
+      },
+      "pair": [
+        {
+          "id": "configure"
+        }
+      ],
+      "settings": [
+        {
+          "id": "address",
+          "type": "text",
+          "label": {
+            "en": "IP address",
+            "fr": "Adresse IP"
+          },
+          "value": ""
+        },
+        {
+          "id": "token",
+          "type": "text",
+          "label": {
+            "en": "Token",
+            "fr": "Token"
+          },
+          "value": ""
+        },
+        {
+          "id": "poll_interval",
+          "type": "number",
+          "label": {
+            "en": "Poll interval (seconds)",
+            "fr": "Fréquence de lecture (secondes)"
+          },
+          "hint": {
+            "en": "How often the robot is read. Lower = faster notifications, more network traffic.",
+            "fr": "Fréquence de lecture du robot. Plus bas = notifications plus rapides, plus de trafic réseau."
+          },
+          "value": 10,
+          "min": 5,
+          "max": 300,
+          "units": {
+            "en": "s",
+            "fr": "s"
+          }
+        },
+        {
+          "id": "logging",
+          "type": "checkbox",
+          "label": {
+            "en": "Record log",
+            "fr": "Enregistrer le journal"
+          },
+          "hint": {
+            "en": "Records raw robot values so a mid-clean recharge can be analysed. Export from the app settings.",
+            "fr": "Enregistre les valeurs brutes du robot pour analyser une recharge en cours de nettoyage. Export depuis les réglages de l app."
+          },
+          "value": true
+        }
+      ],
+      "energy": {
+        "batteries": [
+          "INTERNAL"
+        ]
       }
     }
   ],
@@ -942,7 +1044,7 @@
           {
             "name": "device",
             "type": "device",
-            "filter": "driver_id=x20plus"
+            "filter": "capabilities=vacuum_status"
           }
         ],
         "tokens": [
@@ -978,7 +1080,7 @@
           {
             "name": "device",
             "type": "device",
-            "filter": "driver_id=x20plus"
+            "filter": "capabilities=vacuum_status"
           }
         ],
         "tokens": [
@@ -1014,7 +1116,7 @@
           {
             "name": "device",
             "type": "device",
-            "filter": "driver_id=x20plus"
+            "filter": "capabilities=vacuum_status"
           }
         ],
         "tokens": [
@@ -1058,7 +1160,7 @@
           {
             "name": "device",
             "type": "device",
-            "filter": "driver_id=x20plus"
+            "filter": "capabilities=vacuum_status"
           }
         ],
         "tokens": [
@@ -1098,7 +1200,7 @@
           {
             "name": "device",
             "type": "device",
-            "filter": "driver_id=x20plus"
+            "filter": "capabilities=vacuum_status"
           }
         ],
         "tokens": [
@@ -1134,7 +1236,7 @@
           {
             "name": "device",
             "type": "device",
-            "filter": "driver_id=x20plus"
+            "filter": "capabilities=vacuum_status"
           }
         ],
         "tokens": [
@@ -1258,7 +1360,7 @@
           {
             "name": "device",
             "type": "device",
-            "filter": "driver_id=x20plus"
+            "filter": "capabilities=vacuum_status"
           },
           {
             "name": "reason",
@@ -1282,8 +1384,8 @@
           }
         ],
         "titleFormatted": {
-          "en": "Robot was !{{|not}} interrupted while [[reason]]",
-          "fr": "Le robot !{{a|n'a pas}} été interrompu pendant [[reason]]"
+          "en": "[[device]] was !{{|not}} interrupted while [[reason]]",
+          "fr": "[[device]] !{{a|n'a pas}} été interrompu pendant [[reason]]"
         }
       },
       {
@@ -1296,7 +1398,7 @@
           {
             "name": "device",
             "type": "device",
-            "filter": "driver_id=x20plus"
+            "filter": "capabilities=vacuum_status"
           },
           {
             "name": "status",
@@ -1425,8 +1527,8 @@
           }
         ],
         "titleFormatted": {
-          "en": "Status !{{is|is not}} [[status]]",
-          "fr": "L'état !{{est|n'est pas}} [[status]]"
+          "en": "[[device]] status !{{is|is not}} [[status]]",
+          "fr": "L'état de [[device]] !{{est|n'est pas}} [[status]]"
         }
       }
     ],
@@ -1445,7 +1547,7 @@
           {
             "name": "device",
             "type": "device",
-            "filter": "driver_id=x20plus"
+            "filter": "capabilities=vacuum_status"
           }
         ]
       },
@@ -1463,7 +1565,7 @@
           {
             "name": "device",
             "type": "device",
-            "filter": "driver_id=x20plus"
+            "filter": "capabilities=vacuum_status"
           }
         ]
       },
@@ -1477,7 +1579,7 @@
           {
             "name": "device",
             "type": "device",
-            "filter": "driver_id=x20plus"
+            "filter": "capabilities=vacuum_status"
           }
         ]
       },
@@ -1491,7 +1593,7 @@
           {
             "name": "device",
             "type": "device",
-            "filter": "driver_id=x20plus"
+            "filter": "capabilities=vacuum_status"
           }
         ]
       },

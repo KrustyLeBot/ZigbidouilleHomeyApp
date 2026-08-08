@@ -185,34 +185,12 @@ class MiioClient {
   }
 
   // MIoT reads: params is an ARRAY of {did, siid, piid}.
-  //
-  // The result is keyed by the did WE ASKED FOR, resolved through the entry's
-  // own siid/piid — never by `entry.did`.
-  //
-  // The X20+ echoes our did back, but the Vacuum 5 replaces it with the robot's
-  // numeric device id, identically on every entry. Trusting `entry.did` there
-  // collapses the whole reply onto one key, every field reads as undefined, and
-  // the capabilities are silently never written — no error anywhere.
   async getProperties(props) {
     const result = await this.call('get_properties', props);
-
-    // siid/piid -> the did the caller used. Built from the request, so it works
-    // whatever the robot decides to put in the reply.
-    const byAddress = new Map();
-    for (const p of props) byAddress.set(`${p.siid}/${p.piid}`, p.did);
-
     const out = {};
-    (result || []).forEach((entry, index) => {
-      if (entry.code !== 0) return;
-      // MIoT answers in request order, so the index is the primary key and the
-      // address is the cross-check. Falling back to the address covers a robot
-      // that reorders or omits entries.
-      const asked = props[index];
-      const key = asked && (entry.siid === undefined || (entry.siid === asked.siid && entry.piid === asked.piid))
-        ? asked.did
-        : byAddress.get(`${entry.siid}/${entry.piid}`);
-      if (key !== undefined) out[key] = entry.value;
-    });
+    for (const entry of result || []) {
+      if (entry.code === 0) out[entry.did] = entry.value;
+    }
     return out;
   }
 
