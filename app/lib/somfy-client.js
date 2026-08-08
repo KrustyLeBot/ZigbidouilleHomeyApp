@@ -17,9 +17,17 @@
 // Auth is OAuth2 "password" grant using a Somfy Protect ACCOUNT's own email +
 // password — not a per-app secret like Imou's appId/appSecret. Use a
 // secondary account created for this purpose (Settings > add a user in the
-// Somfy Protect app, role "owner", accept the invite once), never the primary
+// Somfy Protect app, role "guest", accept the invite once), never the primary
 // login: same principle as every other credential in this app — dedicated,
 // revocable, never the thing that also guards the front door in person.
+//
+// Guest is enough for the read-only use here, and limits what leaked
+// credentials could do to the installation (no removing devices, no changing
+// the site, no managing users). It does NOT stop them arming or disarming —
+// Somfy lets every guest do that on purpose, since guests have to be able to
+// switch the alarm off when they walk in. The reference projects suggest an
+// "owner" secondary account because they also control the alarm; this one
+// never does.
 
 const https = require('https');
 const querystring = require('querystring');

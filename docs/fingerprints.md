@@ -531,13 +531,22 @@ now" (solar charging in progress, most likely) and skipped — writing a bare
 > endpoints and OAuth details. Deliberately never arms, disarms, or triggers
 > the alarm — see `lib/somfy-alarm-device.js` for why.
 
-### A Guest-role account is enough to read status
+### Use a Guest-role secondary account — but know what that does and does not buy
 
-The reference projects recommend an "owner" secondary account so the
-integration can also control the alarm. This app never controls it, only
-reads `GET /v3/site`, and that worked fine with a **Guest**-role secondary
-account created for this purpose — least-privilege, on purpose: if that
-account's credentials ever leak, it cannot arm or disarm the real alarm.
+The reference projects recommend an "owner" secondary account. A **Guest**-role
+one works for what this app does (it only reads `GET /v3/site`), and is the
+right choice — but **not** because it cannot control the alarm. **A Guest can
+arm and disarm.** That is by design on Somfy's side: guests are people you let
+into the house, so they need to be able to switch the alarm off.
+
+What the Guest role actually restricts is everything around the alarm:
+removing or adding devices, changing the site configuration, managing users.
+That is the reason to prefer it — leaked Guest credentials cannot dismantle
+the installation or lock the owner out, even though they could arm or disarm
+it. Least-privilege for *this* integration, not a guarantee of harmlessness.
+
+Do not write "a Guest account cannot arm or disarm" anywhere: it is false, and
+believing it would misjudge the blast radius of a leaked credential.
 
 ### `security_level` values, confirmed against the real app
 

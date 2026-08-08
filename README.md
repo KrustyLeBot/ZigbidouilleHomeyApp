@@ -10,12 +10,16 @@ small driver that maps whatever it speaks onto proper Homey capabilities, flow
 cards and Insights — the same first-class experience a supported device gets.
 
 **Protocol-agnostic by design.** Homey declares connectivity *per driver*, so a
-single app can host several at once. Today: **Zigbee** (via the Homey radio) and
-**LAN** (miIO over UDP, for the vacuum). Matter or anything else can join later
-without restructuring anything — only the device layer differs, and the shared
-plumbing (logging, debugging, settings) is protocol-neutral.
+single app can host several at once. Today: **Zigbee** (via the Homey radio),
+**LAN** (miIO over UDP for the vacuums, local HTTP for the Devialet) and
+**cloud** (the Imou cameras and the Somfy alarm, where no local protocol reaches
+the settings that matter). Matter or anything else can join later without
+restructuring anything — only the device layer differs, and the shared plumbing
+(logging, debugging, settings) is protocol-neutral.
 
-Everything runs **locally**. No cloud, no bridge, no account.
+Everything runs **locally where the device allows it** — no bridge, no vendor
+hub. The Imou cameras and the Somfy alarm are the exceptions, marked as such
+below, and only because what they expose exists nowhere but the vendor's cloud.
 
 The app is bilingual (English / French): it follows Homey's language. Internal
 identifiers are English; only the display names are translated.
@@ -30,10 +34,27 @@ identifiers are English; only the display names are translated.
   Zigbee. No raw frame parsing.
 - **One place to debug everything** — the app settings hold a persisted log
   shared by every driver (filterable per device), a **Zigbee dump** of endpoints
-  and clusters, the vacuum's **raw miIO trace**, and a **verbose logging**
-  switch that applies to all protocols at once.
+  and clusters, the vacuums' **raw miIO trace**, the cloud credentials for Imou
+  and Somfy (each with a *Test* button), and a **verbose logging** switch that
+  applies to all protocols at once.
 
 ## Supported devices
+
+| Device | Driver | Protocol |
+|---|---|---|
+| Heiman HS-720ES — CO detector | `co-hs720es` | Zigbee |
+| Shelly EM Gen4 — 2-channel energy meter + dry contact | `shelly-em-gen4` | Zigbee |
+| Philips Hue Dimmer Switch v3 (RWL022) | `hue-dimmer-v3` | Zigbee |
+| Xiaomi Robot Vacuum X20+ (`c102gl`) | `x20plus` | LAN (miIO) |
+| Xiaomi Robot Vacuum 5 (`ov31gl`) | `vacuum5` | LAN (miIO) |
+| Devialet Phantom (single or stereo system) | `devialet` | LAN (HTTP) |
+| Imou Ranger 2C | `imou-ranger2c` | cloud |
+| Imou Cell PT | `imou-cellpt` | cloud |
+| Somfy Protect alarm | `somfy-alarm` | cloud, read-only |
+
+The Zigbee identity, MIoT field map or API surface of every one of them is
+written down in [docs/fingerprints.md](docs/fingerprints.md) — including the
+readings that turned out to be wrong, so nobody re-derives them.
 
 ### Heiman HS-720ES — carbon monoxide detector (`co-hs720es`) · Zigbee
 
@@ -47,8 +68,8 @@ One physical device exposed as **three Homey devices** from a single pairing:
 
 | Tile | What it does |
 |---|---|
-| Channel A | CT clamp 1 — live power (W) and energy (kWh) |
-| Channel B | CT clamp 2 — live power (W) and energy (kWh) |
+| Channel A | CT clamp 1 — live power (W), imported and exported energy (kWh) |
+| Channel B | CT clamp 2 — live power (W), imported and exported energy (kWh) |
 | Dry contact | On/off control of an external load (e.g. a contactor) |
 
 Each channel has a **"Whole-home meter (cumulative)"** setting. Tick it on the
@@ -56,18 +77,52 @@ clamp sitting on the main incomer: Homey then treats that channel as the house
 total and subtracts every other metered device from it, showing the remainder as
 "other". Leave it off for a sub-load such as heating.
 
+**Solar production is handled**: `measure_power` keeps its sign, so a clamp on
+the incomer reads negative while production exceeds consumption, and exported
+energy accumulates separately in `meter_power.exported`. That export register is
+optional in the Zigbee spec, so the driver probes for it at init and only adds
+the capability when the meter actually answers.
+
 The split into three devices is deliberate — Homey's `cumulative` flag is
 per-device, so two clamps needing different cumulative settings cannot share
 one.
 
-### Xiaomi Robot Vacuum X20+ (`x20plus`) · LAN (miIO)
+### Philips Hue Dimmer Switch v3 — RWL022 (`hue-dimmer-v3`) · Zigbee
 
-Talks to the robot **locally over the miIO protocol** (UDP, AES-128) — no cloud.
-It exists because the general-purpose Xiaomi app collapses the robot's real
-states into Homey's five standard vacuum values, throwing away the one
-distinction that matters: **was it interrupted while cleaning, or on its way back
-to the dock?** Those need different handling, and resuming the wrong one starts a
-full clean of the whole home.
+The four buttons, usable in flows without a Hue Bridge: one **"A button was
+pressed"** trigger taking the button (top / brightness up / brightness down /
+bottom) and the action (pressed, held, released, hold released), plus
+`measure_battery`.
+
+The buttons do not arrive on the standard on/off and level clusters — the switch
+sends a single manufacturer-specific `hueNotification` command on Philips
+cluster `0xFC00`, and only after a magic attribute write at init tells it to.
+That cluster is not in `zigbee-clusters`; it is declared in
+[app/lib/philips-hue-cluster.js](app/lib/philips-hue-cluster.js). This is the
+likely reason other apps handle this remote poorly.
+
+**Held repeats** roughly every 0.8 s while the button stays down, and each
+repeat fires the flow again — which is exactly what makes "hold to ramp the
+volume" work.
+
+Pairing: hold the small setup button **on the back, next to the battery** for
+~10 s — not one of the four front buttons.
+
+### Xiaomi Robot Vacuum X20+ (`x20plus`) and Robot Vacuum 5 (`vacuum5`) · LAN (miIO)
+
+Two drivers, one for each robot (`xiaomi.vacuum.c102gl` and
+`xiaomi.vacuum.ov31gl`). They share no field numbering whatsoever — the same
+information sits at different MIoT properties, with different enums and
+different units — so each was interviewed separately and gets its own driver
+and its own map. They do share the client, the CSV recorder and the state
+machine shape.
+
+Both talk to the robot **locally over the miIO protocol** (UDP, AES-128) — no
+cloud. They exist because the general-purpose Xiaomi app collapses the robot's
+real states into Homey's five standard vacuum values, throwing away the one
+distinction that matters: **was it interrupted while cleaning, or on its way
+back to the dock?** Those need different handling, and resuming the wrong one
+starts a full clean of the whole home.
 
 - A dedicated `Status` capability with the robot's real states, including the
   two the standard app merges.
@@ -77,14 +132,73 @@ full clean of the whole home.
   frees itself does not notify.
 - Cleaned area per run in Insights, and a raw miIO CSV export in the settings.
 
-Needs the robot on a fixed local IP and its 32-character miIO token — see
-[INSTALL.md](INSTALL.md).
+Each robot needs a fixed local IP and its 32-character miIO token, entered
+during pairing — see [INSTALL.md](INSTALL.md).
 
-Every value in this driver was reverse-engineered by probing a real robot: the
-published spec is for a different variant and is **wrong** for this model. See
-[FINDINGS.md](FINDINGS.md), and `probe/` for the scripts that produced it —
-including `sweep.js`, which brute-forces the property space and diffs two robot
-states to identify unknown fields.
+Every value in both drivers was reverse-engineered by probing a real robot: the
+published spec is for a different variant on the X20+, and simply wrong on the
+Vacuum 5 (which reports `14` while docked and `1` while cleaning, against a spec
+that says neither). See [FINDINGS.md](FINDINGS.md) and
+[docs/fingerprints.md](docs/fingerprints.md), and `probe/` for the scripts that
+produced them — including `sweep.js`, which brute-forces the property space and
+diffs two robot states to identify unknown fields.
+
+### Devialet Phantom (`devialet`) · LAN (HTTP)
+
+Transport, volume, mute, source switching and the current track, over the
+speakers' **local REST API** — no account, no Devialet cloud.
+
+**One Homey tile per system, not per speaker.** A stereo pair is a single
+system: either speaker answers for both, and they report identical state. Apps
+that create a device per discovered speaker end up with two tiles fighting over
+one system. Here a tile holds every member address and retries the other when
+one does not answer.
+
+Sources are resolved at runtime rather than stored — their ids are UUIDs that
+are **not stable across restarts** — so the flow card offers them by type
+(Bluetooth, AirPlay 2, Spotify Connect, UPnP, RAAT, optical jack), with the two
+speakers' jacks told apart by their role.
+
+### Imou Ranger 2C and Cell PT (`imou-ranger2c`, `imou-cellpt`) · cloud
+
+**Privacy mode** (the lens shutter) and, on the Cell PT, the **motion detection**
+switch and battery level — as capabilities and flow cards, so the alarm being
+armed can close the shutters and disarming can open them.
+
+These are the app's **only cloud devices, and a deliberate exception**: these
+switches exist nowhere but the Imou Open Platform. ONVIF and the local protocols
+reach the video stream and motion events, never these settings. Needs an app id
+and secret from the [Imou Open Platform](https://open.imoulife.com/), entered in
+**Settings → Imou**; cameras already paired in the Imou Life phone app are shared
+to the developer account automatically, and the phone app keeps working.
+
+The free account allows **30,000 API calls per month for the whole account** —
+not the 20,000/day several secondary sources claim. Hence the 20-minute default
+poll, the batched online check shared between cameras, and the battery read
+happening every 6th cycle. Lowering `poll_interval` multiplies call volume
+directly.
+
+### Somfy Protect alarm (`somfy-alarm`) · cloud, read-only
+
+Reports the alarm's state (`disarmed` / `partially_armed` / `armed`) and whether
+it is currently triggered, with flow triggers on every change — so arming the
+house can close the camera shutters, and a trespass event can drive anything
+Homey can reach.
+
+**Read-only on purpose.** This app never arms, disarms or triggers the alarm. It
+talks to the same backend the phone app does, through an unofficial API
+reverse-engineered by the community, and that is not something to put in charge
+of a physical security system.
+
+Use a **secondary account with the Guest role**, created for this purpose, in
+**Settings → Somfy** — never the login that guards your front door. Note what
+that does and does not protect: a Guest **can** arm and disarm (Somfy intends
+it to, guests need to switch the alarm off when they come in). What it cannot
+do is remove devices, change the site configuration or manage users, which is
+the real reason to prefer it.
+
+State arrives over Somfy's own **websocket** in about a second; the 15-minute
+poll is a resync safety net for a dropped message, not the mechanism.
 
 ## Why it exists
 
@@ -101,7 +215,14 @@ without forking a big vendor app.
 
 The same reasoning applies beyond Zigbee. A vendor app that technically supports
 your device but flattens what it reports is just as unusable as no app at all —
-which is why the Xiaomi vacuum lives here too, speaking miIO over the LAN.
+which is why the Xiaomi vacuums live here too, speaking miIO over the LAN, and
+why the Devialet gets a tile per system instead of per speaker.
+
+And sometimes the control simply does not exist locally. The Imou privacy
+shutter and the Somfy alarm state have no local protocol at all, so those two
+drivers go through the vendor cloud — stated plainly rather than pretended
+away, and kept to the smallest surface that does the job (the Somfy driver
+never writes anything).
 
 ## Adopting a new device (the short version)
 
@@ -133,7 +254,10 @@ shared plumbing — logging, verbose switch, settings — is the same.
 - Homey Pro (SDK 3, local platform); a built-in Zigbee radio for the Zigbee
   drivers.
 - Zigbee devices physically in range during pairing; LAN devices reachable on
-  the network (the vacuum also needs a fixed IP and its miIO token).
+  the network (each vacuum also needs a fixed IP and its miIO token).
+- For the cloud drivers, credentials entered in the app settings before pairing:
+  an Imou Open Platform app id/secret for the cameras, and a Somfy Protect
+  account for the alarm (a Guest-role secondary one, see above).
 - Node >= 24 for the Homey CLI 4.x (see [INSTALL.md](INSTALL.md) for the Node/CLI
   version trap).
 
@@ -151,34 +275,64 @@ homey app install
 Then pair: **Devices → + → Zigbidouille → (your driver)**, and follow the
 pairing instructions to put the device in join mode.
 
+The vacuums ask for their IP and miIO token during pairing. The Imou and Somfy
+drivers instead read shared credentials from the app settings, so fill in
+**Settings → Imou** / **Settings → Somfy** (each has a *Test* button) *before*
+pairing — their pairing screen lists the devices found on the account.
+
 ## Project layout
 
 ```
 app/                       the Homey app
-  app.js                   registers the vacuum's flow cards
+  app.js                   registers the flow cards of every non-Zigbee driver
   app.json                 manifest: capabilities, drivers (per-driver connectivity), flow
   lib/
     errlog.js              rolling log shared by every driver, persisted, verbose-aware
     zigbee-device.js       Zigbee base class (capability migration, node dump, logging)
-    miio-client.js         miIO client: UDP handshake + AES-128 (vacuum)
-    x20plus.js             the vacuum's MIoT map and state machine
-    recorder.js            raw miIO CSV recorder
+    philips-hue-cluster.js Philips 0xFC00 cluster — not shipped by zigbee-clusters
+    miio-client.js         miIO client: UDP handshake + AES-128 (both vacuums)
+    miio-vacuum-device.js  shared vacuum device: poll loop, state machine, triggers
+    x20plus.js             the X20+ MIoT map and status profile
+    vacuum5.js             the Vacuum 5 MIoT map — shares nothing with the X20+
+    recorder.js            raw miIO CSV recorder (X20+)
+    recorder-vacuum5.js    raw miIO CSV recorder (Vacuum 5)
+    devialet-client.js     local HTTP client, retried across the system's speakers
+    devialet-sources.js    source types -> runtime source ids
+    imou-client.js         Imou Open Platform HTTPS client (signing, tokens)
+    imou-account.js        shared credentials + batched online-status cache
+    imou-camera-device.js  shared camera device: poll budget, switches, battery
+    imou-ranger2c.js       Ranger 2C profile (switches it actually supports)
+    imou-cellpt.js         Cell PT profile (adds motion detection + battery)
+    somfy-client.js        unofficial Somfy Protect HTTPS client (OAuth, GET /v3/site)
+    somfy-account.js       shared credentials + persisted token
+    somfy-events.js        the Somfy websocket: live events, ping, backoff
+    somfy-alarm-device.js  the alarm device — read-only by design
   drivers/
     co-hs720es/            Heiman HS-720ES CO detector          — zigbee
     shelly-em-gen4/        Shelly EM Gen4, 3 sub-devices        — zigbee
+    hue-dimmer-v3/         Philips Hue Dimmer Switch v3         — zigbee
     x20plus/               Xiaomi X20+ vacuum                   — lan (miIO)
+    vacuum5/               Xiaomi Robot Vacuum 5                — lan (miIO)
+    devialet/              Devialet Phantom, one tile per system — lan (HTTP)
+    imou-ranger2c/         Imou Ranger 2C                       — cloud
+    imou-cellpt/           Imou Cell PT                         — cloud
+    somfy-alarm/           Somfy Protect alarm, read-only       — cloud
   locales/                 en.json / fr.json
-  settings/                app settings: log · Zigbee dump · raw miIO log
+  settings/                5 tabs: log · Zigbee dump · raw miIO log · Imou · Somfy
 probe/                     standalone scripts — talk to a device without Homey
-  x20plus/                 the vacuum's miIO tooling (one subfolder per device)
-    probe.js               watch status live / scan properties / list actions
+  env.js                   shared .env loader: PREFIX_IP / PREFIX_TOKEN, never printed
+  x20plus/ vacuum5/        miIO tooling: watch live, scan properties, list actions
     sweep.js               brute-force siid/piid discovery, and diff two robot states
-docs/                      fingerprints of devices already interviewed
-  Homey Notification.mp3   notification sound, for use in Flows (not used by the app)
+  devialet/discover.js     mDNS + local HTTP interview
+  imou/                    probe the cloud API; sweep.js diffs all 49 camera switches
+  somfy/                   probe the REST API; listen.js dumps the live event socket
+docs/fingerprints.md       every device interviewed: identity, field maps, wrong readings
+docs/Homey Notification.mp3  notification sound, for use in Flows (not used by the app)
 FINDINGS.md                everything learned by probing the real vacuum
 CLAUDE.md                  conventions + the device-adoption workflow + hard rules
 INSTALL.md                 install steps and CLI/Node gotchas
-.env                       robot IP + miIO token — gitignored, never commit it
+.env                       device IPs, miIO tokens, cloud secrets — gitignored, never commit
+.env.example               the template to copy, with what each credential is for
 ```
 
 ## Credits
@@ -190,9 +344,22 @@ INSTALL.md                 install steps and CLI/Node gotchas
   cross-reference for what a given model actually speaks. The Shelly EM Gen4
   endpoint map here comes from
   [PR #12245](https://github.com/Koenkk/zigbee-herdsman-converters/pull/12245).
+  The Hue Dimmer v3's `hueNotification` frame layout and the magic init write
+  come from the same repo (`src/lib/philips.ts`, definition for RWL022).
 - [ZHA device handlers](https://github.com/zigpy/zha-device-handlers) — same
   role on the Home Assistant side, useful when a device has no Z2M converter
   yet.
 - miIO protocol reference: [rytilahti/python-miio](https://github.com/rytilahti/python-miio),
   cross-checked against [shaarkys/com.xiaomi-miio](https://github.com/shaarkys/com.xiaomi-miio).
   Token extraction: [PiotrMachowski/Xiaomi-cloud-tokens-extractor](https://github.com/PiotrMachowski/Xiaomi-cloud-tokens-extractor).
+- Imou Open Platform: the official [API docs](https://open.imoulife.com/), with
+  [user2684/imou_life](https://github.com/user2684/imou_life) as the reference
+  Home Assistant integration — including for what the API *cannot* do.
+- Somfy Protect (unofficial, reverse-engineered by the community):
+  [Minims/somfy-protect-api](https://github.com/Minims/somfy-protect-api),
+  [Minims/SomfyProtect2MQTT](https://github.com/Minims/SomfyProtect2MQTT) (whose
+  websocket timings this app reuses) and
+  [jay-d-tyler/homebridge-somfy-protect](https://github.com/jay-d-tyler/homebridge-somfy-protect).
+- Devialet: the speakers' own local `ipcontrol/v1` API, with
+  [winnieoursbrun/homey-devialet](https://github.com/winnieoursbrun/homey-devialet)
+  as prior art (this app differs by mapping a tile to a *system*, not a speaker).

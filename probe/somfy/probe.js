@@ -17,9 +17,15 @@
 //   node probe.js panic <siteId> [mode]   POST /panic (mode: alarm|silent, default alarm)
 //
 // Credentials: SOMFY_EMAIL / SOMFY_PASSWORD in the repo-root .env — use the
-// SECONDARY account (owner role) created for this integration, never your own
+// SECONDARY account (guest role) created for this integration, never your own
 // login. Token is cached in probe/somfy/.token.json (gitignored) so repeated
 // runs don't re-authenticate with the password grant every time.
+//
+// `set` and `panic` above are REAL: they arm/disarm and set off the siren on
+// the actual house. A guest account can do both — Somfy allows every guest to
+// arm and disarm — so the role is not what stops you here, only care is. What
+// guest does prevent is wrecking the installation (removing devices, changing
+// the site, managing users).
 
 const fs = require('fs');
 const path = require('path');

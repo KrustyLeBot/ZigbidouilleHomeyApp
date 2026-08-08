@@ -35,7 +35,7 @@
     "imou_test_ok": "Connected — {{count}} camera(s) visible on this account.",
     "imou_test_fail": "Failed: ",
     "tab_somfy": "Somfy",
-    "somfy_intro": "Credentials for the Somfy Protect alarm — an UNOFFICIAL, reverse-engineered cloud API (there is no public developer portal). Use a SECONDARY Somfy Protect account created for this purpose (the app, Settings > add a user), never your own login: create it, invite it, accept once, then enter its email and password here. This app never arms, disarms, or triggers the alarm — it only reads status, so a Guest-role account is enough.",
+    "somfy_intro": "Credentials for the Somfy Protect alarm — an UNOFFICIAL, reverse-engineered cloud API (there is no public developer portal). Use a SECONDARY Somfy Protect account created for this purpose (the app, Settings > add a user), never your own login: create it, invite it, accept once, then enter its email and password here. This app never arms, disarms, or triggers the alarm — it only reads status, so give that account the Guest role: it cannot remove devices or change your installation. (It can still arm and disarm — Somfy allows every guest to do that.)",
     "somfy_email": "Email",
     "somfy_password": "Password",
     "somfy_save": "Save",

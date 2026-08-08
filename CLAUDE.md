@@ -84,6 +84,24 @@ This is the whole point of the app. To add a device:
 `docs/` collects the fingerprints of devices already interviewed — add to it
 whenever you adopt a new one, so the next person does not re-interview.
 
+6. **Update [README.md](README.md).** It is the only document that describes
+   what this app supports, and it goes stale the moment a driver lands without
+   it. A device is not adopted until the README says so.
+
+   Every new driver needs, at minimum: a row in the **supported devices**
+   table, a short section saying what it exposes and why the driver exists
+   (what the vendor app gets wrong), and a line in the **project layout** tree
+   for its `drivers/` folder and any new `lib/` files. Then check whether the
+   change invalidates something stated elsewhere in it — the intro's protocol
+   list, the settings-tab description, the credentials/pairing steps, and the
+   credits are the parts that quietly stop being true. Adding the first cloud
+   driver, for instance, falsified a flat "everything runs locally, no cloud,
+   no account" claim three sections above the device list.
+
+   The same applies to any change that alters user-visible behaviour, not only
+   new drivers: new capabilities, a changed default poll interval, a new
+   settings tab, a new credential to enter.
+
 ### Never rename the image files
 
 Images must sit at the conventional paths, exactly:
