@@ -52,4 +52,21 @@ function requireCredentials(prefix, argv = []) {
   return { address, token };
 }
 
-module.exports = { loadEnv, credentials, requireCredentials };
+// Same idea for devices whose credentials are not an IP/token pair — the Imou
+// cameras are an appId/appSecret against a cloud endpoint. Returns the values in
+// the order asked for, and names the ones that are missing rather than failing
+// later inside an HTTP call, where a blank secret comes back as a signature
+// error and reads like a bug in the signing code.
+function requireVars(names) {
+  const env = loadEnv();
+  const missing = names.filter((name) => !env[name]);
+
+  if (missing.length) {
+    console.error(`Set ${missing.join(', ')} in the repo-root .env.`);
+    process.exit(1);
+  }
+
+  return names.map((name) => env[name]);
+}
+
+module.exports = { loadEnv, credentials, requireCredentials, requireVars };

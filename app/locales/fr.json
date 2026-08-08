@@ -21,12 +21,28 @@
     "tab_log": "Journal",
     "tab_zigbee": "Zigbee",
     "tab_miio": "Aspirateur (miIO)",
-    "all_devices": "Tous les appareils"
+    "tab_imou": "Imou",
+    "all_devices": "Tous les appareils",
+    "imou_intro": "Identifiants pour l'Imou Open Platform — l'API cloud derrière le mode confidentialité et la détection de mouvement des caméras Imou. Crée une app sur open.imoulife.com/consoleNew/myApp/appInfo et colle son ID et son secret ici, une seule fois, avant d'appairer une caméra. Le secret est un mot de passe : il est stocké dans les réglages de Homey, jamais dans le code ou les journaux de cette app.",
+    "imou_app_id": "App ID",
+    "imou_app_secret": "App secret",
+    "imou_host_label": "Centre de données (optionnel)",
+    "imou_host_hint": "Laisse vide pour une détection automatique à la première utilisation. Rempli automatiquement dès qu'une connexion réussit.",
+    "imou_save": "Enregistrer",
+    "imou_saved": "Enregistré.",
+    "imou_test": "Tester la connexion",
+    "imou_testing": "Connexion au cloud Imou...",
+    "imou_test_ok": "Connecté — {{count}} caméra(s) visibles sur ce compte.",
+    "imou_test_fail": "Échec : "
   },
   "unreachable": "Le robot ne répond pas",
   "pair": {
     "bad_token": "Le token doit faire 32 caractères hexadécimaux",
     "no_reply": "Pas de réponse du robot. Vérifie l'IP, et réveille-le dans l'app Xiaomi."
+  },
+  "imou": {
+    "not_configured": "Renseigne d'abord l'App ID et le secret Imou dans les réglages de l'app (onglet Imou).",
+    "unreachable": "La caméra ne répond pas"
   },
   "state": {
     "cleaning": "Nettoyage en cours",

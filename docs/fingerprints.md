@@ -352,3 +352,170 @@ and some firmwares are already in the right mode.
 While a button is held the switch re-sends `hold` roughly every 0.8 s. Each
 repeat fires the flow again, which is what makes "hold to ramp the volume"
 work at all.
+
+---
+
+## Imou cameras — Ranger 2C & Cell PT (drivers `imou-ranger2c`, `imou-cellpt`)
+
+> **Status: switches confirmed live 2026-08-08** via `probe/imou/probe.js`
+> against the user's real account. The only **cloud** devices in this app —
+> see `.env.example` for why (privacy mode, PIR detection and the phone app's
+> notification setting exist nowhere but the Imou Open Platform; ONVIF/local
+> protocols reach the video stream and motion events, never these settings).
+
+Identity is the channel's `productId`, read from `deviceBaseList` /
+`deviceOpenList` — there is no manufacturer/model pair like Zigbee, and no
+local fingerprint at all; a driver claims a paired-in-Imou-Life camera by
+`productId` at Homey pairing time (`onPairListDevices`), not by anything the
+camera itself announces to Homey.
+
+| model | `productId` | confirmed switches | battery |
+|---|---|---|---|
+| Ranger 2C | `3ARDK43R` | `closeCamera` only | no (mains) |
+| Cell PT | `dfY8skkH` | `closeCamera`, `mobileDetect` | yes, `getDevicePowerInfo` |
+
+### The detection toggle is `mobileDetect` — and reading is not enough to prove it
+
+Three candidates answer on a Cell PT, and picking by name gets it wrong twice
+over. Settled 2026-08-08 on the caméra buanderie with `probe/imou/sweep.js`,
+by diffing full 49-switch dumps across a real on/off cycle rather than
+guessing:
+
+| app detection | `alarmPIR` | `mobileDetect` | `motionDetect` |
+|---|---|---|---|
+| ON | ON | ON | off |
+| OFF | off | off | off |
+
+So **`motionDetect` is unrelated** despite the name — it reads `off` even with
+detection fully on. And `alarmPIR` tracks the app perfectly on *reads*, which
+is exactly what makes it dangerous. Writing tells a different story:
+
+- `setDeviceCameraStatus alarmPIR=true` → `alarmPIR` reads ON, **the app still
+  shows detection OFF**. No effect.
+- `setDeviceCameraStatus mobileDetect=true` → **the app shows detection ON**,
+  and a later manual toggle in the app moves it back.
+
+The app writes both fields together, so a read-only investigation cannot
+separate them — `alarmPIR` looks like a perfect match right up until you try
+to use it. The driver writes `mobileDetect`. Confirming a switch by reading it
+is only half the test; the other half is writing it and checking the phone app.
+
+### An offline camera refuses everything, and that is not evidence
+
+While a camera is offline, every `getDeviceCameraStatus` fails with
+`DV1007 Device is offline` — a platform error code, so it superficially
+resembles a genuine "this model has no such switch" refusal, and a whole sweep
+comes back looking like a camera that supports nothing at all. Hit exactly
+this on the Ranger 2C, which had simply been unplugged: 49/49 switches
+"refused", read at first as a startling regression.
+
+`sweep.js` classifies `DV1007`/`DV1004`/`SN000` separately as `offline` and
+shouts when most of a run lands there. Check `deviceOnline` before trusting
+any negative result.
+
+### `deviceOnline` has FOUR states, not two — sleeping is not offline
+
+`onLine` is documented as `0`=offline, `1`=online, `3`=upgrading,
+`4`=**sleeping**. The Cell PTs (solar) spend a large share of their time in
+`4`: confirmed live on "Caméra entrée" and "Caméra cabanon", both reporting
+`onLine="4"` while `getDeviceCameraStatus` answered normally and correctly
+(`mobileDetect=ON`, matching the phone app).
+
+The first version of the `alarm_offline` capability checked `onLine === '1'`,
+which reads sleeping as offline — wrong on its own terms (the camera is fine),
+and compounded by a second bug: the poll used to skip reading every switch
+whenever it judged the camera "offline", as an optimisation for the genuinely-
+unreachable case. Combined, a solar camera sitting in its normal sleep state
+had its switch capabilities frozen for as long as it stayed asleep, which on
+these cameras is most of the time — exactly the "toggled from the app, Homey
+never shows it" symptom this app tracked down to `alarm_offline` on
+2026-08-08. Fixed by decoupling the two: `isOnline()` is now `onLine !== '0'`
+(only a literal offline counts), and the poll reads every switch unconditionally
+— it no longer gates that on the online flag at all. A switch read that fails
+with an `OFFLINE_CODES` error is skipped individually rather than aborting the
+whole poll.
+
+The two remaining ideas stand, just cheaper to state now: `alarm_offline`
+means the cloud reports the *camera* as down (device stays available in
+Homey so flows can still read the flag), whereas `setUnavailable` is reserved
+for not reaching the Imou *cloud* at all — and a per-switch `OFFLINE_CODES`
+failure no longer counts toward that either, since `alarm_offline` already
+explains it.
+
+### The real quota is 30,000 requests/MONTH, not 20,000/day
+
+Several secondary sources (a community Home Assistant integration's own docs,
+assorted search results) state a 20,000-calls-per-day limit, and the app was
+built around that number at first. The account's own console says otherwise:
+**30,000 API requests, 30,000 message pushes, and 2GB of flow storage per
+MONTH**, for the whole developer account, renewing on the 1st. That is roughly
+two orders of magnitude tighter than 20,000/day — the original 5-minute poll
+design (~18 calls/cycle across 5 cameras) would have burned through it in
+about 6 days.
+
+Two changes brought routine polling comfortably under the real number:
+
+- **Batch the online check.** `deviceOnline` only takes one device per call,
+  but `deviceBaseDetailList` accepts up to 8 and reports the same `status`
+  field (`online`/`offline`/`sleep`/`upgrading`) per device. `lib/imou-account.js`
+  keeps a short-lived shared cache: whichever camera polls first each cycle
+  pays for one batched call, the other 4 reuse it. Confirmed live: one call
+  returned all 5 cameras' status (`offline` for the unplugged Ranger 2C,
+  `sleep` ×4 for the Cell PTs, at that moment).
+- **Decouple the battery read.** It changes slowly by nature, so it is read
+  every 6th cycle instead of every cycle (`BATTERY_EVERY`).
+
+Switch reads (`getDeviceCameraStatus`) do NOT batch — confirmed against the
+platform docs — so those still cost one call per switch per camera per cycle.
+At the resulting default of 20 minutes this comes out to roughly 23,000
+calls/month, leaving headroom for writes, pairing, and manual probing without
+threatening the free tier. Lowering `poll_interval` multiplies call volume
+directly; the account has no slack to spare for a much shorter one.
+
+### No per-camera push-notification switch exists
+
+The Imou Life phone app clearly has one (per-camera, in each camera's
+settings), but the Open Platform does not expose it. Tried and ruled out:
+
+- All five plausible `enableType` candidates (`instantDisAlarm`,
+  `periodDisAlarm`, `linkDevAlarm`, `linkAccDevAlarm`, `abAlarmSound`) were
+  probed against **every** camera on the account, Ranger 2C included — none
+  answered on any of them.
+- `setMessageCallback` is the platform's only push-related control, and it is
+  **account-wide** (one callback URL for every camera) and capped at 10
+  changes/day — unusable as a per-device toggle.
+- The reference Home Assistant integration for this API hit the identical
+  wall — a user asked for exactly this switch, the maintainer closed it
+  [`wontfix`](https://github.com/user2684/imou_life/issues/107).
+
+So this app ships two switches, not three: `privacy_mode` (`closeCamera`) and,
+where the model supports it, `motion_detection` (`alarmPIR`). `closeCamera`
+stops event generation at the source, which is the closest functional
+equivalent to "no notifications" the API allows.
+
+### `listDeviceAbility` refuses on this account
+
+Returns `OP1009 No right, cannot operate` for every device tried, with or
+without the optional `apList` param filled in. Not fatal: every switch above
+was confirmed a different way — asking `getDeviceCameraStatus` for each
+candidate `enableType` directly and keeping the ones that answered rather than
+errored. If `listDeviceAbility` ever starts working (a permission scope on the
+developer app, most likely), it would be the faster way to re-verify this
+table instead of re-running the candidate sweep.
+
+### Account holds 9 devices, not 5
+
+`deviceBaseList`/`deviceOpenList` returned the Ranger 2C, the 4 Cell PT — and
+also a doorbell (`productId` `5HHPYSX1`) and three more cameras
+(`FKX9UYL4` × 2, `C1KZPLRH` × 1) the user did not ask to adopt. Deliberately
+out of scope for both drivers: `onPairListDevices` filters strictly by
+`productId`, so these never appear in either driver's pairing list. Revisit if
+the user asks to adopt more Imou devices later — their switches are unprobed.
+
+### Battery reading can come back empty, not zero
+
+`getDevicePowerInfo`'s `electricitys[]` sometimes has no entry with
+`type: "battery"` at all (seen live on one of the four Cell PT during the
+probe) rather than an error or a `0`. Read as "no reading available right
+now" (solar charging in progress, most likely) and skipped — writing a bare
+`0` in that case would show as "flat" on the tile for no reason.

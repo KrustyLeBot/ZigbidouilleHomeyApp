@@ -569,6 +569,127 @@
           "INTERNAL"
         ]
       }
+    },
+    {
+      "id": "imou-ranger2c",
+      "name": {
+        "en": "Imou Ranger 2C",
+        "fr": "Imou Ranger 2C"
+      },
+      "class": "camera",
+      "connectivity": [
+        "cloud"
+      ],
+      "capabilities": [
+        "privacy_mode",
+        "alarm_offline"
+      ],
+      "platforms": [
+        "local"
+      ],
+      "pair": [
+        {
+          "id": "list_devices",
+          "template": "list_devices",
+          "navigation": {
+            "next": "add_devices"
+          }
+        },
+        {
+          "id": "add_devices",
+          "template": "add_devices"
+        }
+      ],
+      "images": {
+        "small": "/drivers/imou-ranger2c/assets/images/small.png",
+        "large": "/drivers/imou-ranger2c/assets/images/large.png",
+        "xlarge": "/drivers/imou-ranger2c/assets/images/xlarge.png"
+      },
+      "settings": [
+        {
+          "id": "poll_interval",
+          "type": "number",
+          "label": {
+            "en": "Poll interval (seconds)",
+            "fr": "Fréquence de lecture (secondes)"
+          },
+          "hint": {
+            "en": "How often the camera's switches are read from the Imou cloud. Lower = faster flows, more of the daily call budget spent.",
+            "fr": "Fréquence de lecture des interrupteurs de la caméra depuis le cloud Imou. Plus bas = flows plus réactifs, plus de quota d'appels quotidien consommé."
+          },
+          "value": 300,
+          "min": 60,
+          "max": 3600,
+          "units": {
+            "en": "s",
+            "fr": "s"
+          }
+        }
+      ]
+    },
+    {
+      "id": "imou-cellpt",
+      "name": {
+        "en": "Imou Cell PT",
+        "fr": "Imou Cell PT"
+      },
+      "class": "camera",
+      "connectivity": [
+        "cloud"
+      ],
+      "capabilities": [
+        "privacy_mode",
+        "motion_detection",
+        "measure_battery",
+        "alarm_offline"
+      ],
+      "platforms": [
+        "local"
+      ],
+      "pair": [
+        {
+          "id": "list_devices",
+          "template": "list_devices",
+          "navigation": {
+            "next": "add_devices"
+          }
+        },
+        {
+          "id": "add_devices",
+          "template": "add_devices"
+        }
+      ],
+      "images": {
+        "small": "/drivers/imou-cellpt/assets/images/small.png",
+        "large": "/drivers/imou-cellpt/assets/images/large.png",
+        "xlarge": "/drivers/imou-cellpt/assets/images/xlarge.png"
+      },
+      "settings": [
+        {
+          "id": "poll_interval",
+          "type": "number",
+          "label": {
+            "en": "Poll interval (seconds)",
+            "fr": "Fréquence de lecture (secondes)"
+          },
+          "hint": {
+            "en": "How often the camera's switches and battery are read from the Imou cloud. Lower = faster flows, more of the daily call budget spent.",
+            "fr": "Fréquence de lecture des interrupteurs et de la batterie depuis le cloud Imou. Plus bas = flows plus réactifs, plus de quota d'appels quotidien consommé."
+          },
+          "value": 300,
+          "min": 60,
+          "max": 3600,
+          "units": {
+            "en": "s",
+            "fr": "s"
+          }
+        }
+      ],
+      "energy": {
+        "batteries": [
+          "INTERNAL"
+        ]
+      }
     }
   ],
   "brandColor": "#00A6A6",
@@ -592,6 +713,10 @@
     "clearLog": {
       "method": "POST",
       "path": "/log/clear"
+    },
+    "testImou": {
+      "method": "POST",
+      "path": "/imou/test"
     }
   },
   "capabilities": {
@@ -1026,6 +1151,39 @@
           }
         }
       ]
+    },
+    "privacy_mode": {
+      "type": "boolean",
+      "title": {
+        "en": "Privacy mode",
+        "fr": "Mode confidentialité"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "toggle",
+      "insights": true
+    },
+    "motion_detection": {
+      "type": "boolean",
+      "title": {
+        "en": "Motion detection",
+        "fr": "Détection de mouvement"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "toggle",
+      "insights": true
+    },
+    "alarm_offline": {
+      "type": "boolean",
+      "title": {
+        "en": "Offline",
+        "fr": "Hors ligne"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "insights": true
     }
   },
   "flow": {
@@ -1064,7 +1222,11 @@
               "fr": "Surface nettoyée"
             }
           }
-        ]
+        ],
+        "titleFormatted": {
+          "en": "[[device]] cleaning was interrupted",
+          "fr": "Le nettoyage de [[device]] a été interrompu"
+        }
       },
       {
         "id": "paused_returning",
@@ -1100,7 +1262,11 @@
               "fr": "Surface nettoyée"
             }
           }
-        ]
+        ],
+        "titleFormatted": {
+          "en": "[[device]] return to dock was interrupted",
+          "fr": "Le retour à la base de [[device]] a été interrompu"
+        }
       },
       {
         "id": "error_returning",
@@ -1144,7 +1310,11 @@
               "fr": "Surface nettoyée"
             }
           }
-        ]
+        ],
+        "titleFormatted": {
+          "en": "[[device]] is blocked returning to dock",
+          "fr": "[[device]] est bloqué en retour à la base"
+        }
       },
       {
         "id": "error",
@@ -1188,7 +1358,11 @@
               "fr": "Surface nettoyée"
             }
           }
-        ]
+        ],
+        "titleFormatted": {
+          "en": "[[device]] is blocked (error)",
+          "fr": "[[device]] est bloqué (erreur)"
+        }
       },
       {
         "id": "status_changed",
@@ -1220,7 +1394,11 @@
               "fr": "Batterie"
             }
           }
-        ]
+        ],
+        "titleFormatted": {
+          "en": "[[device]] status changed",
+          "fr": "L'état de [[device]] a changé"
+        }
       },
       {
         "id": "task_completed",
@@ -1256,7 +1434,11 @@
               "fr": "Surface nettoyée"
             }
           }
-        ]
+        ],
+        "titleFormatted": {
+          "en": "[[device]] finished cleaning",
+          "fr": "[[device]] a terminé le nettoyage"
+        }
       },
       {
         "id": "hue_dimmer_pressed",
@@ -1345,6 +1527,102 @@
                 }
               }
             ]
+          }
+        ]
+      },
+      {
+        "id": "imou_privacy_changed",
+        "title": {
+          "en": "Privacy mode changed",
+          "fr": "Le mode confidentialité a changé"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "capabilities=privacy_mode"
+          }
+        ],
+        "tokens": [
+          {
+            "name": "privacy_mode",
+            "type": "boolean",
+            "title": {
+              "en": "Privacy mode",
+              "fr": "Mode confidentialité"
+            }
+          }
+        ],
+        "titleFormatted": {
+          "en": "[[device]] privacy mode changed",
+          "fr": "Le mode confidentialité de [[device]] a changé"
+        }
+      },
+      {
+        "id": "imou_motion_changed",
+        "title": {
+          "en": "Motion detection changed",
+          "fr": "La détection de mouvement a changé"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "capabilities=motion_detection"
+          }
+        ],
+        "tokens": [
+          {
+            "name": "motion_detection",
+            "type": "boolean",
+            "title": {
+              "en": "Motion detection",
+              "fr": "Détection de mouvement"
+            }
+          }
+        ],
+        "titleFormatted": {
+          "en": "[[device]] motion detection changed",
+          "fr": "La détection de mouvement de [[device]] a changé"
+        }
+      },
+      {
+        "id": "imou_went_offline",
+        "title": {
+          "en": "Camera went offline",
+          "fr": "La caméra est passée hors ligne"
+        },
+        "titleFormatted": {
+          "en": "[[device]] went offline",
+          "fr": "[[device]] est passée hors ligne"
+        },
+        "hint": {
+          "en": "The Imou cloud reports the camera as unreachable — unplugged, off Wi-Fi, or flat battery.",
+          "fr": "Le cloud Imou signale la caméra comme injoignable — débranchée, hors Wi-Fi, ou batterie vide."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "capabilities=alarm_offline"
+          }
+        ]
+      },
+      {
+        "id": "imou_came_online",
+        "title": {
+          "en": "Camera came back online",
+          "fr": "La caméra est revenue en ligne"
+        },
+        "titleFormatted": {
+          "en": "[[device]] came back online",
+          "fr": "[[device]] est revenue en ligne"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "capabilities=alarm_offline"
           }
         ]
       }
@@ -1530,6 +1808,60 @@
           "en": "[[device]] status !{{is|is not}} [[status]]",
           "fr": "L'état de [[device]] !{{est|n'est pas}} [[status]]"
         }
+      },
+      {
+        "id": "imou_privacy_is",
+        "title": {
+          "en": "Privacy mode !{{is|is not}} on",
+          "fr": "Le mode confidentialité !{{est|n'est pas}} activé"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "capabilities=privacy_mode"
+          }
+        ],
+        "titleFormatted": {
+          "en": "[[device]] privacy mode !{{is|is not}} on",
+          "fr": "Le mode confidentialité de [[device]] !{{est|n'est pas}} activé"
+        }
+      },
+      {
+        "id": "imou_motion_is",
+        "title": {
+          "en": "Motion detection !{{is|is not}} on",
+          "fr": "La détection de mouvement !{{est|n'est pas}} activée"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "capabilities=motion_detection"
+          }
+        ],
+        "titleFormatted": {
+          "en": "[[device]] motion detection !{{is|is not}} on",
+          "fr": "La détection de mouvement de [[device]] !{{est|n'est pas}} activée"
+        }
+      },
+      {
+        "id": "imou_is_online",
+        "title": {
+          "en": "Camera !{{is|is not}} online",
+          "fr": "La caméra !{{est|n'est pas}} en ligne"
+        },
+        "titleFormatted": {
+          "en": "[[device]] !{{is|is not}} online",
+          "fr": "[[device]] !{{est|n'est pas}} en ligne"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "capabilities=alarm_offline"
+          }
+        ]
       }
     ],
     "actions": [
@@ -1549,7 +1881,11 @@
             "type": "device",
             "filter": "capabilities=vacuum_status"
           }
-        ]
+        ],
+        "titleFormatted": {
+          "en": "Start cleaning with [[device]]",
+          "fr": "Démarrer le nettoyage de [[device]]"
+        }
       },
       {
         "id": "resume_cleaning",
@@ -1567,7 +1903,11 @@
             "type": "device",
             "filter": "capabilities=vacuum_status"
           }
-        ]
+        ],
+        "titleFormatted": {
+          "en": "Resume cleaning with [[device]]",
+          "fr": "Reprendre le nettoyage de [[device]]"
+        }
       },
       {
         "id": "resume_returning",
@@ -1581,7 +1921,11 @@
             "type": "device",
             "filter": "capabilities=vacuum_status"
           }
-        ]
+        ],
+        "titleFormatted": {
+          "en": "Resume [[device]] return to dock",
+          "fr": "Reprendre le retour à la base de [[device]]"
+        }
       },
       {
         "id": "pause",
@@ -1595,7 +1939,11 @@
             "type": "device",
             "filter": "capabilities=vacuum_status"
           }
-        ]
+        ],
+        "titleFormatted": {
+          "en": "Pause [[device]]",
+          "fr": "Mettre [[device]] en pause"
+        }
       },
       {
         "id": "devialet_set_source",
@@ -1709,6 +2057,82 @@
             }
           }
         ]
+      },
+      {
+        "id": "imou_privacy_on",
+        "title": {
+          "en": "Turn on privacy mode",
+          "fr": "Activer le mode confidentialité"
+        },
+        "hint": {
+          "en": "Closes the camera — no video, no detection, no events until turned back off.",
+          "fr": "Ferme la caméra — plus de vidéo, plus de détection, plus d'événements tant que ce n'est pas désactivé."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "capabilities=privacy_mode"
+          }
+        ],
+        "titleFormatted": {
+          "en": "Turn on privacy mode on [[device]]",
+          "fr": "Activer le mode confidentialité sur [[device]]"
+        }
+      },
+      {
+        "id": "imou_privacy_off",
+        "title": {
+          "en": "Turn off privacy mode",
+          "fr": "Désactiver le mode confidentialité"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "capabilities=privacy_mode"
+          }
+        ],
+        "titleFormatted": {
+          "en": "Turn off privacy mode on [[device]]",
+          "fr": "Désactiver le mode confidentialité sur [[device]]"
+        }
+      },
+      {
+        "id": "imou_motion_on",
+        "title": {
+          "en": "Turn on motion detection",
+          "fr": "Activer la détection de mouvement"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "capabilities=motion_detection"
+          }
+        ],
+        "titleFormatted": {
+          "en": "Turn on motion detection on [[device]]",
+          "fr": "Activer la détection de mouvement sur [[device]]"
+        }
+      },
+      {
+        "id": "imou_motion_off",
+        "title": {
+          "en": "Turn off motion detection",
+          "fr": "Désactiver la détection de mouvement"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "capabilities=motion_detection"
+          }
+        ],
+        "titleFormatted": {
+          "en": "Turn off motion detection on [[device]]",
+          "fr": "Désactiver la détection de mouvement sur [[device]]"
+        }
       }
     ]
   },

@@ -53,6 +53,18 @@
         border: 1px solid #ccc; border-radius: 4px;
       }
       .verbose { display: flex; align-items: center; gap: 8px; font-size: 14px; margin: 12px 0 4px; }
+
+      .field { margin-bottom: 12px; max-width: 420px; }
+      .field label { display: block; margin-bottom: 4px; font-size: 13px; font-weight: 600; }
+      .field input {
+        width: 100%; padding: 8px; box-sizing: border-box;
+        border: 1px solid #ccc; border-radius: 4px; font-size: 14px;
+      }
+      .hint { font-size: 12px; color: #888; margin-top: 4px; }
+      .status { margin-top: 10px; font-size: 13px; min-height: 18px; }
+      .status.error { color: #c00; }
+      .status.busy { color: #888; }
+      .status.ok { color: #0a8a3f; }
     </style>
   </head>
   <body>
@@ -60,6 +72,7 @@
       <button type="button" class="tab active" data-panel="log" id="t-tab-log"></button>
       <button type="button" class="tab" data-panel="zigbee" id="t-tab-zigbee"></button>
       <button type="button" class="tab" data-panel="miio" id="t-tab-miio"></button>
+      <button type="button" class="tab" data-panel="imou" id="t-tab-imou"></button>
     </div>
 
     <!-- Log -->
@@ -106,6 +119,30 @@
       <textarea id="log" readonly></textarea>
     </section>
 
+    <!-- Imou cloud credentials -->
+    <section class="panel" id="panel-imou">
+      <h2 id="t-imou-title">Imou</h2>
+      <p class="intro" id="t-imou-intro"></p>
+      <div class="field">
+        <label for="imou-app-id" id="t-imou-app-id"></label>
+        <input type="text" id="imou-app-id" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label for="imou-app-secret" id="t-imou-app-secret"></label>
+        <input type="password" id="imou-app-secret" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label for="imou-host" id="t-imou-host"></label>
+        <input type="text" id="imou-host" placeholder="openapi-fk.easy4ip.com" autocomplete="off" />
+        <div class="hint" id="t-imou-host-hint"></div>
+      </div>
+      <div class="row">
+        <button type="button" class="primary" id="imou-save"></button>
+        <button type="button" id="imou-test"></button>
+      </div>
+      <div class="status" id="imou-status"></div>
+    </section>
+
     <script type="text/javascript">
       function onHomeyReady(Homey) {
         const __ = (k) => Homey.__('settings.' + k);
@@ -121,6 +158,10 @@
           'zdump-load': 'zdump_load', 'zdump-copy': 'copy',
           't-log-title': 'log_title', 't-log-intro': 'log_intro',
           'log-load': 'load', 'log-copy': 'copy', 'log-clear': 'clear',
+          't-tab-imou': 'tab_imou', 't-imou-intro': 'imou_intro',
+          't-imou-app-id': 'imou_app_id', 't-imou-app-secret': 'imou_app_secret',
+          't-imou-host': 'imou_host_label', 't-imou-host-hint': 'imou_host_hint',
+          'imou-save': 'imou_save', 'imou-test': 'imou_test',
         };
         for (const [id, key] of Object.entries(labels)) $(id).textContent = __(key);
 
@@ -246,6 +287,45 @@
           Homey.confirm(__('confirm_clear_log'), 'warning', (err, ok) => {
             if (err || !ok) return;
             Homey.api('POST', '/log/clear', null, () => { logEl.value = ''; logCount.textContent = ''; });
+          });
+        });
+
+        // --- Imou cloud credentials ---
+        // App-level settings (Homey.get/set), not device settings: configured
+        // once, before any camera is paired, which is what lets pairing show a
+        // straight picker instead of asking for a secret per device.
+        const imouIdEl = $('imou-app-id');
+        const imouSecretEl = $('imou-app-secret');
+        const imouHostEl = $('imou-host');
+        const imouStatusEl = $('imou-status');
+
+        Homey.get('imou_app_id', (err, value) => { if (!err && value) imouIdEl.value = value; });
+        Homey.get('imou_app_secret', (err, value) => { if (!err && value) imouSecretEl.value = value; });
+        Homey.get('imou_host', (err, value) => { if (!err && value) imouHostEl.value = value; });
+
+        $('imou-save').addEventListener('click', () => {
+          Homey.set('imou_app_id', imouIdEl.value.trim(), () => {
+            Homey.set('imou_app_secret', imouSecretEl.value.trim(), () => {
+              Homey.set('imou_host', imouHostEl.value.trim(), (err) => {
+                imouStatusEl.className = 'status ' + (err ? 'error' : 'ok');
+                imouStatusEl.textContent = err ? (err.message || String(err)) : __('imou_saved');
+              });
+            });
+          });
+        });
+
+        $('imou-test').addEventListener('click', () => {
+          imouStatusEl.className = 'status busy';
+          imouStatusEl.textContent = __('imou_testing');
+          Homey.api('POST', '/imou/test', null, (err, result) => {
+            if (err || !result || !result.ok) {
+              imouStatusEl.className = 'status error';
+              imouStatusEl.textContent = __('imou_test_fail') + ((result && result.error) || (err && err.message) || String(err));
+              return;
+            }
+            imouStatusEl.className = 'status ok';
+            imouStatusEl.textContent = __('imou_test_ok').replace('{{count}}', result.count);
+            if (result.host) imouHostEl.value = result.host;
           });
         });
 

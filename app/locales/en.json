@@ -21,12 +21,28 @@
     "tab_log": "Log",
     "tab_zigbee": "Zigbee",
     "tab_miio": "Vacuum (miIO)",
-    "all_devices": "All devices"
+    "tab_imou": "Imou",
+    "all_devices": "All devices",
+    "imou_intro": "Credentials for the Imou Open Platform — the cloud API behind privacy mode and motion detection on the Imou cameras. Create an app at open.imoulife.com/consoleNew/myApp/appInfo and paste its ID and secret here, once, before pairing a camera. The secret is a password: it is stored in Homey's settings, never in this app's code or logs.",
+    "imou_app_id": "App ID",
+    "imou_app_secret": "App secret",
+    "imou_host_label": "Data centre (optional)",
+    "imou_host_hint": "Leave blank to auto-detect on first use. Filled in automatically once a connection succeeds.",
+    "imou_save": "Save",
+    "imou_saved": "Saved.",
+    "imou_test": "Test connection",
+    "imou_testing": "Connecting to the Imou cloud...",
+    "imou_test_ok": "Connected — {{count}} camera(s) visible on this account.",
+    "imou_test_fail": "Failed: "
   },
   "unreachable": "Robot not responding",
   "pair": {
     "bad_token": "Token must be 32 hexadecimal characters",
     "no_reply": "No reply from the robot. Check the IP, and wake it in the Xiaomi app."
+  },
+  "imou": {
+    "not_configured": "Set the Imou app ID and secret in the app settings (Imou tab) first.",
+    "unreachable": "Camera not responding"
   },
   "state": {
     "cleaning": "Cleaning",

@@ -4,6 +4,8 @@
 // Homey without the CLI.
 
 const errlog = require('./lib/errlog');
+const { ImouClient } = require('./lib/imou-client');
+const { rememberHost } = require('./lib/imou-account');
 
 // Every miIO vacuum driver. Listing them explicitly rather than hardcoding one:
 // the raw log used to reach only the X20+, so a paired Vacuum 5 recorded its
@@ -100,5 +102,32 @@ module.exports = {
       }
     }
     return { devices: out };
+  },
+
+  // Backs the "Test connection" button on the settings page's Imou tab. Reads
+  // whatever was just saved (Homey.set on the client resolves before this call
+  // fires) rather than taking credentials as params, so the secret never
+  // travels through this endpoint's own request body/logs either.
+  //
+  // Discovers the data centre from scratch every time rather than trusting a
+  // previously saved host: the button exists specifically to catch a stale or
+  // wrong host after the user edits it.
+  async testImou({ homey }) {
+    const appId = homey.settings.get('imou_app_id');
+    const appSecret = homey.settings.get('imou_app_secret');
+    if (!appId || !appSecret) {
+      return { ok: false, error: homey.__('imou.not_configured') };
+    }
+
+    try {
+      const host = await ImouClient.discoverHost(appId, appSecret);
+      rememberHost(homey, host);
+
+      const api = new ImouClient({ appId, appSecret, host });
+      const devices = await api.devices();
+      return { ok: true, count: devices.length, host };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
   },
 };

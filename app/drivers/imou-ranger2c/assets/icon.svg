@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Indoor pan-tilt dome: white ball body, dark diagonal visor over the
+       lens, round base — matches the real Ranger 2C, not a generic camera. -->
+  <defs>
+    <clipPath id="ranger2c-body">
+      <circle cx="30" cy="29" r="20"/>
+    </clipPath>
+  </defs>
+  <ellipse cx="30" cy="55" rx="15" ry="4" fill="#374151"/>
+  <rect x="23" y="46" width="14" height="9" rx="2" fill="#E5E7EB" stroke="#374151" stroke-width="2.5"/>
+  <circle cx="30" cy="29" r="20" fill="#F3F4F6" stroke="#374151" stroke-width="2.5"/>
+  <g clip-path="url(#ranger2c-body)">
+    <path d="M8 12 L52 12 L52 33 Q30 47 8 33 Z" fill="#1F2937"/>
+  </g>
+  <circle cx="33" cy="29" r="9.5" fill="#0EA6A6"/>
+  <circle cx="33" cy="29" r="5.2" fill="#0B2B2B"/>
+  <circle cx="30.3" cy="26.3" r="1.7" fill="#ffffff" opacity="0.8"/>
+</svg>

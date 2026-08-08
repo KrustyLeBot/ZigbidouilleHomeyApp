@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Solar outdoor cam: white articulated arm + angled ball head, separate
+       tilted solar panel on its own pole, joined by a thin cable — matches the
+       real Cell PT rig, not a generic camera. -->
+  <defs>
+    <clipPath id="cellpt-head">
+      <circle cx="24" cy="42" r="14"/>
+    </clipPath>
+  </defs>
+
+  <!-- solar panel, tilted, on a short pole -->
+  <line x1="50" y1="26" x2="50" y2="34" stroke="#374151" stroke-width="2.5"/>
+  <g transform="rotate(-18 50 20)">
+    <rect x="40" y="10" width="20" height="14" rx="1.5" fill="#0B2B2B" stroke="#374151" stroke-width="2"/>
+    <line x1="45" y1="10" x2="45" y2="24" stroke="#0EA6A6" stroke-width="1.4"/>
+    <line x1="50" y1="10" x2="50" y2="24" stroke="#0EA6A6" stroke-width="1.4"/>
+    <line x1="55" y1="10" x2="55" y2="24" stroke="#0EA6A6" stroke-width="1.4"/>
+  </g>
+  <!-- cable to the camera body -->
+  <path d="M50 34 Q46 40 38 40" fill="none" stroke="#374151" stroke-width="1.6"/>
+
+  <!-- wall bracket + articulated arm -->
+  <rect x="4" y="20" width="6" height="10" rx="1.5" fill="#374151"/>
+  <path d="M10 24 Q22 24 26 32" fill="none" stroke="#F3F4F6" stroke-width="9" stroke-linecap="round"/>
+  <path d="M10 24 Q22 24 26 32" fill="none" stroke="#374151" stroke-width="9" stroke-linecap="round" opacity="0" />
+  <path d="M10 24 Q22 24 26 32" fill="none" stroke="#374151" stroke-width="1.6" stroke-linecap="round"/>
+
+  <!-- ball head -->
+  <circle cx="24" cy="42" r="14" fill="#F3F4F6" stroke="#374151" stroke-width="2.5"/>
+  <g clip-path="url(#cellpt-head)">
+    <path d="M6 30 L38 30 L38 44 Q24 54 6 44 Z" fill="#1F2937"/>
+  </g>
+  <circle cx="27" cy="42" r="6.6" fill="#0EA6A6"/>
+  <circle cx="27" cy="42" r="3.6" fill="#0B2B2B"/>
+  <circle cx="25.2" cy="40.2" r="1.2" fill="#ffffff" opacity="0.8"/>
+</svg>
