@@ -33,7 +33,17 @@
     "imou_test": "Test connection",
     "imou_testing": "Connecting to the Imou cloud...",
     "imou_test_ok": "Connected — {{count}} camera(s) visible on this account.",
-    "imou_test_fail": "Failed: "
+    "imou_test_fail": "Failed: ",
+    "tab_somfy": "Somfy",
+    "somfy_intro": "Credentials for the Somfy Protect alarm — an UNOFFICIAL, reverse-engineered cloud API (there is no public developer portal). Use a SECONDARY Somfy Protect account created for this purpose (the app, Settings > add a user), never your own login: create it, invite it, accept once, then enter its email and password here. This app never arms, disarms, or triggers the alarm — it only reads status, so a Guest-role account is enough.",
+    "somfy_email": "Email",
+    "somfy_password": "Password",
+    "somfy_save": "Save",
+    "somfy_saved": "Saved.",
+    "somfy_test": "Test connection",
+    "somfy_testing": "Connecting to the Somfy cloud...",
+    "somfy_test_ok": "Connected — {{count}} site(s) visible on this account.",
+    "somfy_test_fail": "Failed: "
   },
   "unreachable": "Robot not responding",
   "pair": {
@@ -66,5 +76,9 @@
   "devialet": {
     "unreachable": "Devialet system unreachable",
     "source_unavailable": "That source is not currently available (speaker off, or the group was reconfigured)."
+  },
+  "somfy": {
+    "not_configured": "Set the Somfy account email and password in the app settings (Somfy tab) first.",
+    "unreachable": "Alarm not responding"
   }
 }

@@ -12,6 +12,7 @@ fastest loop when reverse-engineering something.
 | [`vacuum5/`](vacuum5) | Xiaomi Robot Vacuum 5 (`ov31gl`) | miIO (UDP + AES-128) | `VACUUM5_` |
 | [`devialet/`](devialet) | Devialet Phantom II | mDNS + local HTTP | — |
 | [`imou/`](imou) | Imou cameras (Ranger 2C, Cell PT) | Imou Open Platform (HTTPS, cloud) | `IMOU_` |
+| [`somfy/`](somfy) | Somfy Protect alarm | unofficial reverse-engineered HTTPS + websocket, cloud | `SOMFY_` |
 
 Zigbee devices have no folder here: the app's own **Settings → Zigbee dump**
 already reports their endpoints and clusters, and Homey's radio is the only way

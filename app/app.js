@@ -20,6 +20,7 @@ class ZigbidouilleApp extends Homey.App {
     this.registerDevialetFlows();
     this.registerRemoteFlows();
     this.registerImouFlows();
+    this.registerSomfyFlows();
   }
 
   // The dimmer fires one trigger for every button event; this listener is what
@@ -104,6 +105,20 @@ class ZigbidouilleApp extends Homey.App {
     this.homey.flow
       .getConditionCard('imou_is_online')
       .registerRunListener(({ device }) => !device.getCapabilityValue('alarm_offline'));
+  }
+
+  // Somfy Protect alarm (drivers/somfy-alarm). Read-only, deliberately — see
+  // lib/somfy-alarm-device.js. State-change triggers fire straight from the
+  // device on a poll that finds a new value; only the conditions need a
+  // listener registered here.
+  registerSomfyFlows() {
+    this.homey.flow
+      .getConditionCard('somfy_state_is')
+      .registerRunListener(({ device, state }) => device.getCapabilityValue('homealarm_state') === state);
+
+    this.homey.flow
+      .getConditionCard('somfy_is_triggered')
+      .registerRunListener(({ device }) => Boolean(device.getCapabilityValue('alarm_generic')));
   }
 }
 

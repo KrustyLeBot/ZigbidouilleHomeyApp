@@ -73,6 +73,7 @@
       <button type="button" class="tab" data-panel="zigbee" id="t-tab-zigbee"></button>
       <button type="button" class="tab" data-panel="miio" id="t-tab-miio"></button>
       <button type="button" class="tab" data-panel="imou" id="t-tab-imou"></button>
+      <button type="button" class="tab" data-panel="somfy" id="t-tab-somfy"></button>
     </div>
 
     <!-- Log -->
@@ -143,6 +144,25 @@
       <div class="status" id="imou-status"></div>
     </section>
 
+    <!-- Somfy Protect alarm credentials -->
+    <section class="panel" id="panel-somfy">
+      <h2 id="t-somfy-title">Somfy</h2>
+      <p class="intro" id="t-somfy-intro"></p>
+      <div class="field">
+        <label for="somfy-email" id="t-somfy-email"></label>
+        <input type="text" id="somfy-email" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label for="somfy-password" id="t-somfy-password"></label>
+        <input type="password" id="somfy-password" autocomplete="off" />
+      </div>
+      <div class="row">
+        <button type="button" class="primary" id="somfy-save"></button>
+        <button type="button" id="somfy-test"></button>
+      </div>
+      <div class="status" id="somfy-status"></div>
+    </section>
+
     <script type="text/javascript">
       function onHomeyReady(Homey) {
         const __ = (k) => Homey.__('settings.' + k);
@@ -162,6 +182,9 @@
           't-imou-app-id': 'imou_app_id', 't-imou-app-secret': 'imou_app_secret',
           't-imou-host': 'imou_host_label', 't-imou-host-hint': 'imou_host_hint',
           'imou-save': 'imou_save', 'imou-test': 'imou_test',
+          't-tab-somfy': 'tab_somfy', 't-somfy-intro': 'somfy_intro',
+          't-somfy-email': 'somfy_email', 't-somfy-password': 'somfy_password',
+          'somfy-save': 'somfy_save', 'somfy-test': 'somfy_test',
         };
         for (const [id, key] of Object.entries(labels)) $(id).textContent = __(key);
 
@@ -326,6 +349,41 @@
             imouStatusEl.className = 'status ok';
             imouStatusEl.textContent = __('imou_test_ok').replace('{{count}}', result.count);
             if (result.host) imouHostEl.value = result.host;
+          });
+        });
+
+        // --- Somfy Protect alarm credentials ---
+        // App-level settings, same reasoning as Imou above: configured once,
+        // before pairing, so pairing is a picker. onError in
+        // lib/somfy-account.js already sends real failures to the log tab —
+        // this button is just for the immediate "did I type it right" check.
+        const somfyEmailEl = $('somfy-email');
+        const somfyPasswordEl = $('somfy-password');
+        const somfyStatusEl = $('somfy-status');
+
+        Homey.get('somfy_email', (err, value) => { if (!err && value) somfyEmailEl.value = value; });
+        Homey.get('somfy_password', (err, value) => { if (!err && value) somfyPasswordEl.value = value; });
+
+        $('somfy-save').addEventListener('click', () => {
+          Homey.set('somfy_email', somfyEmailEl.value.trim(), () => {
+            Homey.set('somfy_password', somfyPasswordEl.value, (err) => {
+              somfyStatusEl.className = 'status ' + (err ? 'error' : 'ok');
+              somfyStatusEl.textContent = err ? (err.message || String(err)) : __('somfy_saved');
+            });
+          });
+        });
+
+        $('somfy-test').addEventListener('click', () => {
+          somfyStatusEl.className = 'status busy';
+          somfyStatusEl.textContent = __('somfy_testing');
+          Homey.api('POST', '/somfy/test', null, (err, result) => {
+            if (err || !result || !result.ok) {
+              somfyStatusEl.className = 'status error';
+              somfyStatusEl.textContent = __('somfy_test_fail') + ((result && result.error) || (err && err.message) || String(err));
+              return;
+            }
+            somfyStatusEl.className = 'status ok';
+            somfyStatusEl.textContent = __('somfy_test_ok').replace('{{count}}', result.count);
           });
         });
 

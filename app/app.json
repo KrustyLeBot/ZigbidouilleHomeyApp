@@ -313,7 +313,7 @@
         },
         {
           "id": "token",
-          "type": "text",
+          "type": "password",
           "label": {
             "en": "Token",
             "fr": "Token"
@@ -524,7 +524,7 @@
         },
         {
           "id": "token",
-          "type": "text",
+          "type": "password",
           "label": {
             "en": "Token",
             "fr": "Token"
@@ -690,6 +690,91 @@
           "INTERNAL"
         ]
       }
+    },
+    {
+      "id": "somfy-alarm",
+      "name": {
+        "en": "Somfy Protect alarm",
+        "fr": "Alarme Somfy Protect"
+      },
+      "class": "homealarm",
+      "connectivity": [
+        "cloud"
+      ],
+      "capabilities": [
+        "homealarm_state",
+        "alarm_generic"
+      ],
+      "capabilitiesOptions": {
+        "homealarm_state": {
+          "setable": false,
+          "values": [
+            {
+              "id": "armed",
+              "title": {
+                "en": "Armed",
+                "fr": "Activée"
+              }
+            },
+            {
+              "id": "partially_armed",
+              "title": {
+                "en": "Night mode",
+                "fr": "Mode nuit"
+              }
+            },
+            {
+              "id": "disarmed",
+              "title": {
+                "en": "Disarmed",
+                "fr": "Désactivée"
+              }
+            }
+          ]
+        }
+      },
+      "platforms": [
+        "local"
+      ],
+      "pair": [
+        {
+          "id": "list_devices",
+          "template": "list_devices",
+          "navigation": {
+            "next": "add_devices"
+          }
+        },
+        {
+          "id": "add_devices",
+          "template": "add_devices"
+        }
+      ],
+      "images": {
+        "small": "/drivers/somfy-alarm/assets/images/small.png",
+        "large": "/drivers/somfy-alarm/assets/images/large.png",
+        "xlarge": "/drivers/somfy-alarm/assets/images/xlarge.png"
+      },
+      "settings": [
+        {
+          "id": "poll_interval",
+          "type": "number",
+          "label": {
+            "en": "Fallback resync interval (seconds)",
+            "fr": "Intervalle de resynchronisation de secours (secondes)"
+          },
+          "hint": {
+            "en": "State changes arrive instantly over Somfy's live event stream; this is only a safety net that re-reads the truth in case the stream was down. Read-only — nothing here ever arms, disarms, or triggers the alarm.",
+            "fr": "Les changements d'état arrivent instantanément via le flux d'événements Somfy ; ceci n'est qu'un filet de sécurité qui relit l'état au cas où le flux serait tombé. Lecture seule — rien ici n'arme, ne désarme ni ne déclenche l'alarme."
+          },
+          "value": 900,
+          "min": 60,
+          "max": 3600,
+          "units": {
+            "en": "s",
+            "fr": "s"
+          }
+        }
+      ]
     }
   ],
   "brandColor": "#00A6A6",
@@ -717,6 +802,10 @@
     "testImou": {
       "method": "POST",
       "path": "/imou/test"
+    },
+    "testSomfy": {
+      "method": "POST",
+      "path": "/somfy/test"
     }
   },
   "capabilities": {
@@ -1625,6 +1714,129 @@
             "filter": "capabilities=alarm_offline"
           }
         ]
+      },
+      {
+        "id": "somfy_armed",
+        "title": {
+          "en": "Alarm was armed",
+          "fr": "L'alarme a été activée"
+        },
+        "titleFormatted": {
+          "en": "[[device]] was armed",
+          "fr": "[[device]] a été activée"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "capabilities=homealarm_state"
+          }
+        ]
+      },
+      {
+        "id": "somfy_disarmed",
+        "title": {
+          "en": "Alarm was disarmed",
+          "fr": "L'alarme a été désactivée"
+        },
+        "titleFormatted": {
+          "en": "[[device]] was disarmed",
+          "fr": "[[device]] a été désactivée"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "capabilities=homealarm_state"
+          }
+        ]
+      },
+      {
+        "id": "somfy_night",
+        "title": {
+          "en": "Alarm switched to night mode",
+          "fr": "L'alarme est passée en mode nuit"
+        },
+        "titleFormatted": {
+          "en": "[[device]] switched to night mode",
+          "fr": "[[device]] est passée en mode nuit"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "capabilities=homealarm_state"
+          }
+        ]
+      },
+      {
+        "id": "somfy_state_changed",
+        "title": {
+          "en": "Alarm state changed",
+          "fr": "L'état de l'alarme a changé"
+        },
+        "titleFormatted": {
+          "en": "[[device]] state changed",
+          "fr": "L'état de [[device]] a changé"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "capabilities=homealarm_state"
+          }
+        ],
+        "tokens": [
+          {
+            "name": "state",
+            "type": "string",
+            "title": {
+              "en": "State",
+              "fr": "État"
+            },
+            "example": "armed"
+          }
+        ]
+      },
+      {
+        "id": "somfy_alarm_triggered",
+        "title": {
+          "en": "Alarm was triggered",
+          "fr": "L'alarme s'est déclenchée"
+        },
+        "titleFormatted": {
+          "en": "[[device]] was triggered",
+          "fr": "[[device]] s'est déclenchée"
+        },
+        "hint": {
+          "en": "The siren/panic status reported by Somfy became active.",
+          "fr": "Le statut sirène/panique remonté par Somfy est devenu actif."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "capabilities=alarm_generic"
+          }
+        ]
+      },
+      {
+        "id": "somfy_alarm_cleared",
+        "title": {
+          "en": "Alarm stopped being triggered",
+          "fr": "L'alarme a cessé d'être déclenchée"
+        },
+        "titleFormatted": {
+          "en": "[[device]] stopped being triggered",
+          "fr": "[[device]] a cessé d'être déclenchée"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "capabilities=alarm_generic"
+          }
+        ]
       }
     ],
     "conditions": [
@@ -1860,6 +2072,69 @@
             "name": "device",
             "type": "device",
             "filter": "capabilities=alarm_offline"
+          }
+        ]
+      },
+      {
+        "id": "somfy_state_is",
+        "title": {
+          "en": "Alarm state !{{is|is not}}",
+          "fr": "L'état de l'alarme !{{est|n'est pas}}"
+        },
+        "titleFormatted": {
+          "en": "[[device]] state !{{is|is not}} [[level]]",
+          "fr": "L'état de [[device]] !{{est|n'est pas}} [[level]]"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "capabilities=homealarm_state"
+          },
+          {
+            "name": "level",
+            "type": "dropdown",
+            "values": [
+              {
+                "id": "armed",
+                "title": {
+                  "en": "Armed",
+                  "fr": "Activée"
+                }
+              },
+              {
+                "id": "disarmed",
+                "title": {
+                  "en": "Disarmed",
+                  "fr": "Désactivée"
+                }
+              },
+              {
+                "id": "partially_armed",
+                "title": {
+                  "en": "Night mode",
+                  "fr": "Mode nuit"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "somfy_is_triggered",
+        "title": {
+          "en": "Alarm !{{is|is not}} triggered",
+          "fr": "L'alarme !{{est|n'est pas}} déclenchée"
+        },
+        "titleFormatted": {
+          "en": "[[device]] !{{is|is not}} triggered",
+          "fr": "[[device]] !{{est|n'est pas}} déclenchée"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "capabilities=alarm_generic"
           }
         ]
       }

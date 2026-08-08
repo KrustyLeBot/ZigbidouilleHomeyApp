@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Wall alarm panel: rounded bezel + shield emblem + status LED. -->
+  <rect x="10" y="10" width="44" height="44" rx="8" fill="#F3F4F6" stroke="#374151" stroke-width="2.5"/>
+  <polygon points="19,20 32,14 45,20 45,32 32,50 19,32" fill="#0EA6A6"/>
+  <circle cx="48" cy="18" r="2.6" fill="#22C55E"/>
+</svg>

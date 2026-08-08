@@ -519,3 +519,114 @@ the user asks to adopt more Imou devices later — their switches are unprobed.
 probe) rather than an error or a `0`. Read as "no reading available right
 now" (solar charging in progress, most likely) and skipped — writing a bare
 `0` in that case would show as "flat" on the tile for no reason.
+
+---
+
+## Somfy Protect home alarm (driver `somfy-alarm`)
+
+> **Status: read-only, confirmed live 2026-08-08.** No public developer API
+> exists — this talks to the same backend the phone app uses, reverse-engineered
+> by the community (`Minims/somfy-protect-api`, `Minims/SomfyProtect2MQTT`,
+> `jay-d-tyler/homebridge-somfy-protect`). See `lib/somfy-client.js` for the
+> endpoints and OAuth details. Deliberately never arms, disarms, or triggers
+> the alarm — see `lib/somfy-alarm-device.js` for why.
+
+### A Guest-role account is enough to read status
+
+The reference projects recommend an "owner" secondary account so the
+integration can also control the alarm. This app never controls it, only
+reads `GET /v3/site`, and that worked fine with a **Guest**-role secondary
+account created for this purpose — least-privilege, on purpose: if that
+account's credentials ever leak, it cannot arm or disarm the real alarm.
+
+### `security_level` values, confirmed against the real app
+
+| Somfy `security_level` | Somfy Protect app | Homey `homealarm_state` |
+|---|---|---|
+| `disarmed` | Off | `disarmed` |
+| `partial` | **Night mode** — confirmed live: activating night mode in the app flipped `security_level` from `disarmed` to `partial` | `partially_armed` |
+| `armed` | Away (documented, not yet separately observed live) | `armed` |
+
+`alarm.status` (`"none"` at rest) is presumed to be where a triggered
+siren/SOS shows, separately from `security_level` — the `/v3/site/{id}/panic`
+endpoint the reference clients use to trigger it is a distinct action, not a
+fourth arming state. Not yet observed with a real triggered alarm; revisit if
+`alarm.status` turns out to carry a different value than expected when it
+finally happens for real, since the whole `alarm_generic` capability rests on
+that field meaning what it looks like it means.
+
+### There IS a live event websocket — polling is only a safety net
+
+`wss://websocket.myfox.io/events/websocket?token=<access_token>` — the same
+OAuth token as the REST API, passed as a **query parameter** (so that URL is a
+credential: log the host only, never the full URL). This is what Somfy's own
+phone app uses.
+
+Confirmed live 2026-08-08 with `probe/somfy/listen.js`, across three real
+state changes made from the phone app:
+
+```
+20:33:31 OPEN
+         { "key": "websocket.connection.ready" }
+20:34:24 { "key": "security.level.change",
+           "site_id": "51c7a48a…",           <- matches GET /v3/site
+           "security_level": "disarmed" }
+         … "partial" and "disarmed" again on two further toggles
+```
+
+Latency was about a second. `site_id` is present on every event and matches
+the REST site id, which is what makes routing to the right device possible —
+worth checking rather than assuming, since `lib/somfy-events.js` drops any
+event without it and the failure would have been silent (state only refreshing
+at the fallback poll).
+
+Event keys this app acts on: `security.level.change` (carries
+`security_level` directly), `alarm.trespass` / `alarm.panic` (triggered),
+`alarm.end` (cleared). Everything else on the stream is video/device/presence
+traffic for hardware not adopted here.
+
+Timings taken from SomfyProtect2MQTT rather than guessed: ping every 15s,
+ping timeout 10s, idle-close 1800s, reconnect 5s (this app backs off 5s→60s
+instead — a persistent failure usually means Somfy is unhappy, and hammering
+an unofficial API through that is the wrong reflex).
+
+**An expired token is rejected outright**, not tolerated: the server replies
+`{"key":"websocket.error.token"}` (and a bare-text frame of the same string)
+then closes with code `3000 unauthorized`. Hit this by accident on the first
+connection attempt with a 4-minute-stale cached token, which validated the
+refresh-and-reconnect path before it ever shipped. The one rate limit the
+reference projects document is on the **token endpoint** — hence the token
+persistence in `lib/somfy-account.js`, and hence the fallback poll being 15
+minutes rather than aggressive.
+
+### The websocket owns `alarm_generic`, not the poll
+
+Two sources describe a triggered siren and they are not equally trustworthy.
+The websocket keys (`alarm.trespass`, `alarm.panic`, `alarm.end`) are named
+unambiguously and come from the same stream whose `security.level.change` was
+confirmed live. The REST `site.alarm.status` field has only ever been seen
+holding `"none"` — its behaviour during a real siren is a guess.
+
+Letting the 15-minute fallback poll write `alarm_generic` from that guess
+creates the worst possible failure: a real alarm raised by an event gets
+silently cleared at the next poll, firing a false `somfy_alarm_cleared` while
+the siren is still going — and that trigger is exactly what a user would wire
+to a Homey Critical Alert. So the poll only touches `alarm_generic` when
+`somfy-events.isConnected()` is false. `homealarm_state` has no such caveat
+(its REST field is confirmed) and is resynced on every poll.
+
+### `[[device]]` in titleFormatted requires a `capabilities=` filter, not `driver_id=`
+
+Every trigger/condition card here initially used `driver_id=somfy-alarm` (the
+pattern the Devialet driver uses) with `[[device]]` in `titleFormatted`, and
+`homey app validate` rejected it: `Invalid [[device]] in
+flow.conditions['somfy_state_is'].titleFormatted.en`. Isolated by trimming
+`titleFormatted` down to literally `"[[device]]"` alone — still failed, so the
+problem was the device arg's filter, not the surrounding text. Devialet's own
+`driver_id=` cards never put `[[device]]` in their `titleFormatted` (checked:
+`devialet_set_source` reads "Set the source to [[source]]", no device token),
+so that combination was never actually exercised anywhere else in this app.
+Switching every Somfy card to `capabilities=homealarm_state` /
+`capabilities=alarm_generic` (the pattern already proven throughout the Imou
+and vacuum cards) fixed it immediately. Worth remembering before reaching for
+`driver_id=` on any future card that also needs `[[device]]`.

@@ -33,7 +33,17 @@
     "imou_test": "Tester la connexion",
     "imou_testing": "Connexion au cloud Imou...",
     "imou_test_ok": "Connecté — {{count}} caméra(s) visibles sur ce compte.",
-    "imou_test_fail": "Échec : "
+    "imou_test_fail": "Échec : ",
+    "tab_somfy": "Somfy",
+    "somfy_intro": "Identifiants pour l'alarme Somfy Protect — une API cloud NON OFFICIELLE, obtenue par rétro-ingénierie (il n'existe pas de portail développeur public). Utilise un compte Somfy Protect SECONDAIRE créé pour cet usage (dans l'app, Paramètres > ajouter un utilisateur), jamais ton compte principal : crée-le, invite-le, accepte l'invitation une fois, puis renseigne son email et son mot de passe ici. Cette app n'arme, ne désarme et ne déclenche jamais l'alarme — elle ne fait que lire l'état, un compte au rôle Invité suffit donc.",
+    "somfy_email": "Email",
+    "somfy_password": "Mot de passe",
+    "somfy_save": "Enregistrer",
+    "somfy_saved": "Enregistré.",
+    "somfy_test": "Tester la connexion",
+    "somfy_testing": "Connexion au cloud Somfy...",
+    "somfy_test_ok": "Connecté — {{count}} site(s) visibles sur ce compte.",
+    "somfy_test_fail": "Échec : "
   },
   "unreachable": "Le robot ne répond pas",
   "pair": {
@@ -66,5 +76,9 @@
   "devialet": {
     "unreachable": "Système Devialet injoignable",
     "source_unavailable": "Cette source n'est pas disponible actuellement (enceinte éteinte ou groupe reconfiguré)."
+  },
+  "somfy": {
+    "not_configured": "Renseigne l'email et le mot de passe du compte Somfy dans les réglages de l'app (onglet Somfy) d'abord.",
+    "unreachable": "L'alarme ne répond pas"
   }
 }

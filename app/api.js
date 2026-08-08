@@ -6,6 +6,7 @@
 const errlog = require('./lib/errlog');
 const { ImouClient } = require('./lib/imou-client');
 const { rememberHost } = require('./lib/imou-account');
+const { getClient: getSomfyClient } = require('./lib/somfy-account');
 
 // Every miIO vacuum driver. Listing them explicitly rather than hardcoding one:
 // the raw log used to reach only the X20+, so a paired Vacuum 5 recorded its
@@ -126,6 +127,21 @@ module.exports = {
       const api = new ImouClient({ appId, appSecret, host });
       const devices = await api.devices();
       return { ok: true, count: devices.length, host };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  },
+
+  // Backs the "Test connection" button on the settings page's Somfy tab. Reads
+  // whatever was just saved, same reasoning as testImou above — the secret
+  // never travels through this endpoint's own body/logs.
+  async testSomfy({ homey }) {
+    const api = getSomfyClient(homey);
+    if (!api) return { ok: false, error: homey.__('somfy.not_configured') };
+
+    try {
+      const sites = await api.getSites();
+      return { ok: true, count: sites.length };
     } catch (err) {
       return { ok: false, error: err.message };
     }
