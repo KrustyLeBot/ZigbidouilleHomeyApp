@@ -969,17 +969,6 @@
       "uiComponent": null,
       "insights": true
     },
-    "evt_mopping": {
-      "type": "boolean",
-      "title": {
-        "en": "Vacuuming and mopping",
-        "fr": "Aspiration et lavage"
-      },
-      "getable": true,
-      "setable": false,
-      "uiComponent": null,
-      "insights": true
-    },
     "evt_returning_wash": {
       "type": "boolean",
       "title": {
@@ -1272,6 +1261,17 @@
       "getable": true,
       "setable": false,
       "uiComponent": "sensor",
+      "insights": true
+    },
+    "evt_mopping": {
+      "type": "boolean",
+      "title": {
+        "en": "Vacuuming and mopping",
+        "fr": "Aspiration et lavage"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": null,
       "insights": true
     }
   },

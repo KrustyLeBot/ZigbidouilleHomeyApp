@@ -56,7 +56,6 @@
   },
   "state": {
     "cleaning": "Nettoyage en cours",
-    "mopping": "Aspiration et lavage",
     "recharging": "Recharge mi-nettoyage",
     "paused_cleaning": "Nettoyage en pause",
     "returning": "Retour à la base",
@@ -71,7 +70,8 @@
     "idle": "Au repos",
     "unknown": "Inconnu",
     "error_returning": "Bloqué en retour à la base",
-    "error": "Erreur"
+    "error": "Erreur",
+    "mopping": "Aspiration et lavage"
   },
   "devialet": {
     "unreachable": "Système Devialet injoignable",

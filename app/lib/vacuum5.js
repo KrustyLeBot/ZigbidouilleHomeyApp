@@ -101,13 +101,28 @@ function read(values) {
     battery: values.battery,
     charging: values.charging,
     activity: values.task,
+    // Drives isFinishing() — the only reliable "the job is over" signal here.
+    stationMode: readStationMode(values.station),
     // 2/6 counts hundredths of a square metre; the capability is in m2.
     cleanArea: typeof values.area === 'number' ? values.area / 100 : undefined,
   };
 }
 
+// POSITIVE match, deliberately — "anything that is not NONE" is wrong here.
+//
+// 2/3 is not a pure task field: it is an event-code channel that also carries
+// faults. Observed 2026-08-10 at 17:34:43, seconds after a completed run:
+// task=210030 with fault=[210030], the same code in both. Under the old
+// "!== NONE" rule that error read as "a job is pending", which made
+// isJobDone() false and would have swallowed the next real completion.
+//
+// The trade-off is known: a task code we have never seen (a room clean, say)
+// would read as "no task". That is survivable because the mid-clean mop wash —
+// the case that made this field necessary at all — reports status 7 (STATION),
+// which is not a dock status, so isJobDone() stays false through it on the
+// status alone. Verified across three full logged runs.
 function hasPendingTask(activityRaw) {
-  return activityRaw !== undefined && activityRaw !== ACTIVITY.NONE;
+  return activityRaw === ACTIVITY.PENDING;
 }
 
 function isCleaning(status) {
@@ -166,9 +181,24 @@ function toState(status, activityRaw, chargingRaw) {
       // them, so the state stays honest rather than guessing.
       return 'station';
     case STATUS.PAUSED:
-      // A robot sitting ON the dock while reporting paused went back to
-      // recharge mid-job and resumes on its own — it must not read as an
-      // interruption, or every top-up notifies and flows relaunch the clean.
+      // 2/3 is an event-code channel, not just a task field, and a code that is
+      // neither NONE nor PENDING is the robot asking for something. Confirmed
+      // 2026-08-10: it docked mid-clean at 29 m² reporting paused + charging +
+      // code 210030, and the Xiaomi app showed "clean water level low" — the
+      // run cannot continue until the tank is refilled by hand.
+      //
+      // Reading that as 'recharging' was wrong twice over: the robot is not
+      // topping up its battery to resume, and nothing announces that it needs
+      // help. 'error' puts it in STUCK_STATES, so the stuck notification fires
+      // with the fault code as a token after the usual confirm delay.
+      //
+      // A first look at that same row concluded the code was harmless, because
+      // the app had not surfaced the alert yet at the time it was checked.
+      if (activityRaw !== ACTIVITY.NONE && activityRaw !== ACTIVITY.PENDING) return 'error';
+
+      // Genuinely paused on the dock with nothing to report: a mid-clean top-up
+      // that resumes by itself. Must not read as an interruption, or every
+      // recharge notifies and flows relaunch the clean.
       if (chargingRaw === CHARGING.ON_DOCK) return 'recharging';
       return 'paused_cleaning';
     case STATUS.DOCKED:
@@ -216,6 +246,44 @@ const STATE_EVENT = {
   unknown: 'evt_unknown',
 };
 
+// 2/18, reported as a JSON string: { mode, runtime, total_time }.
+// Only the drying mode is named, because it is the only one whose meaning is
+// established. Mode 3 is the mop wash (seen both mid-clean and at the dock),
+// mode 2 a brief step on arrival, mode 0 nothing — none of them load-bearing.
+const STATION_DRYING = 1;
+
+function readStationMode(value) {
+  if (typeof value === 'number') return value;
+  try {
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+    return parsed && typeof parsed.mode === 'number' ? parsed.mode : undefined;
+  } catch (err) {
+    return undefined;
+  }
+}
+
+// The robot's own "the job is over" signal, and the answer to a problem no
+// amount of status-reading could solve.
+//
+// At the moment this model reaches its dock, a finished clean and a mid-clean
+// stop are IDENTICAL: same status, same 2/3 code, same frozen area. Nothing
+// distinguishes them yet. A timer cannot bridge that either — a real mid-clean
+// recharge lasts 20-30 minutes, so any window long enough to exclude one is
+// absurd, and any window short enough to be useful gets cancelled by an alert
+// like the empty water tank (observed 2026-08-10: docked 17:34:13, water alert
+// 17:34:43, which wiped a completion that was entirely legitimate).
+//
+// Drying settles it. Across three logged runs the station reaches mode 1 only
+// once the whole job is done, and holds it ~45 min; the mid-clean mop rinses
+// use mode 3 and never mode 1. Confirmed live by the owner watching the robot
+// dry while this read mode 1.
+//
+// KNOWN GAP: a vacuum-only run has no mop to dry, so this would never fire.
+// Every run logged so far has the mop fitted; revisit when that changes.
+function isFinishing(stationMode) {
+  return stationMode === STATION_DRYING;
+}
+
 // States the robot cannot leave on its own, each with a trigger card of the
 // same name — the card is looked up BY state id, so these strings and the card
 // ids in app.json must stay identical.
@@ -239,6 +307,8 @@ module.exports = {
   STATE_NAMES,
   STATE_EVENT,
   STUCK_STATES,
+  STATION_DRYING,
+  isFinishing,
   read,
   readFault,
   toState,

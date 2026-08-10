@@ -168,7 +168,7 @@ class MiioVacuumDevice extends Homey.Device {
     errlog.info(`${this.getName()}: ${context}`, message);
   }
 
-  async update({ status, battery, charging, activity, cleanArea }) {
+  async update({ status, battery, charging, activity, cleanArea, stationMode }) {
     const profile = this.profile;
 
     if (typeof battery === 'number') {
@@ -249,27 +249,54 @@ class MiioVacuumDevice extends Homey.Device {
     // Must run every poll - see the comment on the method.
     this.updateStuckNotification(state);
 
+    // Checked on EVERY poll, before the "status changed" gate: on a profile
+    // with a confirm delay this is a question of elapsed time, and gating it on
+    // a transition would mean the deadline is only ever tested at the instant
+    // the robot arrives — which is precisely when it cannot yet be answered.
+    await this.checkCompletion(status, activity, stationMode);
+
     if (!changed || previous === null) return; // first poll: adopt without firing flows
 
     await this.fireTriggers(state);
+  }
 
-    // A clean is finished once the robot is back on the dock with no task left.
-    // A mid-clean recharge cannot land here, and neither can a mop wash, which
-    // docks with the task still pending. Same edge freezes last_cleaned_area.
-    // The cleanedThisCycle guard stays: without it the robot's nightly dock
-    // wandering (leaves and returns without cleaning) would fire every time.
-    if (profile.isJobDone(status, activity) && this.cleanedThisCycle) {
-      this.cleanedThisCycle = false;
-      await this.toggleEvent('evt_completed');
-      // Report the area that was just frozen, not the live one - vacuum_clean_area
-      // has already been forced to 0 by the time the robot reads as docked.
-      await this.homey.flow
-        .getDeviceTriggerCard('task_completed')
-        .trigger(this, {
-          battery: this.getCapabilityValue('measure_battery') || 0,
-          area: this.getCapabilityValue('last_cleaned_area') || 0,
-        })
-        .catch(this.error);
+  // A clean is finished once the robot is back on the dock with no task left.
+  // A mop wash cannot land here — it docks with the task still pending.
+  //
+  // Some robots cannot say that much at the dock: on the Vacuum 5 a finished
+  // job and a mid-clean stop look identical on arrival. Such a profile supplies
+  // isFinishing(), the robot's own end-of-job signal, and the completion waits
+  // for it. A profile without one (the X20+, whose 4/7 is reliable) fires on
+  // arrival exactly as before.
+  //
+  // The cleanedThisCycle guard stays either way: without it the robot's nightly
+  // dock wandering (leaves and returns without cleaning) would fire every time.
+  async checkCompletion(status, activity, stationMode) {
+    const profile = this.profile;
+
+    if (!this.cleanedThisCycle) return;
+    if (!profile.isJobDone(status, activity)) return;
+    if (profile.isFinishing && !profile.isFinishing(stationMode)) return;
+
+    this.cleanedThisCycle = false;
+    await this.toggleEvent('evt_completed');
+
+    // Report the area that was frozen on arrival, not the live one —
+    // vacuum_clean_area has already been forced to 0 by the time the robot
+    // reads as docked.
+    //
+    // Failures are logged rather than swallowed: this used to end in a bare
+    // .catch(this.error), so a rejected trigger left the timeline showing
+    // "cleaning finished" while the flow card never ran, with nothing anywhere
+    // to say why.
+    try {
+      await this.homey.flow.getDeviceTriggerCard('task_completed').trigger(this, {
+        battery: this.getCapabilityValue('measure_battery') || 0,
+        area: this.getCapabilityValue('last_cleaned_area') || 0,
+      });
+    } catch (err) {
+      this.error('task_completed trigger', err);
+      errlog.add(`${this.getName()}: task_completed trigger failed`, err);
     }
   }
 

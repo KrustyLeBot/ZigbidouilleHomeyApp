@@ -56,7 +56,6 @@
   },
   "state": {
     "cleaning": "Cleaning",
-    "mopping": "Vacuuming and mopping",
     "recharging": "Recharging mid-clean",
     "paused_cleaning": "Cleaning paused",
     "returning": "Returning to dock",
@@ -71,7 +70,8 @@
     "idle": "Idle",
     "unknown": "Unknown",
     "error_returning": "Blocked returning to dock",
-    "error": "Error"
+    "error": "Error",
+    "mopping": "Vacuuming and mopping"
   },
   "devialet": {
     "unreachable": "Devialet system unreachable",
