@@ -42,7 +42,19 @@ const OFFLINE_CODES = new Set(['DV1007', 'DV1004', 'SN000']);
 // the battery read decoupled below, comes out to roughly 23,000 calls/month —
 // leaving margin for writes, pairing and manual probing without going anywhere
 // near the free tier's ceiling. Reducing this multiplies call volume directly.
+//
+// This constant is NOT what a paired device actually polls at — `poll_interval`
+// in app.json is, and this only serves as a fallback for a device with no
+// setting stored. The two silently disagreed once: the manifest still shipped
+// the original 300 s while this said 1200, so every camera polled four times
+// faster than every comment, README and doc claimed, at ~3,000 calls/day for 5
+// cameras — the whole monthly quota in ten days. Change both together, or the
+// number here is fiction.
 const DEFAULT_POLL_SECONDS = 1200;
+
+// The 300 s the manifest used to ship. Only used to recognise a device paired
+// before that fix, see migratePollInterval().
+const LEGACY_POLL_SECONDS = 300;
 const FAILURES_BEFORE_UNAVAILABLE = 3;
 
 // Battery drains slowly by nature (these are the solar Cell PTs), so reading
@@ -81,6 +93,7 @@ class ImouCameraDevice extends Homey.Device {
     registerCamera(this.deviceId());
 
     await this.migrateCapabilities();
+    await this.migratePollInterval();
     this.registerSwitchCapabilities();
 
     this.poll();
@@ -113,6 +126,34 @@ class ImouCameraDevice extends Homey.Device {
         }
       }
     }
+  }
+
+  // Raising the manifest default only helps cameras paired AFTER the change:
+  // Homey copies a driver's settings into the device at pair time and never
+  // revisits them, so the ones already paired would keep polling every 300 s
+  // for good. Bump those once.
+  //
+  // Guarded by a store flag rather than by the value alone, so a user who
+  // deliberately sets 300 s back — accepting the quota cost — is not silently
+  // overridden again on the next app restart. Only the exact old default is
+  // touched: any other value is a choice someone made, and stays.
+  async migratePollInterval() {
+    if (this.getStoreValue('poll_interval_migrated')) return;
+    if (Number(this.getSetting('poll_interval')) === LEGACY_POLL_SECONDS) {
+      try {
+        await this.setSettings({ poll_interval: DEFAULT_POLL_SECONDS });
+        this.note(
+          'poll interval raised',
+          `${LEGACY_POLL_SECONDS}s -> ${DEFAULT_POLL_SECONDS}s to stay inside the Imou free quota`,
+        );
+      } catch (err) {
+        // Leave the flag unset so the next restart tries again.
+        this.error('migrate poll_interval', err);
+        errlog.add('migrate poll_interval', err);
+        return;
+      }
+    }
+    await this.setStoreValue('poll_interval_migrated', true).catch(() => {});
   }
 
   // The manual toggle on the device tile IS registerCapabilityListener — a

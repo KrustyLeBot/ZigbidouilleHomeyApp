@@ -472,6 +472,36 @@ calls/month, leaving headroom for writes, pairing, and manual probing without
 threatening the free tier. Lowering `poll_interval` multiplies call volume
 directly; the account has no slack to spare for a much shorter one.
 
+#### The default lives in `app.json`, not in the constant next to the comment
+
+`DEFAULT_POLL_SECONDS` in `lib/imou-camera-device.js` is only a fallback for a
+device with no stored setting — which, for a driver that declares
+`poll_interval` in its manifest, is never. The device polls at whatever
+`app.json` says.
+
+The two disagreed for a while: the constant (and this document, and the README)
+said 1200 s while the manifest still shipped the original **300 s**, so the real
+rate was four times the documented one — about **3,000 calls/day** for 5
+cameras, i.e. the entire 30,000/month quota in **ten days**. It was invisible
+from the code, because every comment describing the cost was written against the
+constant.
+
+Per-camera per-cycle cost, to recompute after any change:
+
+| | Ranger 2C | Cell PT ×4 |
+|---|---|---|
+| `getDeviceCameraStatus` | 1 (`closeCamera`) | 2 each (`closeCamera`, `mobileDetect`) |
+| `getDevicePowerInfo` | — | 1 every 6th cycle |
+| `deviceBaseDetailList` | 1 per cycle, shared by all 5 | |
+
+= 10.67 calls/cycle for the 5. Times 72 cycles/day (1200 s) = **~770/day**;
+times 288 (300 s) = **~3,070/day**. `accessToken` is negligible: the token lasts
+3 days and is cached.
+
+Raising the manifest default fixes new pairings only — Homey copies settings
+into a device at pair time — so `migratePollInterval()` bumps already-paired
+cameras once, and only those still sitting on the exact old 300 s.
+
 ### No per-camera push-notification switch exists
 
 The Imou Life phone app clearly has one (per-camera, in each camera's

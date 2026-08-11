@@ -614,10 +614,10 @@
             "fr": "Fréquence de lecture (secondes)"
           },
           "hint": {
-            "en": "How often the camera's switches are read from the Imou cloud. Lower = faster flows, more of the daily call budget spent.",
-            "fr": "Fréquence de lecture des interrupteurs de la caméra depuis le cloud Imou. Plus bas = flows plus réactifs, plus de quota d'appels quotidien consommé."
+            "en": "How often the camera's switches are read from the Imou cloud. The free account allows 30,000 calls per MONTH for all cameras together, so lowering this multiplies call volume directly: 20 min is about 23,000/month across 5 cameras, 5 min is about 92,000.",
+            "fr": "Fréquence de lecture des interrupteurs de la caméra depuis le cloud Imou. Le compte gratuit autorise 30 000 appels par MOIS pour toutes les caméras réunies, donc baisser cette valeur multiplie d'autant le volume : 20 min correspond à environ 23 000/mois pour 5 caméras, 5 min à environ 92 000."
           },
-          "value": 300,
+          "value": 1200,
           "min": 60,
           "max": 3600,
           "units": {
@@ -673,10 +673,10 @@
             "fr": "Fréquence de lecture (secondes)"
           },
           "hint": {
-            "en": "How often the camera's switches and battery are read from the Imou cloud. Lower = faster flows, more of the daily call budget spent.",
-            "fr": "Fréquence de lecture des interrupteurs et de la batterie depuis le cloud Imou. Plus bas = flows plus réactifs, plus de quota d'appels quotidien consommé."
+            "en": "How often the camera's switches and battery are read from the Imou cloud. The free account allows 30,000 calls per MONTH for all cameras together, so lowering this multiplies call volume directly: 20 min is about 23,000/month across 5 cameras, 5 min is about 92,000.",
+            "fr": "Fréquence de lecture des interrupteurs et de la batterie depuis le cloud Imou. Le compte gratuit autorise 30 000 appels par MOIS pour toutes les caméras réunies, donc baisser cette valeur multiplie d'autant le volume : 20 min correspond à environ 23 000/mois pour 5 caméras, 5 min à environ 92 000."
           },
-          "value": 300,
+          "value": 1200,
           "min": 60,
           "max": 3600,
           "units": {

@@ -175,8 +175,10 @@ to the developer account automatically, and the phone app keeps working.
 The free account allows **30,000 API calls per month for the whole account** —
 not the 20,000/day several secondary sources claim. Hence the 20-minute default
 poll, the batched online check shared between cameras, and the battery read
-happening every 6th cycle. Lowering `poll_interval` multiplies call volume
-directly.
+happening every 6th cycle: together that is roughly **770 calls a day** for five
+cameras, about 23,000 a month. Lowering `poll_interval` multiplies call volume
+directly — at 5 minutes the same five cameras spend the entire monthly quota in
+ten days.
 
 ### Somfy Protect alarm (`somfy-alarm`) · cloud, read-only
 
