@@ -2,13 +2,24 @@
 
 ## One-time setup
 
-The CLI version must match the Node version — mismatching them breaks every
-command, including `--version`:
+The CLI is an npm global package, and **which version to install depends on the
+Node version** — mismatching them breaks every command, including `--version`,
+so check first:
 
-| Node | CLI | why |
-|------|-----|-----|
-| >= 24 | `homey` (4.x) | `homey-api` requires Node >= 24 |
-| 22 | `homey@3` | v4 throws `ERR_REQUIRE_ESM` on every command |
+```powershell
+node --version
+```
+
+| Node | install | why |
+|------|---------|-----|
+| >= 24 | `npm install -g homey` (4.x) | `homey-api` requires Node >= 24 |
+| 22 | `npm install -g homey@3` | v4 throws `ERR_REQUIRE_ESM` on every command |
+
+No Node at all: [nodejs.org](https://nodejs.org/), 24 LTS.
+
+If `homey` is still "not recognized" right after installing, reopen the
+terminal: npm puts its global binaries in `%AppData%\npm` and adds that to the
+PATH, but shells already open do not pick it up.
 
 On Node 22, the "Update available 3.x → 4.x" banner is a trap: npm only warns
 about the engine mismatch and installs anyway. Roll back with
