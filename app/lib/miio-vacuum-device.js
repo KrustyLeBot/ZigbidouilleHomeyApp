@@ -234,7 +234,7 @@ class MiioVacuumDevice extends Homey.Device {
       this.cleanedThisCycle = true;
     }
 
-    const state = profile.toState(status, activity, charging);
+    const state = profile.toState(status, activity, charging, stationMode);
     this.noteUnknownStatus(state, status, activity);
     await this.setCapabilityValue('vacuum_status', state).catch(() => {});
 
@@ -289,11 +289,20 @@ class MiioVacuumDevice extends Homey.Device {
     // .catch(this.error), so a rejected trigger left the timeline showing
     // "cleaning finished" while the flow card never ran, with nothing anywhere
     // to say why.
+    const area = this.getCapabilityValue('last_cleaned_area') || 0;
+
+    // Logged on SUCCESS too, not just on failure. Only failures were traced
+    // before, which left the one question that mattered unanswerable: a flow
+    // that does not run looks identical whether the trigger was fired and
+    // Homey ignored it, or it was never fired at all. One INFO line per
+    // completed clean settles it — the flow either ran in the same second, or
+    // the problem is on Homey's side of the call.
     try {
       await this.homey.flow.getDeviceTriggerCard('task_completed').trigger(this, {
         battery: this.getCapabilityValue('measure_battery') || 0,
-        area: this.getCapabilityValue('last_cleaned_area') || 0,
+        area,
       });
+      this.note('task_completed fired', `${area} m2 — flow card triggered`);
     } catch (err) {
       this.error('task_completed trigger', err);
       errlog.add(`${this.getName()}: task_completed trigger failed`, err);

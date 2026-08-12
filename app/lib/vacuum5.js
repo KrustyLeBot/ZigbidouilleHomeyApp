@@ -154,7 +154,7 @@ function isJobDone(status, activityRaw) {
   return DOCK_STATUSES.includes(status) && !hasPendingTask(activityRaw);
 }
 
-function toState(status, activityRaw, chargingRaw) {
+function toState(status, activityRaw, chargingRaw, stationMode) {
   switch (status) {
     case STATUS.CLEANING:
       return 'cleaning';
@@ -203,6 +203,12 @@ function toState(status, activityRaw, chargingRaw) {
       return 'paused_cleaning';
     case STATUS.DOCKED:
     case STATUS.CHARGING:
+      // Drying takes ~45 minutes of that dock time and the status does not
+      // mention it — only the station mode does. Without this the tile read
+      // "Sur la base, chargé" for the whole cycle, which was wrong twice over:
+      // the robot is busy, and it is charging (78% -> 100% across the run
+      // logged 2026-08-12), not charged.
+      if (isFinishing(stationMode)) return 'drying';
       // On the dock either way; the pending task says whether the run is over.
       return hasPendingTask(activityRaw) ? 'charging' : 'docked';
     default:
@@ -221,6 +227,7 @@ const STATE_NAMES = {
   error: 'error',
   returning: 'returning to dock',
   washing: 'washing the mop',
+  drying: 'drying the mop',
   washing_final: 'washing the mop',
   station: 'preparing at the station',
   charging: 'charging',
@@ -239,6 +246,7 @@ const STATE_EVENT = {
   error: 'evt_error',
   returning: 'evt_returning',
   washing: 'evt_washing',
+  drying: 'evt_drying',
   washing_final: 'evt_washing',
   station: 'evt_station',
   charging: 'evt_charging',

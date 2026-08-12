@@ -485,6 +485,7 @@
         "evt_paused_cleaning",
         "evt_returning",
         "evt_washing",
+        "evt_drying",
         "evt_charging",
         "evt_docked",
         "evt_station",
