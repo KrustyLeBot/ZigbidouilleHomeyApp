@@ -2,6 +2,7 @@
 
 const { CLUSTER } = require('zigbee-clusters');
 const ZigbidouilleDevice = require('../../lib/zigbee-device');
+const PowerHistory = require('../../lib/power-history');
 
 // Shelly EM Gen4 — one Zigbee node, three Homey devices:
 //   root      -> channel 1 metering (measure_power + meter_power)
@@ -118,6 +119,14 @@ class ShellyEmGen4Device extends ZigbidouilleDevice {
       }
 
       await this.applyCumulative();
+
+      // Per-minute power history backing the dashboard widget. Metering
+      // channels only — the relay sub-device has no measure_power to record.
+      if (this.hasCapability('measure_power')) {
+        this.powerHistory = new PowerHistory(this);
+        await this.powerHistory.start();
+      }
+
       this.debugNote('init: done', `cumulative=${Boolean(this.getSetting('cumulative'))}`);
     } catch (err) {
       // Never rethrow: a failed mapping must not make the device (or the whole
@@ -129,7 +138,19 @@ class ShellyEmGen4Device extends ZigbidouilleDevice {
   // Logged so a device that disappears from the network leaves a trace, which
   // is the symptom being chased with the dry contact.
   async onDeleted() {
+    if (this.powerHistory) this.powerHistory.stop();
     this.note('deleted', 'device removed from Homey');
+  }
+
+  // Timers are Homey-managed, but stopping them here keeps a reloaded app from
+  // running two samplers against the same device.
+  async onUninit() {
+    if (this.powerHistory) this.powerHistory.stop();
+  }
+
+  // Read by the dashboard widget's api.js.
+  getPowerHistory() {
+    return this.powerHistory ? this.powerHistory.toJSON() : null;
   }
 
   // NOTE: there is no way for a device to rename itself in Homey SDK v3 —

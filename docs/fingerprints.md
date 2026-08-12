@@ -554,12 +554,24 @@ now" (solar charging in progress, most likely) and skipped — writing a bare
 
 ## Somfy Protect home alarm (driver `somfy-alarm`)
 
-> **Status: read-only, confirmed live 2026-08-08.** No public developer API
-> exists — this talks to the same backend the phone app uses, reverse-engineered
-> by the community (`Minims/somfy-protect-api`, `Minims/SomfyProtect2MQTT`,
+> **Status: read + write, both confirmed live** — read since 2026-08-08, write
+> (arm/disarm/night mode) since 2026-08-12, all three states confirmed working
+> against the real Guest account. No public developer API exists — this talks
+> to the same backend the phone app uses, reverse-engineered by the community
+> (`Minims/somfy-protect-api`, `Minims/SomfyProtect2MQTT`,
 > `jay-d-tyler/homebridge-somfy-protect`). See `lib/somfy-client.js` for the
-> endpoints and OAuth details. Deliberately never arms, disarms, or triggers
-> the alarm — see `lib/somfy-alarm-device.js` for why.
+> endpoints and OAuth details. Arms, disarms and switches night mode — from
+> the device tile's alarm-panel widget or the `somfy_set_state` flow action —
+> see `lib/somfy-alarm-device.js`.
+>
+> **The write body field is `status`, not `security_level`.** `GET /v3/site`
+> answers with a `security_level` field (that's what `STATE_MAP` reads), but
+> `PUT /v3/site/{id}/security` reads a *different* field name on the way in —
+> confirmed by `Minims/somfy-protect-api`'s `update_security_level()`
+> (`{"status": level.lower()}`), and confirmed the hard way: the first attempt
+> sent `security_level` in the body by symmetry with the read side, got a live
+> "unknown error" reply from Somfy, and every account permission checked out
+> fine — the account was never the problem, the field name was.
 
 ### Use a Guest-role secondary account — but know what that does and does not buy
 

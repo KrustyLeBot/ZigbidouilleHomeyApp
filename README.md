@@ -50,7 +50,7 @@ identifiers are English; only the display names are translated.
 | Devialet Phantom (single or stereo system) | `devialet` | LAN (HTTP) |
 | Imou Ranger 2C | `imou-ranger2c` | cloud |
 | Imou Cell PT | `imou-cellpt` | cloud |
-| Somfy Protect alarm | `somfy-alarm` | cloud, read-only |
+| Somfy Protect alarm | `somfy-alarm` | cloud |
 
 The Zigbee identity, MIoT field map or API surface of every one of them is
 written down in [docs/fingerprints.md](docs/fingerprints.md) — including the
@@ -86,6 +86,47 @@ the capability when the meter actually answers.
 The split into three devices is deliberate — Homey's `cumulative` flag is
 per-device, so two clamps needing different cumulative settings cannot share
 one.
+
+**Dashboard widget** — "Shelly power (today)"
+(`app/widgets/shelly-energy`) draws the day's consumption as **one bar per
+minute** across a fixed 24 h axis, with today's kWh in the top-left corner and
+the live wattage top-right. Pick which channel it shows in the widget's own
+settings; add it twice to watch both.
+
+The history has two sources, in
+[app/lib/power-history.js](app/lib/power-history.js):
+
+1. **Backfill at startup** — the part of today that happened before the app
+   started is reconstructed from Homey's Insights.
+2. **Live sampling** every minute from the capability value.
+
+The app's own `homey.insights` is *not* the way in: its `getLog(id)` takes a
+lowercase-alphanumeric id and only returns logs the app itself created. A
+device capability's log belongs to Homey core and is reachable only through
+the Web API — which is why this app carries **`homey:manager:api`**. That
+permission reads as "full access to Homey" at install time, and it also means
+a longer review if the app is ever published.
+
+Keeping a per-minute record on top of that is still worth it: Insights
+downsamples, so the recorder holds 1440 full-resolution slots for the day,
+persists them to the device store, and rolls over at local midnight. Today's
+kWh is a **delta against the meter's own cumulative total** — re-baselined
+from Insights to the reading at 00:00 — not a sum this app accumulates, so it
+survives restarts without drifting.
+
+Power is sampled on a timer rather than only on Zigbee report, and the
+backfill forward-fills between Insights points, because power is a level, not
+an event: a minute with no report means the load is unchanged, not that the
+data is missing.
+
+Every device id involved goes through
+[app/lib/device-uuid.js](app/lib/device-uuid.js), which **discovers** Homey's
+device UUID on the instance rather than reading a documented property — the
+Apps SDK does not expose one, and assuming `device.id` silently yielded
+`undefined` (see the comment there before reaching for it again).
+
+Widgets require Homey firmware **>=12.3.0** (12.1.0 for widgets themselves,
+12.3.0 for the device picker), which is now the app's `compatibility` floor.
 
 ### Philips Hue Dimmer Switch v3 — RWL022 (`hue-dimmer-v3`) · Zigbee
 
@@ -180,27 +221,31 @@ cameras, about 23,000 a month. Lowering `poll_interval` multiplies call volume
 directly — at 5 minutes the same five cameras spend the entire monthly quota in
 ten days.
 
-### Somfy Protect alarm (`somfy-alarm`) · cloud, read-only
+### Somfy Protect alarm (`somfy-alarm`) · cloud
 
 Reports the alarm's state (`disarmed` / `partially_armed` / `armed`) and whether
 it is currently triggered, with flow triggers on every change — so arming the
 house can close the camera shutters, and a trespass event can drive anything
-Homey can reach.
+Homey can reach. It can also **arm, disarm and switch night mode**, straight
+from the device tile's alarm-panel widget (a one-tap button, works well on a
+dashboard) or from a `somfy_set_state` flow action card.
 
-**Read-only on purpose.** This app never arms, disarms or triggers the alarm. It
-talks to the same backend the phone app does, through an unofficial API
-reverse-engineered by the community, and that is not something to put in charge
-of a physical security system.
+It talks to the same backend the phone app does, through an unofficial API
+reverse-engineered by the community — worth knowing, since that is not
+something to put in charge of a physical security system without understanding
+what it rides on.
 
 Use a **secondary account with the Guest role**, created for this purpose, in
-**Settings → Somfy** — never the login that guards your front door. Note what
-that does and does not protect: a Guest **can** arm and disarm (Somfy intends
-it to, guests need to switch the alarm off when they come in). What it cannot
-do is remove devices, change the site configuration or manage users, which is
-the real reason to prefer it.
+**Settings → Somfy** — never the login that guards your front door. Guest is
+enough for everything this driver does, including arming and disarming (Somfy
+intends it to: guests need to switch the alarm off when they come in). What it
+cannot do is remove devices, change the site configuration or manage users,
+which is the real reason to prefer it over an "owner" secondary account.
 
 State arrives over Somfy's own **websocket** in about a second; the 15-minute
-poll is a resync safety net for a dropped message, not the mechanism.
+poll is a resync safety net for a dropped message, not the mechanism. A write
+from Homey updates the tile optimistically and is normally confirmed by the
+same websocket a second or two later.
 
 ## Why it exists
 
@@ -223,8 +268,7 @@ why the Devialet gets a tile per system instead of per speaker.
 And sometimes the control simply does not exist locally. The Imou privacy
 shutter and the Somfy alarm state have no local protocol at all, so those two
 drivers go through the vendor cloud — stated plainly rather than pretended
-away, and kept to the smallest surface that does the job (the Somfy driver
-never writes anything).
+away.
 
 ## Adopting a new device (the short version)
 
@@ -253,7 +297,9 @@ shared plumbing — logging, verbose switch, settings — is the same.
 
 ## Requirements
 
-- Homey Pro (SDK 3, local platform); a built-in Zigbee radio for the Zigbee
+- Homey Pro (SDK 3, local platform, firmware **>=12.3.0** — required for the
+  dashboard widget's device picker, and applies to the whole app since
+  `compatibility` is set app-wide); a built-in Zigbee radio for the Zigbee
   drivers.
 - Zigbee devices physically in range during pairing; LAN devices reachable on
   the network (each vacuum also needs a fixed IP and its miIO token).
@@ -291,6 +337,8 @@ app/                       the Homey app
   lib/
     errlog.js              rolling log shared by every driver, persisted, verbose-aware
     zigbee-device.js       Zigbee base class (capability migration, node dump, logging)
+    power-history.js       per-minute power recorder + Insights backfill (widget)
+    device-uuid.js         discovers Homey's device UUID — the SDK exposes none
     philips-hue-cluster.js Philips 0xFC00 cluster — not shipped by zigbee-clusters
     miio-client.js         miIO client: UDP handshake + AES-128 (both vacuums)
     miio-vacuum-device.js  shared vacuum device: poll loop, state machine, triggers
@@ -308,7 +356,7 @@ app/                       the Homey app
     somfy-client.js        unofficial Somfy Protect HTTPS client (OAuth, GET /v3/site)
     somfy-account.js       shared credentials + persisted token
     somfy-events.js        the Somfy websocket: live events, ping, backoff
-    somfy-alarm-device.js  the alarm device — read-only by design
+    somfy-alarm-device.js  the alarm device — reports state and can arm/disarm/night-mode it
   drivers/
     co-hs720es/            Heiman HS-720ES CO detector          — zigbee
     shelly-em-gen4/        Shelly EM Gen4, 3 sub-devices        — zigbee
@@ -318,9 +366,11 @@ app/                       the Homey app
     devialet/              Devialet Phantom, one tile per system — lan (HTTP)
     imou-ranger2c/         Imou Ranger 2C                       — cloud
     imou-cellpt/           Imou Cell PT                         — cloud
-    somfy-alarm/           Somfy Protect alarm, read-only       — cloud
+    somfy-alarm/           Somfy Protect alarm                  — cloud
   locales/                 en.json / fr.json
   settings/                5 tabs: log · Zigbee dump · raw miIO log · Imou · Somfy
+  widgets/
+    shelly-energy/         dashboard widget — today's Shelly power per minute + kWh
 probe/                     standalone scripts — talk to a device without Homey
   env.js                   shared .env loader: PREFIX_IP / PREFIX_TOKEN, never printed
   x20plus/ vacuum5/        miIO tooling: watch live, scan properties, list actions

@@ -21,13 +21,12 @@
 // login: same principle as every other credential in this app — dedicated,
 // revocable, never the thing that also guards the front door in person.
 //
-// Guest is enough for the read-only use here, and limits what leaked
-// credentials could do to the installation (no removing devices, no changing
-// the site, no managing users). It does NOT stop them arming or disarming —
-// Somfy lets every guest do that on purpose, since guests have to be able to
-// switch the alarm off when they walk in. The reference projects suggest an
-// "owner" secondary account because they also control the alarm; this one
-// never does.
+// Guest is enough for everything this driver does, including arming and
+// disarming — Somfy lets every guest do that on purpose, since guests have to
+// be able to switch the alarm off when they walk in. It still limits what
+// leaked credentials could do to the installation: no removing devices, no
+// changing the site, no managing users. That's the real reason to prefer it
+// over the "owner" secondary account some reference projects suggest.
 
 const https = require('https');
 const querystring = require('querystring');
@@ -234,8 +233,14 @@ class SomfyClient {
     return this.call('GET', `/v3/site/${siteId}`);
   }
 
+  // The body field is `status`, not `security_level` — this app's own
+  // GET /v3/site returns `security_level`, but the reference PUT client
+  // (Minims/somfy-protect-api, update_security_level()) uses `status`. Using
+  // `security_level` here got a real 2026-08-12 "unknown error" reply from
+  // Somfy: the field they read for a write is not the field they answer with
+  // for a read.
   async setSecurityLevel(siteId, level) {
-    return this.call('PUT', `/v3/site/${siteId}/security`, { security_level: level });
+    return this.call('PUT', `/v3/site/${siteId}/security`, { status: level });
   }
 
   // 'mode' per the reference clients: 'silent' or 'alarm'. Whether this is

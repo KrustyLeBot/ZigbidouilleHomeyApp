@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <!-- No /homey.js include here: unlike the settings page, the widget host
+         injects `Homey`/`onHomeyReady` itself (as does the CLI's own widget
+         template, which omits it too). -->
+    <style>
+      :root {
+        color-scheme: light dark;
+        --fg: #1a1a1a;
+        --fg-dim: #767676;
+        --grid: rgba(0, 0, 0, 0.10);
+        --future: rgba(0, 0, 0, 0.05);
+        --bar: #00A6A6;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --fg: #f2f2f2;
+          --fg-dim: #9a9a9a;
+          --grid: rgba(255, 255, 255, 0.14);
+          --future: rgba(255, 255, 255, 0.06);
+        }
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0; padding: 0; height: 100%;
+        font-family: -apple-system, system-ui, sans-serif;
+        color: var(--fg);
+        background: transparent;
+        overflow: hidden;
+      }
+      #wrap { position: relative; width: 100%; height: 100%; }
+
+      #head {
+        position: absolute; top: 10px; left: 12px; right: 12px; z-index: 2;
+        display: flex; align-items: baseline; justify-content: space-between;
+        line-height: 1.15; pointer-events: none;
+      }
+      #kwhValue { font-size: 22px; font-weight: 700; }
+      #kwhUnit { font-size: 12px; font-weight: 500; color: var(--fg-dim); margin-left: 3px; }
+      #name { font-size: 11px; color: var(--fg-dim); margin-top: 2px; }
+      #now { font-size: 12px; color: var(--fg-dim); text-align: right; }
+
+      canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+      #empty {
+        position: absolute; inset: 0; display: none; align-items: center;
+        justify-content: center; font-size: 12px; color: var(--fg-dim);
+        text-align: center; padding: 0 24px;
+      }
+    </style>
+  </head>
+  <body class="homey-widget">
+    <div id="wrap">
+      <div id="head">
+        <div>
+          <div><span id="kwhValue">–</span><span id="kwhUnit">kWh</span></div>
+          <div id="name"></div>
+        </div>
+        <div id="now"></div>
+      </div>
+      <canvas id="chart"></canvas>
+      <div id="empty"></div>
+    </div>
+
+    <script type="text/javascript">
+      function onHomeyReady(Homey) {
+        // Signal readiness immediately — the API calls below are async and
+        // must not gate it, or a slow first load reads as a broken widget.
+        Homey.ready();
+
+        const headEl = document.getElementById('head');
+        const kwhValueEl = document.getElementById('kwhValue');
+        const nameEl = document.getElementById('name');
+        const nowEl = document.getElementById('now');
+        const emptyEl = document.getElementById('empty');
+        const canvas = document.getElementById('chart');
+        const ctx = canvas.getContext('2d');
+
+        const TOP = 46;      // headroom for the kWh overlay
+        const BOTTOM = 14;   // room for the hour labels
+        let deviceId = null;
+
+        function showEmpty(message) {
+          emptyEl.textContent = message;
+          emptyEl.style.display = 'flex';
+          canvas.style.display = 'none';
+          headEl.style.display = 'none';
+        }
+
+        function showChart() {
+          emptyEl.style.display = 'none';
+          canvas.style.display = 'block';
+          headEl.style.display = 'flex';
+        }
+
+        function css(name, fallback) {
+          const value = getComputedStyle(document.documentElement)
+            .getPropertyValue(name).trim();
+          return value || fallback;
+        }
+
+        // One bar per recorded minute, placed at its real time of day: the
+        // x axis is always the full 24 h, so a day fills in left-to-right
+        // instead of stretching a handful of samples across the widget.
+        function drawChart(points) {
+          const dpr = window.devicePixelRatio || 1;
+          const width = canvas.clientWidth;
+          const height = canvas.clientHeight;
+          canvas.width = width * dpr;
+          canvas.height = height * dpr;
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          ctx.clearRect(0, 0, width, height);
+
+          const plotHeight = height - TOP - BOTTOM;
+          const baseline = height - BOTTOM;
+
+          const now = new Date();
+          const nowX = ((now.getHours() * 60 + now.getMinutes()) / 1440) * width;
+
+          // Shade the part of the day that has not happened yet. Without it a
+          // chart at 23:00 (everything bunched at the right edge) is hard to
+          // tell from one where the axis simply ends at "now" — the axis is
+          // always the full day, and this is what says so.
+          ctx.fillStyle = css('--future', 'rgba(127,127,127,0.07)');
+          ctx.fillRect(nowX, TOP, width - nowX, plotHeight);
+
+          // Hour gridlines every 6 h, drawn even with no data so an empty
+          // early-morning widget still looks like a chart.
+          ctx.strokeStyle = css('--grid', 'rgba(0,0,0,0.1)');
+          ctx.fillStyle = css('--fg-dim', '#767676');
+          ctx.font = '9px -apple-system, system-ui, sans-serif';
+          ctx.lineWidth = 1;
+          for (let hour = 0; hour <= 24; hour += 6) {
+            const x = (hour / 24) * width;
+            ctx.beginPath();
+            ctx.moveTo(x, TOP);
+            ctx.lineTo(x, baseline);
+            ctx.stroke();
+            if (hour < 24) {
+              ctx.textAlign = hour === 0 ? 'left' : 'center';
+              ctx.fillText(`${hour}h`, hour === 0 ? 2 : x, height - 3);
+            }
+          }
+
+          if (!points.length) return;
+
+          // Floor of 100 W so a quiet day does not amplify noise into peaks.
+          const max = Math.max(100, ...points.map((p) => p[1]));
+          const barWidth = Math.max(1, width / 1440);
+
+          ctx.fillStyle = css('--bar', '#00A6A6');
+          points.forEach(([minute, watts]) => {
+            const barHeight = Math.max(1, (watts / max) * plotHeight);
+            ctx.fillRect((minute / 1440) * width, baseline - barHeight, barWidth, barHeight);
+          });
+
+          // "Now" marker, drawn last so it sits above the bars.
+          ctx.strokeStyle = css('--fg-dim', '#767676');
+          ctx.setLineDash([2, 3]);
+          ctx.beginPath();
+          ctx.moveTo(nowX, TOP);
+          ctx.lineTo(nowX, baseline);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        async function load() {
+          try {
+            const path = deviceId
+              ? `/today?device=${encodeURIComponent(deviceId)}`
+              : '/today';
+            const result = await Homey.api('GET', path);
+
+            if (!result || result.error === 'no_device') {
+              showEmpty('No Shelly channel paired');
+              return;
+            }
+            if (result.error === 'device_gone') {
+              // The picker's id matched no paired channel. The app log records
+              // the ids that were compared — see Settings → Log.
+              showEmpty('Selected device not found — see the app log');
+              return;
+            }
+            if (result.error === 'no_history') {
+              showEmpty('Waiting for the first reading…');
+              return;
+            }
+            if (result.error) {
+              showEmpty(result.message || 'Unavailable');
+              return;
+            }
+
+            showChart();
+            kwhValueEl.textContent = typeof result.kwh === 'number'
+              ? result.kwh.toFixed(2)
+              : '–';
+            nameEl.textContent = result.name || '';
+            nowEl.textContent = typeof result.power === 'number'
+              ? `${Math.round(result.power)} W`
+              : '';
+
+            drawChart(result.points || []);
+          } catch (err) {
+            showEmpty('Could not reach the app');
+          }
+        }
+
+        async function init() {
+          // The device the user picked in the widget's own settings. Falls
+          // back to the first metered channel so the widget still shows
+          // something if the picker was never set.
+          try {
+            const ids = await Homey.getDeviceIds();
+            if (Array.isArray(ids) && ids.length) deviceId = ids[0];
+          } catch (err) {
+            deviceId = null;
+          }
+
+          await load();
+          window.setInterval(load, 60000);
+          window.addEventListener('resize', load);
+        }
+
+        init();
+      }
+    </script>
+  </body>
+</html>

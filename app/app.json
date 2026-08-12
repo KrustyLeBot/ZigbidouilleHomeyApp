@@ -1,7 +1,7 @@
 {
   "id": "com.jerome.zigbidouille",
-  "version": "1.0.1",
-  "compatibility": ">=5.0.0",
+  "version": "1.1.0",
+  "compatibility": ">=12.3.0",
   "sdk": 3,
   "platforms": [
     "local"
@@ -18,7 +18,9 @@
     "tools",
     "appliances"
   ],
-  "permissions": [],
+  "permissions": [
+    "homey:manager:api"
+  ],
   "images": {
     "small": "/assets/images/small.png",
     "large": "/assets/images/large.png",
@@ -708,7 +710,7 @@
       ],
       "capabilitiesOptions": {
         "homealarm_state": {
-          "setable": false,
+          "setable": true,
           "values": [
             {
               "id": "armed",
@@ -764,8 +766,8 @@
             "fr": "Intervalle de resynchronisation de secours (secondes)"
           },
           "hint": {
-            "en": "State changes arrive instantly over Somfy's live event stream; this is only a safety net that re-reads the truth in case the stream was down. Read-only — nothing here ever arms, disarms, or triggers the alarm.",
-            "fr": "Les changements d'état arrivent instantanément via le flux d'événements Somfy ; ceci n'est qu'un filet de sécurité qui relit l'état au cas où le flux serait tombé. Lecture seule — rien ici n'arme, ne désarme ni ne déclenche l'alarme."
+            "en": "State changes arrive instantly over Somfy's live event stream; this is only a safety net that re-reads the truth in case the stream was down.",
+            "fr": "Les changements d'état arrivent instantanément via le flux d'événements Somfy ; ceci n'est qu'un filet de sécurité qui relit l'état au cas où le flux serait tombé."
           },
           "value": 900,
           "min": 60,
@@ -807,6 +809,34 @@
     "testSomfy": {
       "method": "POST",
       "path": "/somfy/test"
+    }
+  },
+  "widgets": {
+    "shelly-energy": {
+      "id": "shelly-energy",
+      "name": {
+        "en": "Shelly power (today)",
+        "fr": "Puissance Shelly (jour)"
+      },
+      "height": 220,
+      "settings": [],
+      "devices": {
+        "type": "app",
+        "singular": true,
+        "filter": {
+          "capabilities": "measure_power"
+        }
+      },
+      "api": {
+        "getChannels": {
+          "method": "GET",
+          "path": "/channels"
+        },
+        "getToday": {
+          "method": "GET",
+          "path": "/today"
+        }
+      }
     }
   },
   "capabilities": {
@@ -2408,6 +2438,55 @@
         "titleFormatted": {
           "en": "Turn off motion detection on [[device]]",
           "fr": "Désactiver la détection de mouvement sur [[device]]"
+        }
+      },
+      {
+        "id": "somfy_set_state",
+        "title": {
+          "en": "Set the alarm state",
+          "fr": "Changer l'état de l'alarme"
+        },
+        "hint": {
+          "en": "Arms, disarms, or switches the alarm to night mode. Sent through the same Guest-role account used to read the state — see Settings → Somfy.",
+          "fr": "Active, désactive, ou passe l'alarme en mode nuit. Envoyé via le même compte rôle Invité utilisé pour lire l'état — voir Réglages → Somfy."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "capabilities=homealarm_state"
+          },
+          {
+            "name": "state",
+            "type": "dropdown",
+            "values": [
+              {
+                "id": "armed",
+                "title": {
+                  "en": "Armed",
+                  "fr": "Activée"
+                }
+              },
+              {
+                "id": "partially_armed",
+                "title": {
+                  "en": "Night mode",
+                  "fr": "Mode nuit"
+                }
+              },
+              {
+                "id": "disarmed",
+                "title": {
+                  "en": "Disarmed",
+                  "fr": "Désactivée"
+                }
+              }
+            ]
+          }
+        ],
+        "titleFormatted": {
+          "en": "Set [[device]] to [[state]]",
+          "fr": "Régler [[device]] sur [[state]]"
         }
       }
     ]

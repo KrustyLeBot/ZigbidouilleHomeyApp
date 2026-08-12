@@ -35,7 +35,7 @@
     "imou_test_ok": "Connecté — {{count}} caméra(s) visibles sur ce compte.",
     "imou_test_fail": "Échec : ",
     "tab_somfy": "Somfy",
-    "somfy_intro": "Identifiants pour l'alarme Somfy Protect — une API cloud NON OFFICIELLE, obtenue par rétro-ingénierie (il n'existe pas de portail développeur public). Utilise un compte Somfy Protect SECONDAIRE créé pour cet usage (dans l'app, Paramètres > ajouter un utilisateur), jamais ton compte principal : crée-le, invite-le, accepte l'invitation une fois, puis renseigne son email et son mot de passe ici. Cette app n'arme, ne désarme et ne déclenche jamais l'alarme — elle ne fait que lire l'état : donne donc le rôle Invité à ce compte, il ne pourra ni supprimer de périphérique ni modifier ton installation. (Il peut toujours armer et désarmer — Somfy l'autorise à tous les invités.)",
+    "somfy_intro": "Identifiants pour l'alarme Somfy Protect — une API cloud NON OFFICIELLE, obtenue par rétro-ingénierie (il n'existe pas de portail développeur public). Utilise un compte Somfy Protect SECONDAIRE créé pour cet usage (dans l'app, Paramètres > ajouter un utilisateur), jamais ton compte principal : crée-le, invite-le, accepte l'invitation une fois, puis renseigne son email et son mot de passe ici. Donne le rôle Invité à ce compte : il peut toujours armer, désarmer et passer en mode nuit (ce que cette app utilise, depuis la tuile de l'appareil ou un flow), mais il ne peut ni supprimer de périphérique, ni modifier ton installation, ni gérer les utilisateurs.",
     "somfy_email": "Email",
     "somfy_password": "Mot de passe",
     "somfy_save": "Enregistrer",

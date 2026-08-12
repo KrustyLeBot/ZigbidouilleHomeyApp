@@ -1,19 +1,21 @@
 'use strict';
 
-// The Somfy Protect alarm — READ ONLY, deliberately. This app never arms,
-// disarms, or triggers the user's real home alarm; it only displays state and
-// fires flow triggers on change, so a flow can react (e.g. drive the Imou
-// cameras). See lib/somfy-client.js for why: it is an unofficial,
-// reverse-engineered API, and this is a physical security system, not a
-// toggle — the user chose to keep control out of scope rather than let this
-// app be the thing that (mis)arms or disarms their house.
+// The Somfy Protect alarm. Displays state and fires flow triggers on change,
+// AND can arm/disarm/switch to night mode — both from the device tile's
+// standard alarm-panel widget (homealarm_state is setable) and from a flow
+// action card (somfy_set_state in app.json). See lib/somfy-client.js for the
+// API this rides on: it is unofficial and reverse-engineered, so a write here
+// is only ever sent through the Guest-role secondary account configured in
+// Settings → Somfy — never the primary login, and Guest cannot touch site
+// config or users even if the credentials leaked.
 //
 // Unlike the Imou cameras, this device does NOT depend on polling to notice a
 // change: Somfy pushes `security.level.change` and the alarm.* events over a
-// websocket (lib/somfy-events.js), so arming from the phone app reaches Homey
-// in about a second. The poll below is a slow safety net, not the mechanism —
-// it re-reads the truth in case the socket dropped a message or was down
-// during a change, which a purely event-driven design would never notice.
+// websocket (lib/somfy-events.js), so arming from the phone app — or from this
+// app itself — reaches Homey in about a second. The poll below is a slow
+// safety net, not the mechanism — it re-reads the truth in case the socket
+// dropped a message or was down during a change, which a purely event-driven
+// design would never notice.
 
 const Homey = require('homey');
 const errlog = require('./errlog');
@@ -39,6 +41,13 @@ const STATE_MAP = {
   partial: 'partially_armed',
 };
 
+// The other direction, for writes: Homey's enum value -> Somfy's raw level.
+const REVERSE_STATE_MAP = {
+  disarmed: 'disarmed',
+  armed: 'armed',
+  partially_armed: 'partial',
+};
+
 // capability -> trigger card id, fired only on an actual change (see
 // applyState below) — the same "toggle on entry, not every poll" discipline
 // as everywhere else state changes are logged in this app.
@@ -57,6 +66,10 @@ class SomfyAlarmDevice extends Homey.Device {
     // Bound once so unsubscribe() can remove this exact function on delete.
     this.onEvent = (event) => this.handleEvent(event);
     subscribe(this.homey, this.siteId(), this.onEvent);
+
+    // The tile's alarm-panel widget calls this the same way a flow action
+    // does (setSecurityLevel below) — one code path for both.
+    this.registerCapabilityListener('homealarm_state', (value) => this.setSecurityLevel(value));
 
     this.poll();
     this.startPolling();
@@ -98,6 +111,24 @@ class SomfyAlarmDevice extends Homey.Device {
   note(context, message) {
     this.log(context, message);
     errlog.info(`${this.getName()}: ${context}`, message);
+  }
+
+  // Called by both the tile's alarm-panel widget (registerCapabilityListener
+  // above) and the somfy_set_state flow action — same as every other
+  // manual-vs-flow write in this app, one path either way.
+  async setSecurityLevel(state) {
+    const level = REVERSE_STATE_MAP[state];
+    if (!level) throw new Error(`unsupported homealarm_state "${state}"`);
+
+    const api = this.client();
+    await api.setSecurityLevel(this.siteId(), level);
+    this.note('security level set', `requested "${state}" (raw="${level}")`);
+
+    // Optimistic: applyState only writes/triggers on an actual change, so if
+    // the websocket's confirmation (usually ~1s later) already landed first
+    // this is a no-op. Done so the tile does not lag a full 900s poll behind
+    // a write that plainly succeeded.
+    await this.applyState(level);
   }
 
   async poll() {

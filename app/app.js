@@ -107,10 +107,10 @@ class ZigbidouilleApp extends Homey.App {
       .registerRunListener(({ device }) => !device.getCapabilityValue('alarm_offline'));
   }
 
-  // Somfy Protect alarm (drivers/somfy-alarm). Read-only, deliberately — see
-  // lib/somfy-alarm-device.js. State-change triggers fire straight from the
-  // device on a poll that finds a new value; only the conditions need a
-  // listener registered here.
+  // Somfy Protect alarm (drivers/somfy-alarm). Can arm/disarm/night-mode it —
+  // see lib/somfy-alarm-device.js. State-change triggers fire straight from
+  // the device on a poll/event that finds a new value; only the conditions
+  // and the somfy_set_state action need a listener registered here.
   registerSomfyFlows() {
     this.homey.flow
       .getConditionCard('somfy_state_is')
@@ -119,6 +119,10 @@ class ZigbidouilleApp extends Homey.App {
     this.homey.flow
       .getConditionCard('somfy_is_triggered')
       .registerRunListener(({ device }) => Boolean(device.getCapabilityValue('alarm_generic')));
+
+    this.homey.flow
+      .getActionCard('somfy_set_state')
+      .registerRunListener(({ device, state }) => device.setSecurityLevel(state));
   }
 }
 
