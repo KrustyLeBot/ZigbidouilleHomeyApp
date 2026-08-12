@@ -87,18 +87,39 @@ The split into three devices is deliberate — Homey's `cumulative` flag is
 per-device, so two clamps needing different cumulative settings cannot share
 one.
 
-**Dashboard widget** — "Shelly power (today)"
-(`app/widgets/shelly-energy`) draws the day's consumption as **one bar per
-minute** across a fixed 24 h axis, with today's kWh in the top-left corner and
-the live wattage top-right. Pick which channel it shows in the widget's own
+**Dashboard widget** — "Shelly energy (today)"
+(`app/widgets/shelly-energy`) shows **one figure**: the energy imported since
+local midnight, in kWh. Pick which channel it shows in the widget's own
 settings; add it twice to watch both.
 
-The history has two sources, in
-[app/lib/power-history.js](app/lib/power-history.js):
+It used to draw a per-minute bar chart of the day. That is gone, along with the
+1440-slot recorder that fed it — the number is what was wanted, and keeping a
+sample per minute per channel in the device store to draw it was the tail
+wagging the dog.
 
-1. **Backfill at startup** — the part of today that happened before the app
-   started is reconstructed from Homey's Insights.
-2. **Live sampling** every minute from the capability value.
+Today's kWh is a **delta against the meter's own cumulative total**, never a sum
+this app accumulates: an accumulator drifts, and it restarts at zero on every
+reinstall. So the only thing [app/lib/energy-today.js](app/lib/energy-today.js)
+has to know is the meter reading as it stood at 00:00, and it gets that from
+three places, in order:
+
+1. **The device store**, if the saved reading is from today — this is what
+   survives an app restart or a CLI reinstall, and it is the usual case.
+2. **Homey's Insights**, through the Web API — the only way to learn the 00:00
+   reading of a day that is already underway (a fresh pair, or a store that was
+   wiped). This is what stops the widget from reading `0.00` for the rest of the
+   day after a mid-afternoon reinstall.
+3. **The meter right now** — wrong, but wrong in the obvious direction: the
+   figure starts at 0 and climbs. The widget labels itself *since install* while
+   this is the case, rather than passing a partial total off as the day's, and it
+   keeps asking Insights every 10 minutes until one of them answers.
+
+**A cold start is not midnight.** Both leave "the stored day is not today", and
+treating them alike is what made the widget read ~0.00 after a reinstall: the
+baseline was marked a *certain* 00:00 reading, so the Insights lookup was skipped
+and never even logged. Crossing midnight while running means the meter right now
+IS the 00:00 value; starting with an empty store means it is a guess. Only the
+previous day being known separates the two.
 
 The app's own `homey.insights` is *not* the way in: its `getLog(id)` takes a
 lowercase-alphanumeric id and only returns logs the app itself created. A
@@ -107,17 +128,46 @@ the Web API — which is why this app carries **`homey:manager:api`**. That
 permission reads as "full access to Homey" at install time, and it also means
 a longer review if the app is ever published.
 
-Keeping a per-minute record on top of that is still worth it: Insights
-downsamples, so the recorder holds 1440 full-resolution slots for the day,
-persists them to the device store, and rolls over at local midnight. Today's
-kWh is a **delta against the meter's own cumulative total** — re-baselined
-from Insights to the reading at 00:00 — not a sum this app accumulates, so it
-survives restarts without drifting.
+That one permission is *all* it needs, including for Insights: `homey:manager:api`
+is what lets the app call `homey.api.getOwnerApiToken()`, and the owner token
+carries every scope, `homey.insights.readonly` among them. Nothing extra is
+declared or prompted for — and a CLI-installed app is never prompted at all,
+since the permission dialog belongs to the App Store install flow.
 
-Power is sampled on a timer rather than only on Zigbee report, and the
-backfill forward-fills between Insights points, because power is a level, not
-an event: a minute with no report means the load is unchanged, not that the
-data is missing.
+**The spec and the firmware disagree about the log id.** The shipped `homey-api`
+spec says a log's `id` is a plain UUID with the device in `ownerUri`. Read on a
+real Homey Pro (firmware 12.x), the ids are `homey:device:<uuid>:<capability>`
+and `ownerId` holds the bare capability id. So the id is **resolved** from
+`insights.getLogs()` and matched — by capability id first, then by unit — rather
+than trusting either shape. The one line of log this prints is the only reliable
+statement of what a given firmware returns:
+
+```
+insights — logs for device <uuid>:
+  homey:device:<uuid>:energy_power         ownerId=energy_power         units=W
+  homey:device:<uuid>:meter_power          ownerId=meter_power          units=kWh
+  homey:device:<uuid>:meter_power.exported ownerId=meter_power.exported units=kWh
+```
+
+That listing also settled what the original failure actually was, which was *not*
+the id format: the code asked for `measure_power`, and a Shelly channel has no
+such log — only `energy_power` for the watts. **"Not Found" means "no such log",
+not "wrong id"**, and reading it as the latter cost a detour.
+
+Because nothing on a log is *documented* to carry the capability id, the match
+falls back to the log's **unit** when no field names it: a metering channel has
+one `W` log and two `kWh` ones, so "kWh, and not the export register" singles out
+`meter_power`. An empty answer does not end the search either — that is exactly
+what the wrong log returns.
+
+**The stored baseline is versioned.** Not hygiene: a same-day record is by design
+never re-derived, so the one build that saved a mid-day baseline as *certain*
+would have kept showing its wrong figure through every reinstall until midnight —
+looking exactly like the bug it came from. Anything that changes what a stored
+field means bumps `STORE_VERSION`, and older records are dropped with a log line.
+
+[probe/homey/insights.js](probe/homey/insights.js) dumps the real log ids from
+outside the app, which is how the id shape was settled.
 
 Every device id involved goes through
 [app/lib/device-uuid.js](app/lib/device-uuid.js), which **discovers** Homey's
@@ -247,6 +297,21 @@ poll is a resync safety net for a dropped message, not the mechanism. A write
 from Homey updates the tile optimistically and is normally confirmed by the
 same websocket a second or two later.
 
+**Dashboard widget** — "Somfy alarm" (`app/widgets/somfy-alarm`) is the phone
+app's dial, on a Homey dashboard: a ring cut into three wedges — **away** at the
+top, **night** to the right, **off** to the left. The current state is the one
+filled in, with its name in the middle of the ring; tap either of the other two
+to switch. The tapped wedge pulses until the app confirms, and nothing else is
+tappable while a write is in flight — a second tap would race the first.
+
+While the siren is ringing, `ALARM RINGING` appears under the state name in the
+armed colour. Pick which alarm the widget drives in its own settings, the same
+way as the Shelly one.
+
+Both the read and the write go through the device, so the Guest-role account,
+the optimistic update and the error logging are the ones described above — the
+widget adds no path of its own to the alarm.
+
 ## Why it exists
 
 The Zigbee spec is standard, but device *behaviour* is not: two plugs that both
@@ -337,7 +402,7 @@ app/                       the Homey app
   lib/
     errlog.js              rolling log shared by every driver, persisted, verbose-aware
     zigbee-device.js       Zigbee base class (capability migration, node dump, logging)
-    power-history.js       per-minute power recorder + Insights backfill (widget)
+    energy-today.js        today's imported kWh + Insights 00:00 baseline (widget)
     device-uuid.js         discovers Homey's device UUID — the SDK exposes none
     philips-hue-cluster.js Philips 0xFC00 cluster — not shipped by zigbee-clusters
     miio-client.js         miIO client: UDP handshake + AES-128 (both vacuums)
@@ -370,7 +435,8 @@ app/                       the Homey app
   locales/                 en.json / fr.json
   settings/                5 tabs: log · Zigbee dump · raw miIO log · Imou · Somfy
   widgets/
-    shelly-energy/         dashboard widget — today's Shelly power per minute + kWh
+    shelly-energy/         dashboard widget — today's imported kWh, one figure
+    somfy-alarm/           dashboard widget — 3-wedge alarm dial, tap to arm/disarm
 probe/                     standalone scripts — talk to a device without Homey
   env.js                   shared .env loader: PREFIX_IP / PREFIX_TOKEN, never printed
   x20plus/ vacuum5/        miIO tooling: watch live, scan properties, list actions
@@ -378,6 +444,7 @@ probe/                     standalone scripts — talk to a device without Homey
   devialet/discover.js     mDNS + local HTTP interview
   imou/                    probe the cloud API; sweep.js diffs all 49 camera switches
   somfy/                   probe the REST API; listen.js dumps the live event socket
+  homey/insights.js        Homey's own Insights logs: real ids, and do they fetch?
 docs/fingerprints.md       every device interviewed: identity, field maps, wrong readings
 docs/Homey Notification.mp3  notification sound, for use in Flows (not used by the app)
 FINDINGS.md                everything learned by probing the real vacuum

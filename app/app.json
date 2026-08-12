@@ -815,16 +815,16 @@
     "shelly-energy": {
       "id": "shelly-energy",
       "name": {
-        "en": "Shelly power (today)",
-        "fr": "Puissance Shelly (jour)"
+        "en": "Shelly energy (today)",
+        "fr": "Énergie Shelly (jour)"
       },
-      "height": 220,
+      "height": 130,
       "settings": [],
       "devices": {
         "type": "app",
         "singular": true,
         "filter": {
-          "capabilities": "measure_power"
+          "capabilities": "meter_power"
         }
       },
       "api": {
@@ -835,6 +835,32 @@
         "getToday": {
           "method": "GET",
           "path": "/today"
+        }
+      }
+    },
+    "somfy-alarm": {
+      "id": "somfy-alarm",
+      "name": {
+        "en": "Somfy alarm",
+        "fr": "Alarme Somfy"
+      },
+      "height": 240,
+      "settings": [],
+      "devices": {
+        "type": "app",
+        "singular": true,
+        "filter": {
+          "capabilities": "homealarm_state"
+        }
+      },
+      "api": {
+        "getState": {
+          "method": "GET",
+          "path": "/state"
+        },
+        "setState": {
+          "method": "POST",
+          "path": "/state"
         }
       }
     }

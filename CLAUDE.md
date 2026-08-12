@@ -167,6 +167,87 @@ The settings page is three tabs: **Log**, **Zigbee**, **Vacuum (miIO)**.
 The log itself is persisted, so it survives the app restart that a failed
 pairing can cause.
 
+## Hard rules — dashboard widgets
+
+Two widgets so far: `shelly-energy` (one read-only figure — today's imported
+kWh) and `somfy-alarm` (a 3-wedge dial that also writes). Clone either to start a
+new one.
+
+Preview cards (`preview-light.png` / `preview-dark.png`, 512x512) are
+**screenshots of the real widget**, taken with headless Chrome against a stubbed
+`Homey` object, not drawings of it. A hand-drawn preview is free to promise
+something the widget does not do.
+
+### An Insights log id is resolved from getLogs(), never assumed
+
+The shipped spec (`homey-api/assets/specifications/HomeyAPIV3Local.json`,
+`ManagerInsights`) says a log's `id` is a plain UUID and the device lives in
+`ownerUri`. On a real Homey Pro (firmware 12.x) the ids are
+`homey:device:<uuid>:<capability>` with `ownerId` = the bare capability id. **The
+spec and the firmware disagree**, so resolve from `insights.getLogs()` and match
+(capability id first, then unit) — see `lib/energy-today.js` — and log the real
+listing, which is the only trustworthy statement of what this firmware returns.
+
+**`Not Found` means "no such log", not "wrong id shape".** The original failure
+was a request for `measure_power`, which a Shelly channel simply has no log for
+(it has `energy_power` for the watts). Reading that 404 as an id-format problem
+sent the fix in the wrong direction for a whole round.
+
+Whatever the cause, it was invisible: the failure was swallowed at
+`errlog.debug`, so the only symptom was a widget that knew nothing from before
+the app booted — indistinguishable from "there is no older data". **Anything the
+widget cannot show must be logged at INFO**, including the success case with its
+counts.
+
+`probe/homey/insights.js` dumps the real ids from outside the app.
+
+Three corollaries, each learned by shipping the wrong thing first:
+
+- **A cold start is not midnight.** "Stored day != today" covers both, and they
+  mean opposite things about whether the current meter reading is a real 00:00
+  value. Collapsing them skipped the Insights lookup entirely — silently, since
+  the skip path logged nothing.
+- **An empty answer is not the answer.** A log that exists but is the wrong one
+  returns zero entries, so an empty result must not end a search over candidate
+  ids.
+- **Version anything persisted whose fields can change meaning.** A same-day
+  baseline is deliberately never re-derived, so one build that wrote a wrong
+  value as authoritative kept it alive across every reinstall until midnight.
+  `STORE_VERSION` in `lib/energy-today.js` is what makes a bad record die with
+  the build that wrote it.
+
+### Every network step in a widget's backend needs a deadline
+
+`getOwnerApiToken()` and the Insights requests have no timeout of their own. A
+hung one produces **no log line at all** — not even the failure line — and that
+is indistinguishable from code that never ran. The first Insights fix logged
+nothing for exactly this reason. Wrap each step (`withTimeout` in
+`lib/energy-today.js`), and log one breadcrumb *before* the first call.
+
+### `homey:manager:api` is the only permission needed, and nothing prompts
+
+It is what allows `homey.api.getOwnerApiToken()`, and the owner token carries
+every scope — `homey.insights.readonly` included. There is no separate Insights
+permission to add. And a CLI-installed app never shows a permission dialog at
+all: that belongs to the App Store install flow, so "it did not ask me for
+anything" is never evidence of a missing permission.
+
+### Widgets get `Homey.api()` and `Homey.getDeviceIds()`, not `Homey.__()`
+
+No translation function reaches the widget frontend, so bilingual strings are a
+literal map keyed off `navigator.language` (see `somfy-alarm/public/index.html`).
+Do not include `/homey.js`: the widget host injects `Homey`/`onHomeyReady`
+itself, unlike the settings page.
+
+Call `Homey.ready()` **before** the first API call, never after — awaiting the
+data first makes a slow load look like a broken widget.
+
+### A widget that writes must block itself while the write is in flight
+
+The Somfy dial disables every wedge and pulses the tapped one until the app
+answers. Without that, a second tap races the first and the dial ends up
+displaying a state nobody asked for.
+
 ## Hard rules — the miIO vacuum (`x20plus`)
 
 These came from probing a real robot; the published spec for this model is for a

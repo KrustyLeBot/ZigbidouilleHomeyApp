@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <!-- No /homey.js include here: unlike the settings page, the widget host
+         injects `Homey`/`onHomeyReady` itself (as does the CLI's own widget
+         template, which omits it too). Same as the Shelly widget. -->
+    <style>
+      :root {
+        color-scheme: light dark;
+        --fg: #1a1a1a;
+        --fg-dim: #8a8a8a;
+        --armed: #F0484D;
+        --night: #6E63E8;
+        --disarmed: #22B36B;
+        /* Opacity of an arc that is NOT the current state. Light and dark need
+           different values: the same wash reads as "selected" on black. */
+        --idle: 0.40;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --fg: #f4f4f4;
+          --fg-dim: #8e8e8e;
+          --idle: 0.38;
+        }
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0; padding: 0; height: 100%;
+        font-family: -apple-system, system-ui, sans-serif;
+        color: var(--fg);
+        background: transparent;
+        overflow: hidden;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #wrap { position: relative; width: 100%; height: 100%; }
+      svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+      /* Each mode is a thin stroked arc with round caps, not a filled pie wedge:
+         the caps are what make three arcs read as one dial instead of a cut-up
+         circle. The icon sits INSIDE the ring rather than on the arc, which is
+         what lets the arc stay thin — an arc thick enough to carry a legible
+         icon looks like a bean. The tap target is a separate transparent wedge
+         spanning the whole sector, so a thin arc is still easy to hit. */
+      .slice { cursor: pointer; }
+      .arc {
+        fill: none;
+        stroke-linecap: round;
+        transition: stroke-width 160ms ease, opacity 160ms ease;
+      }
+      .hit { stroke: none; fill: transparent; }
+      .icon { transition: opacity 160ms ease; }
+
+      .slice.idle .arc { stroke-width: 11; opacity: var(--idle); }
+      .slice.idle .icon { opacity: 0.7; }
+      .slice.idle:hover .arc { opacity: calc(var(--idle) + 0.35); }
+      .slice.idle:hover .icon { opacity: 0.9; }
+
+      /* The current mode's own icon is hidden: the centre already shows it,
+         big and in colour, and two copies of the same moon is just clutter. */
+      .slice.current .icon, .slice.pending .icon { opacity: 0; }
+
+      .slice.current { cursor: default; }
+      .slice.current .arc {
+        stroke-width: 16;
+        opacity: 1;
+        /* currentColor is set per slice, so the glow is always the arc's own
+           colour. This is the whole difference between "a coloured arc" and
+           "the state this house is in". */
+        filter: drop-shadow(0 0 6px currentColor);
+      }
+
+      /* The slice the user just tapped, until the app answers. */
+      .slice.pending .arc { stroke-width: 16; opacity: 1; animation: pulse 850ms ease-in-out infinite; }
+      @keyframes pulse { 50% { opacity: 0.18; } }
+
+      /* Nothing is tappable while a write is in flight or the device is
+         unavailable — a second tap would race the first. */
+      #dial.busy .slice { pointer-events: none; }
+
+      #state {
+        font-size: 13px; font-weight: 800; letter-spacing: 1.4px;
+        text-transform: uppercase;
+      }
+      #name { font-size: 8px; font-weight: 500; fill: var(--fg-dim); letter-spacing: 0.2px; }
+      #siren {
+        font-size: 8px; font-weight: 800; letter-spacing: 1px; fill: var(--armed);
+        animation: blink 1.1s steps(1, end) infinite;
+      }
+      @keyframes blink { 50% { opacity: 0; } }
+
+      #empty {
+        position: absolute; inset: 0; display: none; align-items: center;
+        justify-content: center; font-size: 12px; color: var(--fg-dim);
+        text-align: center; padding: 0 24px;
+      }
+    </style>
+  </head>
+  <body class="homey-widget">
+    <div id="wrap">
+      <svg id="dial" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet">
+        <g id="slices"></g>
+        <g id="centreIcon"></g>
+        <text id="state" x="100" y="118" text-anchor="middle">–</text>
+        <text id="name" x="100" y="131" text-anchor="middle"></text>
+        <text id="siren" x="100" y="144" text-anchor="middle"></text>
+      </svg>
+      <div id="empty"></div>
+    </div>
+
+    <script type="text/javascript">
+      function onHomeyReady(Homey) {
+        // Signal readiness immediately — the API calls below are async and
+        // must not gate it, or a slow first load reads as a broken widget.
+        Homey.ready();
+
+        // Widgets get no `Homey.__()`, so the two languages the app ships are
+        // picked from the browser locale rather than Homey's own setting. Wrong
+        // only for a French user running an English phone, which costs nothing.
+        const fr = String(navigator.language || '').toLowerCase().startsWith('fr');
+        const T = fr
+          ? {
+            stateArmed: 'Armée', stateNight: 'Nuit', stateDisarmed: 'Désarmée',
+            unknown: 'Inconnu', siren: 'ALARME',
+            noDevice: 'Aucune alarme Somfy appairée',
+            gone: 'Alarme sélectionnée introuvable — voir le journal',
+            unavailable: 'injoignable',
+            failed: 'Échec',
+            unreachable: "Impossible de joindre l'app",
+          }
+          : {
+            stateArmed: 'Armed', stateNight: 'Night', stateDisarmed: 'Disarmed',
+            unknown: 'Unknown', siren: 'ALARM',
+            noDevice: 'No Somfy alarm paired',
+            gone: 'Selected alarm not found — see the app log',
+            unavailable: 'unreachable',
+            failed: 'Failed',
+            unreachable: 'Could not reach the app',
+          };
+
+        // Three silhouettes rather than three words: a shield, a moon, and an
+        // open padlock. Drawn on a 24x24 grid and scaled, the way icon sets do,
+        // so the same path serves the arc (small) and the centre (large).
+        const ICONS = {
+          shield: [
+            ['path', { d: 'M12 2.2 4.6 5.5v5.4c0 4.7 3 8.6 7.4 10.2 4.4-1.6 7.4-5.5 7.4-10.2V5.5z' }],
+          ],
+          moon: [
+            ['path', { d: 'M20.6 15.4A8.6 8.6 0 0 1 9.2 4a8.6 8.6 0 1 0 11.4 11.4z' }],
+          ],
+          unlock: [
+            ['rect', { x: 3, y: 11, width: 18, height: 11, rx: 2.2 }],
+            // The shackle, open to the right. A symmetric arch over the body
+            // reads as a CLOSED padlock at this size — which is the opposite of
+            // what this wedge does — so it has to hang off one side.
+            ['path', {
+              d: 'M7 11V7a5 5 0 0 1 9.9-1',
+              fill: 'none', 'stroke-width': 2.2, 'stroke-linecap': 'round',
+            }],
+          ],
+        };
+
+        // Laid out clockwise like the Somfy app: arm at the top, night to the
+        // right, disarm to the left. Angles are SVG degrees (0 = 3 o'clock,
+        // y down), so the top is -90.
+        const MODES = [
+          { state: 'armed', from: -150, to: -30, colour: 'var(--armed)', icon: 'shield', label: T.stateArmed },
+          { state: 'partially_armed', from: -30, to: 90, colour: 'var(--night)', icon: 'moon', label: T.stateNight },
+          { state: 'disarmed', from: 90, to: 210, colour: 'var(--disarmed)', icon: 'unlock', label: T.stateDisarmed },
+        ];
+
+        const CX = 100;
+        const CY = 100;
+        const R = 88;         // the arc itself
+        const R_ICON = 62;    // the sector icon, inside the ring
+        // Round caps extend half the stroke past the arc's ends, so the gap has
+        // to be wider than that or the arcs touch. 7° at r=88 clears a 16-wide
+        // stroke and still leaves the three arcs visibly separate.
+        const GAP = 7;
+
+        const dialEl = document.getElementById('dial');
+        const slicesEl = document.getElementById('slices');
+        const centreEl = document.getElementById('centreIcon');
+        const stateEl = document.getElementById('state');
+        const nameEl = document.getElementById('name');
+        const sirenEl = document.getElementById('siren');
+        const emptyEl = document.getElementById('empty');
+
+        let deviceId = null;
+        let pending = null;   // state being written, or null
+        let reloadTimer = null;
+
+        function svg(tag, attrs) {
+          const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+          Object.keys(attrs).forEach((key) => el.setAttribute(key, attrs[key]));
+          return el;
+        }
+
+        function polar(radius, degrees) {
+          const a = (degrees * Math.PI) / 180;
+          return [CX + radius * Math.cos(a), CY + radius * Math.sin(a)];
+        }
+
+        function arcPath(from, to) {
+          const [x0, y0] = polar(R, from + GAP);
+          const [x1, y1] = polar(R, to - GAP);
+          return `M${x0} ${y0} A${R} ${R} 0 0 1 ${x1} ${y1}`;
+        }
+
+        // Transparent wedge covering the whole sector, arc and icon included —
+        // the tap target. A thin arc is a miserable thing to hit on a phone.
+        function hitPath(from, to) {
+          const outer = 100;
+          const inner = 40;
+          const [x0, y0] = polar(outer, from);
+          const [x1, y1] = polar(outer, to);
+          const [x2, y2] = polar(inner, to);
+          const [x3, y3] = polar(inner, from);
+          return `M${x0} ${y0} A${outer} ${outer} 0 0 1 ${x1} ${y1}`
+            + ` L${x2} ${y2} A${inner} ${inner} 0 0 0 ${x3} ${y3} Z`;
+        }
+
+        // `size` is the icon's edge length in viewBox units; the paths are
+        // authored on a 24-unit grid.
+        function iconGroup(name, x, y, size, className) {
+          const scale = size / 24;
+          const group = svg('g', {
+            class: className,
+            transform: `translate(${x - size / 2} ${y - size / 2}) scale(${scale})`,
+          });
+          ICONS[name].forEach(([tag, attrs]) => group.appendChild(svg(tag, attrs)));
+          return group;
+        }
+
+        const groups = MODES.map((mode) => {
+          const group = svg('g', { class: 'slice idle', style: `color: ${mode.colour}` });
+
+          group.appendChild(svg('path', { class: 'hit', d: hitPath(mode.from, mode.to) }));
+          group.appendChild(svg('path', {
+            class: 'arc', d: arcPath(mode.from, mode.to), stroke: mode.colour,
+          }));
+
+          const [ix, iy] = polar(R_ICON, (mode.from + mode.to) / 2);
+          const icon = iconGroup(mode.icon, ix, iy, 24, 'icon');
+          icon.setAttribute('fill', mode.colour);
+          icon.setAttribute('stroke', mode.colour);
+          group.appendChild(icon);
+
+          group.addEventListener('click', () => set(mode.state));
+          slicesEl.appendChild(group);
+          return group;
+        });
+
+        function showEmpty(message) {
+          emptyEl.textContent = message;
+          emptyEl.style.display = 'flex';
+          dialEl.style.display = 'none';
+        }
+
+        function showDial() {
+          emptyEl.style.display = 'none';
+          dialEl.style.display = 'block';
+        }
+
+        function render(result) {
+          const state = result.state;
+          const mode = MODES.find((m) => m.state === state);
+
+          MODES.forEach((m, index) => {
+            const isPending = pending === m.state;
+            const isCurrent = !pending && m.state === state;
+            groups[index].setAttribute(
+              'class',
+              `slice ${isPending ? 'pending' : (isCurrent ? 'current' : 'idle')}`,
+            );
+          });
+
+          dialEl.classList.toggle('busy', Boolean(pending) || result.available === false);
+
+          // The centre repeats the current mode's icon, big and in its colour:
+          // the dial then reads at a glance from across the room, before any of
+          // the text is legible.
+          centreEl.textContent = '';
+          if (mode) {
+            const icon = iconGroup(mode.icon, CX, CY - 18, 34, 'centre');
+            icon.setAttribute('fill', mode.colour);
+            icon.setAttribute('stroke', mode.colour);
+            centreEl.appendChild(icon);
+          }
+
+          stateEl.textContent = mode ? mode.label : T.unknown;
+          stateEl.setAttribute('fill', mode ? mode.colour : 'var(--fg)');
+          nameEl.textContent = result.available === false
+            ? `${result.name || ''} · ${T.unavailable}`.trim()
+            : (result.name || '');
+          // The siren is the one thing that must be readable without reading:
+          // it blinks, in the armed colour, under everything else.
+          sirenEl.textContent = result.triggered ? T.siren : '';
+        }
+
+        async function load() {
+          try {
+            const path = deviceId ? `/state?device=${encodeURIComponent(deviceId)}` : '/state';
+            const result = await Homey.api('GET', path);
+
+            if (!result || result.error === 'no_device') return showEmpty(T.noDevice);
+            if (result.error === 'device_gone') return showEmpty(T.gone);
+            if (result.error) return showEmpty(result.message || T.unavailable);
+
+            showDial();
+            render(result);
+          } catch (err) {
+            showEmpty(T.unreachable);
+          }
+        }
+
+        // Writes go through the device, which is optimistic about the new state
+        // (lib/somfy-alarm-device.js) — so the reply already carries the state
+        // the dial should show, without waiting for the websocket confirmation.
+        async function set(state) {
+          if (pending) return;
+          pending = state;
+          await load();   // repaint: the tapped arc starts pulsing
+
+          try {
+            const path = deviceId ? `/state?device=${encodeURIComponent(deviceId)}` : '/state';
+            const result = await Homey.api('POST', path, { state });
+            pending = null;
+
+            if (result && result.error) {
+              showDial();
+              // Keep the dial on screen and say so briefly, rather than
+              // replacing everything with an error the user cannot act on.
+              stateEl.textContent = T.failed;
+              window.setTimeout(load, 2500);
+              return;
+            }
+            await load();
+          } catch (err) {
+            pending = null;
+            await load();
+          }
+
+          // Somfy takes a couple of seconds to actually change level; re-read
+          // once shortly after so a refused or delayed write does not leave the
+          // dial lying until the next scheduled poll.
+          if (reloadTimer) window.clearTimeout(reloadTimer);
+          reloadTimer = window.setTimeout(load, 5000);
+        }
+
+        async function init() {
+          // The alarm the user picked in the widget's own settings. Falls back
+          // to the first one so the widget still works if it was never set.
+          try {
+            const ids = await Homey.getDeviceIds();
+            if (Array.isArray(ids) && ids.length) deviceId = ids[0];
+          } catch (err) {
+            deviceId = null;
+          }
+
+          await load();
+          // The device itself hears changes over Somfy's websocket in about a
+          // second, so a 30 s poll here is only about how fast the dial catches
+          // up with an arm from the phone app.
+          window.setInterval(load, 30000);
+        }
+
+        init();
+      }
+    </script>
+  </body>
+</html>

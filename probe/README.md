@@ -13,10 +13,23 @@ fastest loop when reverse-engineering something.
 | [`devialet/`](devialet) | Devialet Phantom II | mDNS + local HTTP | — |
 | [`imou/`](imou) | Imou cameras (Ranger 2C, Cell PT) | Imou Open Platform (HTTPS, cloud) | `IMOU_` |
 | [`somfy/`](somfy) | Somfy Protect alarm | unofficial reverse-engineered HTTPS + websocket, cloud | `SOMFY_` |
+| [`homey/`](homey) | Homey itself — its Insights logs | local Web API (HTTP + Personal Access Token) | `HOMEY_` |
 
 Zigbee devices have no folder here: the app's own **Settings → Zigbee dump**
 already reports their endpoints and clusters, and Homey's radio is the only way
 to reach them anyway.
+
+`homey/` is the odd one out — the "device" it interviews is the Homey. It exists
+because the Shelly widget's Insights backfill depends on how a log is
+**addressed**, which no document states: `insights.js` lists every log with its
+real `id` / `ownerUri` / `ownerId`, and optionally fetches today's entries
+through both candidate path shapes so a 404 is visible as a 404.
+
+```bash
+cd probe/homey
+node insights.js                 # every log, grouped by device
+node insights.js shelly entries  # only Shelly, and try fetching today
+```
 
 ## Conventions for a new subfolder
 

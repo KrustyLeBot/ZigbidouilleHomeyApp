@@ -1,37 +1,39 @@
 'use strict';
 
-// Backend for the "Shelly power (today)" dashboard widget.
+// Backend for the "Shelly energy (today)" dashboard widget: one figure, the
+// imported energy since local midnight.
 //
-// The history comes from the driver's own per-minute recorder
-// (lib/power-history.js), which also backfills today from Insights at startup.
+// It comes from lib/energy-today.js, which holds the meter reading as it stood
+// at 00:00 — persisted across restarts, and recovered from Insights when the app
+// is installed mid-day.
 
 const errlog = require('../../lib/errlog');
 const { deviceUuid: deviceId } = require('../../lib/device-uuid');
 
-// One line per app run, written on the FIRST call to getToday. The widget
-// polls every 60 s, so anything unconditional here would flood the log.
-//
-// This exists because "no log line at all" was ambiguous: a widget whose
-// picker sends no id falls back to the first channel and takes a path that
-// logs nothing, which is indistinguishable from the handler never running.
-// This line separates the two, and prints what the matching actually saw.
-let reportedCall = false;
+// Kept because the picker DOES go wrong: an id that matches no paired channel
+// is reported below, with the ids that were compared. The "getToday was called
+// at all" breadcrumb that used to live here is gone — it answered a question
+// (does the handler run?) that is now answered by the widget showing a figure.
 let reportedChannels = false;
 
-function reportCall(wanted, channels) {
-  if (reportedCall) return;
-  reportedCall = true;
-  const seen = channels.map((d) => deviceId(d) || 'NULL').join(', ');
-  errlog.info(
-    'widget shelly-energy',
-    `getToday called: picked=${wanted || 'NONE'} channels=[${seen}]`,
-  );
+// Once per app run per device: the widget polls every 60 s, so this would
+// otherwise be a line a minute for as long as the state lasts.
+const reportedNoCounter = new Set();
+
+function reportNoCounter(device, hasMethod) {
+  const name = device.getName();
+  if (reportedNoCounter.has(name)) return;
+  reportedNoCounter.add(name);
+  errlog.info('widget shelly-energy',
+    `${name}: no energy counter — getEnergyToday=${hasMethod ? 'present' : 'MISSING'}, `
+    + `meter_power=${device.hasCapability('meter_power') ? 'yes' : 'NO'}, `
+    + `value=${String(device.getCapabilityValue('meter_power'))}`);
 }
 
 function shellyChannels(homey) {
   try {
     return homey.drivers.getDriver('shelly-em-gen4').getDevices()
-      .filter((d) => d.hasCapability('measure_power'));
+      .filter((d) => d.hasCapability('meter_power'));
   } catch (err) {
     // Driver absent from this install (or no channel paired yet).
     return [];
@@ -60,7 +62,6 @@ module.exports = {
     if (!channels.length) return { error: 'no_device' };
 
     const wanted = query && query.device;
-    reportCall(wanted, channels);
 
     let device = null;
 
@@ -86,22 +87,27 @@ module.exports = {
       device = channels[0];
     }
 
-    // A metered channel with no recorder means onNodeInit never reached the
-    // point where it starts — worth a line, since the widget's "waiting for
-    // the first reading" looks like patience rather than a failure.
-    const history = typeof device.getPowerHistory === 'function'
-      ? device.getPowerHistory()
-      : null;
-    if (!history) {
-      errlog.debug('widget shelly-energy', `${device.getName()}: no power history recorder`);
+    // A metered channel with no counter means onNodeInit never reached the point
+    // where it starts. At INFO, and once per app run: the widget's "waiting for
+    // the first reading" looks like patience rather than a failure, and at debug
+    // level this line was invisible by default — which is the whole reason the
+    // state was undiagnosable.
+    //
+    // The three facts printed are exactly what separates the possible causes:
+    // no `getEnergyToday` at all = the app is running an older build; the method
+    // present but `meter_power` missing = the capability never got registered, so
+    // the counter was skipped; both fine = init is simply still in flight.
+    const hasMethod = typeof device.getEnergyToday === 'function';
+    const today = hasMethod ? device.getEnergyToday() : null;
+    if (!today) {
+      reportNoCounter(device, hasMethod);
       return { error: 'no_history', name: device.getName() };
     }
 
     return {
       name: device.getName(),
-      points: history.points,
-      kwh: history.kwh,
-      power: history.power,
+      kwh: today.kwh,
+      partial: today.partial,
     };
   },
 };

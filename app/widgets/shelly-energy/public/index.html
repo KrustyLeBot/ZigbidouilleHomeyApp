@@ -9,17 +9,13 @@
       :root {
         color-scheme: light dark;
         --fg: #1a1a1a;
-        --fg-dim: #767676;
-        --grid: rgba(0, 0, 0, 0.10);
-        --future: rgba(0, 0, 0, 0.05);
-        --bar: #00A6A6;
+        --fg-dim: #8a8a8a;
+        --accent: #00A6A6;
       }
       @media (prefers-color-scheme: dark) {
         :root {
-          --fg: #f2f2f2;
-          --fg-dim: #9a9a9a;
-          --grid: rgba(255, 255, 255, 0.14);
-          --future: rgba(255, 255, 255, 0.06);
+          --fg: #f4f4f4;
+          --fg-dim: #8e8e8e;
         }
       }
       * { box-sizing: border-box; }
@@ -30,140 +26,94 @@
         background: transparent;
         overflow: hidden;
       }
-      #wrap { position: relative; width: 100%; height: 100%; }
-
-      #head {
-        position: absolute; top: 10px; left: 12px; right: 12px; z-index: 2;
-        display: flex; align-items: baseline; justify-content: space-between;
-        line-height: 1.15; pointer-events: none;
+      #wrap {
+        height: 100%; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 2px;
+        padding: 8px 14px;
       }
-      #kwhValue { font-size: 22px; font-weight: 700; }
-      #kwhUnit { font-size: 12px; font-weight: 500; color: var(--fg-dim); margin-left: 3px; }
-      #name { font-size: 11px; color: var(--fg-dim); margin-top: 2px; }
-      #now { font-size: 12px; color: var(--fg-dim); text-align: right; }
 
-      canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+      /* The figure is the widget. Everything else is a caption, so nothing else
+         gets to compete with it for size. */
+      #figure { display: flex; align-items: baseline; line-height: 1; }
+      #value { font-size: 40px; font-weight: 800; letter-spacing: -1px; }
+      #unit { font-size: 15px; font-weight: 700; color: var(--accent); margin-left: 5px; }
+
+      #label {
+        font-size: 9px; font-weight: 700; letter-spacing: 1.2px;
+        text-transform: uppercase; color: var(--fg-dim);
+      }
+      #name { font-size: 11px; font-weight: 500; color: var(--fg-dim); }
+
+      /* Shown only while the figure covers part of the day: a partial total
+         presented as the day's is a lie, and this is the one honest way to show
+         it without hiding the number. */
+      #partial { display: none; font-size: 9px; color: var(--fg-dim); }
 
       #empty {
-        position: absolute; inset: 0; display: none; align-items: center;
-        justify-content: center; font-size: 12px; color: var(--fg-dim);
-        text-align: center; padding: 0 24px;
+        height: 100%; display: none; align-items: center; justify-content: center;
+        font-size: 12px; color: var(--fg-dim); text-align: center; padding: 0 20px;
       }
     </style>
   </head>
   <body class="homey-widget">
     <div id="wrap">
-      <div id="head">
-        <div>
-          <div><span id="kwhValue">–</span><span id="kwhUnit">kWh</span></div>
-          <div id="name"></div>
-        </div>
-        <div id="now"></div>
+      <div id="label">Today</div>
+      <div id="figure">
+        <span id="value">–</span><span id="unit">kWh</span>
       </div>
-      <canvas id="chart"></canvas>
-      <div id="empty"></div>
+      <div id="name"></div>
+      <div id="partial"></div>
     </div>
+    <div id="empty"></div>
 
     <script type="text/javascript">
       function onHomeyReady(Homey) {
-        // Signal readiness immediately — the API calls below are async and
-        // must not gate it, or a slow first load reads as a broken widget.
+        // Signal readiness immediately — the API call below is async and must
+        // not gate it, or a slow first load reads as a broken widget.
         Homey.ready();
 
-        const headEl = document.getElementById('head');
-        const kwhValueEl = document.getElementById('kwhValue');
-        const nameEl = document.getElementById('name');
-        const nowEl = document.getElementById('now');
-        const emptyEl = document.getElementById('empty');
-        const canvas = document.getElementById('chart');
-        const ctx = canvas.getContext('2d');
+        // Widgets get no `Homey.__()`, so the two languages the app ships are
+        // picked from the browser locale rather than Homey's own setting.
+        const fr = String(navigator.language || '').toLowerCase().startsWith('fr');
+        const T = fr
+          ? {
+            today: "Aujourd'hui",
+            partial: 'depuis l’installation',
+            noDevice: 'Aucun canal Shelly appairé',
+            gone: 'Canal sélectionné introuvable — voir le journal',
+            waiting: 'En attente de la première mesure…',
+            unavailable: 'Indisponible',
+            unreachable: "Impossible de joindre l'app",
+          }
+          : {
+            today: 'Today',
+            partial: 'since install',
+            noDevice: 'No Shelly channel paired',
+            gone: 'Selected device not found — see the app log',
+            waiting: 'Waiting for the first reading…',
+            unavailable: 'Unavailable',
+            unreachable: 'Could not reach the app',
+          };
 
-        const TOP = 46;      // headroom for the kWh overlay
-        const BOTTOM = 14;   // room for the hour labels
+        const wrapEl = document.getElementById('wrap');
+        const labelEl = document.getElementById('label');
+        const valueEl = document.getElementById('value');
+        const nameEl = document.getElementById('name');
+        const partialEl = document.getElementById('partial');
+        const emptyEl = document.getElementById('empty');
+
+        labelEl.textContent = T.today;
         let deviceId = null;
 
         function showEmpty(message) {
           emptyEl.textContent = message;
           emptyEl.style.display = 'flex';
-          canvas.style.display = 'none';
-          headEl.style.display = 'none';
+          wrapEl.style.display = 'none';
         }
 
-        function showChart() {
+        function showFigure() {
           emptyEl.style.display = 'none';
-          canvas.style.display = 'block';
-          headEl.style.display = 'flex';
-        }
-
-        function css(name, fallback) {
-          const value = getComputedStyle(document.documentElement)
-            .getPropertyValue(name).trim();
-          return value || fallback;
-        }
-
-        // One bar per recorded minute, placed at its real time of day: the
-        // x axis is always the full 24 h, so a day fills in left-to-right
-        // instead of stretching a handful of samples across the widget.
-        function drawChart(points) {
-          const dpr = window.devicePixelRatio || 1;
-          const width = canvas.clientWidth;
-          const height = canvas.clientHeight;
-          canvas.width = width * dpr;
-          canvas.height = height * dpr;
-          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-          ctx.clearRect(0, 0, width, height);
-
-          const plotHeight = height - TOP - BOTTOM;
-          const baseline = height - BOTTOM;
-
-          const now = new Date();
-          const nowX = ((now.getHours() * 60 + now.getMinutes()) / 1440) * width;
-
-          // Shade the part of the day that has not happened yet. Without it a
-          // chart at 23:00 (everything bunched at the right edge) is hard to
-          // tell from one where the axis simply ends at "now" — the axis is
-          // always the full day, and this is what says so.
-          ctx.fillStyle = css('--future', 'rgba(127,127,127,0.07)');
-          ctx.fillRect(nowX, TOP, width - nowX, plotHeight);
-
-          // Hour gridlines every 6 h, drawn even with no data so an empty
-          // early-morning widget still looks like a chart.
-          ctx.strokeStyle = css('--grid', 'rgba(0,0,0,0.1)');
-          ctx.fillStyle = css('--fg-dim', '#767676');
-          ctx.font = '9px -apple-system, system-ui, sans-serif';
-          ctx.lineWidth = 1;
-          for (let hour = 0; hour <= 24; hour += 6) {
-            const x = (hour / 24) * width;
-            ctx.beginPath();
-            ctx.moveTo(x, TOP);
-            ctx.lineTo(x, baseline);
-            ctx.stroke();
-            if (hour < 24) {
-              ctx.textAlign = hour === 0 ? 'left' : 'center';
-              ctx.fillText(`${hour}h`, hour === 0 ? 2 : x, height - 3);
-            }
-          }
-
-          if (!points.length) return;
-
-          // Floor of 100 W so a quiet day does not amplify noise into peaks.
-          const max = Math.max(100, ...points.map((p) => p[1]));
-          const barWidth = Math.max(1, width / 1440);
-
-          ctx.fillStyle = css('--bar', '#00A6A6');
-          points.forEach(([minute, watts]) => {
-            const barHeight = Math.max(1, (watts / max) * plotHeight);
-            ctx.fillRect((minute / 1440) * width, baseline - barHeight, barWidth, barHeight);
-          });
-
-          // "Now" marker, drawn last so it sits above the bars.
-          ctx.strokeStyle = css('--fg-dim', '#767676');
-          ctx.setLineDash([2, 3]);
-          ctx.beginPath();
-          ctx.moveTo(nowX, TOP);
-          ctx.lineTo(nowX, baseline);
-          ctx.stroke();
-          ctx.setLineDash([]);
+          wrapEl.style.display = 'flex';
         }
 
         async function load() {
@@ -173,44 +123,35 @@
               : '/today';
             const result = await Homey.api('GET', path);
 
-            if (!result || result.error === 'no_device') {
-              showEmpty('No Shelly channel paired');
-              return;
-            }
-            if (result.error === 'device_gone') {
-              // The picker's id matched no paired channel. The app log records
-              // the ids that were compared — see Settings → Log.
-              showEmpty('Selected device not found — see the app log');
-              return;
-            }
+            if (!result || result.error === 'no_device') return showEmpty(T.noDevice);
+            if (result.error === 'device_gone') return showEmpty(T.gone);
+            // Transient: the channel's init has not reached the counter yet.
+            // Retry in seconds rather than waiting out the 60 s poll, or a state
+            // that clears itself in two seconds looks like a stuck widget for a
+            // full minute after every app restart.
             if (result.error === 'no_history') {
-              showEmpty('Waiting for the first reading…');
+              showEmpty(T.waiting);
+              window.setTimeout(load, 5000);
               return;
             }
-            if (result.error) {
-              showEmpty(result.message || 'Unavailable');
-              return;
-            }
+            if (result.error) return showEmpty(result.message || T.unavailable);
 
-            showChart();
-            kwhValueEl.textContent = typeof result.kwh === 'number'
+            showFigure();
+            valueEl.textContent = typeof result.kwh === 'number'
               ? result.kwh.toFixed(2)
               : '–';
             nameEl.textContent = result.name || '';
-            nowEl.textContent = typeof result.power === 'number'
-              ? `${Math.round(result.power)} W`
-              : '';
-
-            drawChart(result.points || []);
+            partialEl.textContent = result.partial ? T.partial : '';
+            partialEl.style.display = result.partial ? 'block' : 'none';
           } catch (err) {
-            showEmpty('Could not reach the app');
+            showEmpty(T.unreachable);
           }
         }
 
         async function init() {
-          // The device the user picked in the widget's own settings. Falls
-          // back to the first metered channel so the widget still shows
-          // something if the picker was never set.
+          // The channel the user picked in the widget's own settings. Falls back
+          // to the first metered channel so the widget still shows something if
+          // the picker was never set.
           try {
             const ids = await Homey.getDeviceIds();
             if (Array.isArray(ids) && ids.length) deviceId = ids[0];
@@ -220,7 +161,6 @@
 
           await load();
           window.setInterval(load, 60000);
-          window.addEventListener('resize', load);
         }
 
         init();

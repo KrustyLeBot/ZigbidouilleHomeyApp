@@ -2,7 +2,7 @@
 
 const { CLUSTER } = require('zigbee-clusters');
 const ZigbidouilleDevice = require('../../lib/zigbee-device');
-const PowerHistory = require('../../lib/power-history');
+const EnergyToday = require('../../lib/energy-today');
 
 // Shelly EM Gen4 — one Zigbee node, three Homey devices:
 //   root      -> channel 1 metering (measure_power + meter_power)
@@ -120,11 +120,11 @@ class ShellyEmGen4Device extends ZigbidouilleDevice {
 
       await this.applyCumulative();
 
-      // Per-minute power history backing the dashboard widget. Metering
-      // channels only — the relay sub-device has no measure_power to record.
-      if (this.hasCapability('measure_power')) {
-        this.powerHistory = new PowerHistory(this);
-        await this.powerHistory.start();
+      // Today's imported energy, for the dashboard widget. Metering channels
+      // only — the relay sub-device has no meter to read.
+      if (this.hasCapability('meter_power')) {
+        this.energyToday = new EnergyToday(this);
+        await this.energyToday.start();
       }
 
       this.debugNote('init: done', `cumulative=${Boolean(this.getSetting('cumulative'))}`);
@@ -138,19 +138,19 @@ class ShellyEmGen4Device extends ZigbidouilleDevice {
   // Logged so a device that disappears from the network leaves a trace, which
   // is the symptom being chased with the dry contact.
   async onDeleted() {
-    if (this.powerHistory) this.powerHistory.stop();
+    if (this.energyToday) this.energyToday.stop();
     this.note('deleted', 'device removed from Homey');
   }
 
   // Timers are Homey-managed, but stopping them here keeps a reloaded app from
   // running two samplers against the same device.
   async onUninit() {
-    if (this.powerHistory) this.powerHistory.stop();
+    if (this.energyToday) this.energyToday.stop();
   }
 
   // Read by the dashboard widget's api.js.
-  getPowerHistory() {
-    return this.powerHistory ? this.powerHistory.toJSON() : null;
+  getEnergyToday() {
+    return this.energyToday ? this.energyToday.toJSON() : null;
   }
 
   // NOTE: there is no way for a device to rename itself in Homey SDK v3 —
@@ -334,7 +334,10 @@ class ShellyEmGen4Device extends ZigbidouilleDevice {
         const raw = toNumber(attrs.currentSummationDelivered);
         const initialKWh = raw === null ? null : (raw * scale.multiplier) / scale.divisor;
 
-        this.note(`metering read @ep${endpoint}`, JSON.stringify({ scale, raw, initialKWh }));
+        // Verbose-only: the scale and the starting total are what you check
+        // when bringing a channel up, and never again — at INFO this was two
+        // lines per channel on every single restart.
+        this.debugNote(`metering read @ep${endpoint}`, JSON.stringify({ scale, raw, initialKWh }));
         return { scale, initialKWh };
       } catch (err) {
         // Seen on this unit's endpoint 1: UNSUPPORTED_CLUSTER despite the
@@ -406,7 +409,10 @@ class ShellyEmGen4Device extends ZigbidouilleDevice {
 
     // Same scale as the import register — both are UINT48 in the cluster's own
     // units, so the device's multiplier/divisor applies unchanged.
-    this.note(
+    // Verbose-only for the same reason: the probe SUCCEEDING is routine. Its
+    // two failure paths above stay at INFO, since those change what the tile can
+    // show.
+    this.debugNote(
       `exported energy @ep${endpoint}`,
       JSON.stringify({ raw, kWh: (raw * scale.multiplier) / scale.divisor }),
     );

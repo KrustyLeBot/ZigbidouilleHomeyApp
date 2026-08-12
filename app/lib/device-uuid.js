@@ -27,10 +27,15 @@ const ID_KEYS = ['__id', 'id', 'uuid', 'deviceId'];
 
 let reportedKey = null;
 
+// Verbose-only: this said which undocumented property carried the UUID while
+// that was still an open question. It is `__id`, it is written down above, and
+// the line was one per app run saying so again. It stays because the property is
+// undocumented and free to change — the day it does, this is the fastest way to
+// see what it changed to.
 function reportKey(key) {
   if (reportedKey === key) return;
   reportedKey = key;
-  errlog.info('device id', `resolved from "${key}"`);
+  errlog.debug('device id', `resolved from "${key}"`);
 }
 
 function deviceUuid(device) {
