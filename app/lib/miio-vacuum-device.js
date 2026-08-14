@@ -353,10 +353,17 @@ class MiioVacuumDevice extends Homey.Device {
       battery: this.getCapabilityValue('measure_battery') || 0,
     };
 
-    await this.homey.flow
-      .getDeviceTriggerCard('status_changed')
-      .trigger(this, tokens)
-      .catch(this.error);
+    // Same reasoning as task_completed: a silent .catch(this.error) here never
+    // reaches the app's own Log tab (errlog), only the CLI console — so a
+    // trigger that fails (or one that fires and gets ignored downstream by a
+    // flow's own conditions) looked identical to a trigger that never ran.
+    try {
+      await this.homey.flow.getDeviceTriggerCard('status_changed').trigger(this, tokens);
+      this.note('status_changed fired', `-> ${tokens.status}`);
+    } catch (err) {
+      this.error('status_changed trigger', err);
+      errlog.add(`${this.getName()}: status_changed trigger failed`, err);
+    }
   }
 
   // Runs on EVERY poll, not only on a state change: fireTriggers is gated on
@@ -405,7 +412,13 @@ class MiioVacuumDevice extends Homey.Device {
         fault,
         area: this.getCapabilityValue('vacuum_clean_area') || 0,
       };
-      this.homey.flow.getDeviceTriggerCard(state).trigger(this, tokens).catch(this.error);
+      try {
+        await this.homey.flow.getDeviceTriggerCard(state).trigger(this, tokens);
+        this.note(`${state} fired`, 'stuck-state flow card triggered');
+      } catch (err) {
+        this.error(`${state} trigger`, err);
+        errlog.add(`${this.getName()}: ${state} trigger failed`, err);
+      }
     }, STUCK_CONFIRM_DELAY);
   }
 
