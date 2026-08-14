@@ -201,7 +201,7 @@ counts.
 
 `probe/homey/insights.js` dumps the real ids from outside the app.
 
-Three corollaries, each learned by shipping the wrong thing first:
+Four corollaries, each learned by shipping the wrong thing first:
 
 - **A cold start is not midnight.** "Stored day != today" covers both, and they
   mean opposite things about whether the current meter reading is a real 00:00
@@ -215,6 +215,17 @@ Three corollaries, each learned by shipping the wrong thing first:
   value as authoritative kept it alive across every reinstall until midnight.
   `STORE_VERSION` in `lib/energy-today.js` is what makes a bad record die with
   the build that wrote it.
+- **`Date`'s local getters are the Node process's timezone, not the user's.**
+  `getFullYear()`/`getMonth()`/`getDate()` read the OS zone the app process
+  runs in — commonly UTC on Homey — not the zone configured in Homey's own
+  settings, the one the Energy tab and a device's own Insights actually use.
+  `dayKey()` used them directly and rolled "today" over at UTC midnight
+  instead of the user's, which reads as a wrong kWh figure for however many
+  hours separate the two — worse the further the user's zone sits from UTC,
+  invisible the rest of the day since the two zones agree outside that window.
+  Fixed by `this.homey.clock.getTimezone()` + `Intl.DateTimeFormat` instead of
+  `Date`'s own getters — see `athombv/homey-apps-sdk-issues#169`, which is
+  Homey's own name for this exact trap.
 
 ### Every network step in a widget's backend needs a deadline
 

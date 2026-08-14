@@ -297,15 +297,16 @@ class MiioVacuumDevice extends Homey.Device {
     // Homey ignored it, or it was never fired at all. One INFO line per
     // completed clean settles it — the flow either ran in the same second, or
     // the problem is on Homey's side of the call.
+    const cardId = this.cardId('task_completed');
     try {
-      await this.homey.flow.getDeviceTriggerCard('task_completed').trigger(this, {
+      await this.homey.flow.getDeviceTriggerCard(cardId).trigger(this, {
         battery: this.getCapabilityValue('measure_battery') || 0,
         area,
       });
-      this.note('task_completed fired', `${area} m2 — flow card triggered`);
+      this.note(`${cardId} fired`, `${area} m2 — flow card triggered`);
     } catch (err) {
-      this.error('task_completed trigger', err);
-      errlog.add(`${this.getName()}: task_completed trigger failed`, err);
+      this.error(`${cardId} trigger`, err);
+      errlog.add(`${this.getName()}: ${cardId} trigger failed`, err);
     }
   }
 
@@ -347,6 +348,13 @@ class MiioVacuumDevice extends Homey.Device {
     await this.setCapabilityValue(cap, next).catch(() => {});
   }
 
+  // Card id is per-driver (x20plus_status_changed / vacuum5_status_changed),
+  // not a single card shared across both robots — see the comment on
+  // registerVacuumFlows() in app.js for why.
+  cardId(name) {
+    return `${this.driver.id}_${name}`;
+  }
+
   async fireTriggers(state) {
     const tokens = {
       status: this.profile.STATE_NAMES[state] || state,
@@ -357,12 +365,13 @@ class MiioVacuumDevice extends Homey.Device {
     // reaches the app's own Log tab (errlog), only the CLI console — so a
     // trigger that fails (or one that fires and gets ignored downstream by a
     // flow's own conditions) looked identical to a trigger that never ran.
+    const cardId = this.cardId('status_changed');
     try {
-      await this.homey.flow.getDeviceTriggerCard('status_changed').trigger(this, tokens);
-      this.note('status_changed fired', `-> ${tokens.status}`);
+      await this.homey.flow.getDeviceTriggerCard(cardId).trigger(this, tokens);
+      this.note(`${cardId} fired`, `-> ${tokens.status}`);
     } catch (err) {
-      this.error('status_changed trigger', err);
-      errlog.add(`${this.getName()}: status_changed trigger failed`, err);
+      this.error(`${cardId} trigger`, err);
+      errlog.add(`${this.getName()}: ${cardId} trigger failed`, err);
     }
   }
 
@@ -412,12 +421,13 @@ class MiioVacuumDevice extends Homey.Device {
         fault,
         area: this.getCapabilityValue('vacuum_clean_area') || 0,
       };
+      const cardId = this.cardId(state);
       try {
-        await this.homey.flow.getDeviceTriggerCard(state).trigger(this, tokens);
-        this.note(`${state} fired`, 'stuck-state flow card triggered');
+        await this.homey.flow.getDeviceTriggerCard(cardId).trigger(this, tokens);
+        this.note(`${cardId} fired`, 'stuck-state flow card triggered');
       } catch (err) {
-        this.error(`${state} trigger`, err);
-        errlog.add(`${this.getName()}: ${state} trigger failed`, err);
+        this.error(`${cardId} trigger`, err);
+        errlog.add(`${this.getName()}: ${cardId} trigger failed`, err);
       }
     }, STUCK_CONFIRM_DELAY);
   }

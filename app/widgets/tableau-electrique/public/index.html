@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <!-- No /homey.js include here: the widget host injects Homey/onHomeyReady
+         itself, unlike the settings page. -->
+    <style>
+      :root{
+        --bg:#131519; --bg2:#1a1d23;
+        --enclosure:#dcdbd4; --enclosure-edge:#b7b6ad; --rail:#8b9199;
+        --module:#f4f3ef; --module-edge:#c9c8c0; --ink:#20232a; --muted:#7b8089;
+        --amber:#ffb020; --live:#ff5b46; --orange:#e8830c;
+        --lcd-bg:#16210f; --lcd:#8fe06a;
+        --card:#1c2027; --card-edge:#2b303a;
+      }
+      *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+      html,body{margin:0}
+      body{
+        background:var(--bg); color:#e8eaed;
+        font-family:-apple-system,system-ui,sans-serif;
+        line-height:1.35;
+      }
+      /* No fixed height and no overflow:hidden anywhere in this file, on
+         purpose: a fixed-size box is exactly what forces either axis to
+         scroll. #wrap sizes to its natural content height instead, and the
+         script below measures that and reports it to the host via
+         Homey.ready({height}) — see the bottom of the script. */
+      #wrap{display:flex;flex-direction:column;padding:7px;padding-bottom:14px;gap:5px}
+
+      /* ---------- readout ---------- */
+      .readout{
+        flex:0 0 auto;
+        background:linear-gradient(180deg,#171a1f,#14171c);
+        border:1px solid var(--card-edge); border-radius:9px;
+        padding:6px 8px; display:flex; gap:8px; align-items:flex-start;
+      }
+      .readout .chip{
+        flex:0 0 auto; min-width:36px;
+        background:var(--lcd-bg); color:var(--lcd);
+        border:1px solid #2a3a1f; border-radius:6px;
+        font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace; font-weight:700;
+        text-align:center; padding:4px 5px;
+      }
+      .readout .chip .n{font-size:13px;line-height:1}
+      .readout .chip .c{font-size:7px;color:#6fae52;margin-top:1px;letter-spacing:.05em}
+      .readout .body{flex:1;min-width:0}
+      .readout .rl{
+        font-family:ui-monospace,monospace;font-size:8px;letter-spacing:.14em;
+        text-transform:uppercase;color:var(--muted);
+      }
+      .readout .rt{font-size:10px;font-weight:500;margin-top:1px}
+      .readout .rt strong{color:var(--amber);font-weight:600}
+      .readout.off .chip{background:#2a1310;color:var(--live);border-color:#4a1c17}
+      .readout.off .chip .c{color:#d16b5b}
+      .readout .reset{
+        flex:0 0 auto; background:none; border:1px solid var(--card-edge);
+        color:var(--muted); border-radius:6px; width:20px; height:20px;
+        font-size:11px; cursor:pointer; line-height:1;
+      }
+      .readout .reset:hover{color:#e8eaed;border-color:#3d434e}
+
+      /* ---------- panel ---------- */
+      .panel{
+        background:linear-gradient(180deg,var(--enclosure),#d2d1c8);
+        border:1px solid var(--enclosure-edge); border-radius:10px;
+        padding:6px;
+      }
+      .rowlabel{
+        font-family:ui-monospace,monospace; font-size:7px; letter-spacing:.12em;
+        text-transform:uppercase; color:#6a6f66; margin:1px 2px 3px;
+      }
+      /* Wraps onto extra lines instead of scrolling sideways — a row that
+         does not fit one line on a narrow phone just grows taller, which the
+         Homey.ready({height}) measurement below already accounts for. */
+      .rail{
+        display:flex; flex-wrap:wrap; gap:4px;
+        background:linear-gradient(180deg,#c7c6bd,#b9b8af) padding-box, var(--rail) border-box;
+        border-radius:6px; padding:5px;
+      }
+      .rowlabel + .rail{margin-bottom:5px}
+
+      .mod{
+        flex:0 0 auto; width:32px;
+        background:linear-gradient(180deg,var(--module),#e9e8e2);
+        border:1px solid var(--module-edge); border-radius:4px;
+        padding:4px 2px 5px; display:flex; flex-direction:column; align-items:center; gap:3px;
+        cursor:pointer; position:relative; user-select:none;
+        transition:transform .12s ease;
+      }
+      .mod.w2{width:60px}
+      .mod.w3{width:88px}
+      .mod:active{transform:translateY(1px)}
+      .mod .num{
+        font-family:ui-monospace,monospace; font-weight:700; font-size:10px; color:var(--ink); line-height:1;
+      }
+      .mod .cal{
+        font-family:ui-monospace,monospace; font-size:6px; color:#8a8f86;
+        border:1px solid #d0cfc7; border-radius:3px; padding:1px 2px; background:#fbfbf8; white-space:nowrap;
+      }
+      .rocker{
+        width:13px; height:18px; border-radius:3px;
+        background:linear-gradient(180deg,#3a3b3f,#232427); border:1px solid #4a4b4f; position:relative; overflow:hidden;
+      }
+      .rocker::after{
+        content:""; position:absolute; left:2px; right:2px; top:2px; height:7px;
+        border-radius:2px; background:linear-gradient(180deg,#111,#000);
+        transition:transform .18s cubic-bezier(.5,1.6,.5,1);
+      }
+      .mod.off .rocker::after{transform:translateY(7px)}
+      .mod.off .rocker{background:linear-gradient(180deg,#5a1f19,#3a1310);border-color:#7a2a20}
+      .mod.off{background:linear-gradient(180deg,#ffe9e5,#ffdcd6);border-color:#f0a99f}
+      .mod .tag{
+        position:absolute; top:-5px; left:50%; transform:translateX(-50%);
+        font-family:ui-monospace,monospace; font-size:6px; letter-spacing:.03em;
+        background:var(--ink); color:#fff; border-radius:12px; padding:1px 4px; white-space:nowrap;
+      }
+      .mod.sel{box-shadow:0 0 0 2px var(--amber)}
+
+      .mod.diff{background:linear-gradient(180deg,#fbfbf8,#eef0ee)}
+      .mod.diff .lever{width:16px;height:7px;border-radius:2px;background:var(--orange);border:1px solid #b96706}
+      .mod.diff .test{font-family:ui-monospace,monospace;font-size:6px;color:#555;border:1px solid #cfcec6;border-radius:2px;padding:0 2px}
+      .mod.diff.off{background:linear-gradient(180deg,#ffe9e5,#ffdcd6)}
+
+      .mod.bornier{background:repeating-linear-gradient(45deg,#efe9cf,#efe9cf 5px,#e7e0c2 5px,#e7e0c2 10px);border-color:#d3caa0}
+      .mod.bornier .num{font-size:7px;text-align:center}
+      .mod.contact{background:linear-gradient(180deg,#eceef0,#dfe2e5)}
+      .mod.centrale{background:linear-gradient(180deg,#f4f3ef,#e6e5df)}
+      .lcd{
+        width:100%; background:var(--lcd-bg); border:1px solid #2a3a1f; border-radius:3px;
+        color:var(--lcd); font-family:ui-monospace,monospace; text-align:center;
+        padding:2px 0; font-weight:700; font-size:10px;
+      }
+      .lcd small{display:block;font-size:5.5px;color:#6fae52;letter-spacing:.08em}
+      .devname{font-family:ui-monospace,monospace;font-size:5.5px;color:#555;text-align:center;line-height:1.1}
+
+      .mains{display:flex;gap:4px;flex-wrap:wrap;margin-top:1px;padding-bottom:2px}
+      .mainmod{
+        flex:1 1 80px; min-width:0;
+        background:linear-gradient(180deg,#f0efe9,#e2e1da);
+        border:1px solid var(--module-edge); border-radius:7px; padding:5px 6px 7px;
+        cursor:pointer; position:relative;
+      }
+      .mainmod .brand{font-family:ui-monospace,monospace;font-weight:700;font-size:8.5px;color:var(--ink)}
+      .mainmod .desc{font-size:7.5px;color:#6a6f66;margin-top:1px}
+      .mainmod .big{margin-top:4px;display:flex;align-items:center;gap:5px}
+      .mainmod .swi{width:18px;height:22px;border-radius:4px;background:linear-gradient(180deg,#e9e8e2,#d7d6cf);border:1px solid #bcbbb3;position:relative;overflow:hidden}
+      .mainmod .swi::after{content:"";position:absolute;left:3px;right:3px;top:3px;height:8px;border-radius:3px;background:#000;transition:transform .2s}
+      .mainmod.off .swi::after{transform:translateY(8px);background:var(--live)}
+      .mainmod .amp{font-family:ui-monospace,monospace;font-weight:700;font-size:12px;color:var(--ink)}
+      .mainmod .amp small{font-size:7px;color:#8a8f86;font-weight:500}
+      .mainmod.gardy::before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:3px;background:var(--orange);border-radius:3px}
+      .mainmod.sel{box-shadow:0 0 0 2px var(--amber)}
+      .mainmod.off{background:linear-gradient(180deg,#ffe9e5,#ffdcd6)}
+    </style>
+  </head>
+  <body class="homey-widget">
+    <div id="wrap">
+      <div class="readout" id="readout">
+        <div class="chip"><div class="n" id="ro-n">—</div><div class="c" id="ro-c">prêt</div></div>
+        <div class="body">
+          <div class="rl" id="ro-l">Sélection</div>
+          <div class="rt" id="ro-t">Touche un disjoncteur du tableau.</div>
+        </div>
+        <button class="reset" id="reset" title="Tout réarmer">↺</button>
+      </div>
+
+      <div class="panel" id="panel">
+        <div class="rowlabel">Rangée 1 — éclairage &amp; prises</div>
+        <div class="rail" id="row1"></div>
+        <div class="rowlabel">Rangée 2 — différentiels 30 mA &amp; circuits</div>
+        <div class="rail" id="row2"></div>
+        <div class="rowlabel">Rangée 3 — chauffage dalle, garage &amp; cuisine</div>
+        <div class="rail" id="row3"></div>
+        <div class="rowlabel">Coupure générale</div>
+        <div class="mains" id="mains"></div>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      function onHomeyReady(Homey) {
+        // Homey.ready() is called at the BOTTOM of this function, once the
+        // panel is built and its real height is known — unlike the other
+        // widgets here, which call it first thing because they still have a
+        // slow network fetch ahead of them. This widget has none (everything
+        // is a static object below), so delaying it by the few synchronous
+        // milliseconds it takes to build the DOM never reads as a slow load,
+        // and it is the only way to pass an accurate {height} on the first
+        // paint instead of guessing one in app.json and hoping it matches.
+
+        // Same data as the full reference page (kept outside this repo),
+        // trimmed to just the panel: no room search, no to-fix list. Static —
+        // this describes fixed house wiring, not a live device, so there is
+        // nothing to poll and no backend api.js.
+        const B = {
+          "1":  {cal:"C10", loads:"Lumière garage."},
+          "2":  {cal:"C10", loads:"Lumière salle de bain (au-dessus de l'évier)."},
+          "3":  {cal:"C10", loads:"Lumière principale SDB + velux SDB, couloir étage, montée d'escalier, chambres 1-2-3."},
+          "4":  {cal:"C10", loads:"Lumière couloir RDC, cuisine, lustre salle à manger, véranda, volet véranda, velux véranda (à confirmer), applique au-dessus de la prise box."},
+          "5":  {cal:"C10", loads:"Lumière évier cuisine."},
+          "6":  {cal:"C10", loads:"Lumière WC (bas)."},
+          "7":  {cal:"C10", loads:"Prise triple ajoutée sous le tableau électrique."},
+          "8":  {cal:"C16", loads:"Prises à gauche de l'évier cuisine, couloir bas, piézo gaz, micro-ondes + four + frigo. ⚠ four + micro-ondes + frigo sur un seul C16."},
+          "9":  {cal:"C16", loads:"Prise box, TV, fenêtre ouest séjour, prises G/D cheminée, applique mur TV. (TV peut-être aussi sur 18.)"},
+          "10": {cal:"30 mA", diff:true, loads:"Différentiel Déclicvigi 30 mA — Prise salle de bain."},
+          "11": {cal:"30 mA", diff:true, loads:"Différentiel Déclicvigi 30 mA — Prise entrée Ch1, prises entrée & PC Ch2, 2 prises Ch3."},
+          "12": {cal:"C16", loads:"Lave-vaisselle, hotte cuisine. (Disjoncteur rouge Legrand, non différentiel.)"},
+          "13": {cal:"C16", loads:"À priori non connecté — en attente derrière la cuisine (ancien lave-linge)."},
+          "14": {cal:"C16", loads:"Prise à droite de la porte-fenêtre séjour Ouest."},
+          "15": {cal:"C10", loads:"Radiateur salle de bain."},
+          "16": {cal:"C16", loads:"Prise fenêtre + radiateur Ch1 et Ch2."},
+          "17": {cal:"C10", loads:"Prise fenêtre Ch3."},
+          "18": {cal:"C16", loads:"Lumière extérieure cuisine, prise TV, prise sous fenêtre Ouest séjour, prise à gauche de la porte-fenêtre cuisine, volet roulant cuisine."},
+          "19": {cal:"C10", loads:"Lumière grenier, VMC salle de bain."},
+          "20": {cal:"C16", loads:"Climatisation couloir étage."},
+          "26": {cal:"C10", loads:"Protection de la centrale de pilotage de la dalle chauffante + alim. du contacteur WT40."},
+          "27": {cal:"C20", loads:"Dalle chauffante 4 kW (via contacteur WT40)."},
+          "28": {cal:"C16", loads:"Chauffe-eau garage."},
+          "29": {cal:"C20", loads:"Prises garage, prise établi gauche, moteur porte de garage, pompe à eau garage."},
+          "30": {cal:"C16", loads:"Prise entrée cuisine (au sol, sous l'interrupteur d'entrée)."},
+          "31": {cal:"C16", loads:"Prises cuisine gauche (2 sur la crédence tout à gauche)."}
+        };
+
+        const SPECIAL = {
+          BORNIER: {name:"Bornier puissance", info:"Départ vers le coffret électrique du cellier."},
+          WT40:    {name:"Contacteur WT40", info:"Contacteur 40A — alimente la dalle chauffante 4 kW en heures creuses."},
+          DELTA:   {name:"Centrale Delta 125N", info:"Centrale de pilotage de la dalle chauffante (gestion HC/HP, ordre de chauffe)."},
+          RELAIS:  {name:"Relais de découplage Michaud P38", info:"Relais EDF de découplage (bobine 230V) — asservissement heures creuses / effacement."},
+          GARDY:   {name:"Disjoncteur de branchement GARDY DB90", info:"Différentiel 500 mA, réglable 15/30/45 A. Coupure générale : coupe toute la maison."}
+        };
+
+        const ROW1 = ["1","2","3","4","5","6","7","8","9",{sp:"BORNIER"}];
+        const ROW2 = ["10","11","12","13","14","15","16","17","18","19","20"];
+        const ROW3 = [{sp:"WT40"},{sp:"DELTA"},"26","27","28","29","30","31"];
+
+        const offSet = new Set();
+        let mainOff = false;
+
+        function clearSel(){
+          document.querySelectorAll(".mod.sel,.mainmod.sel").forEach((x) => x.classList.remove("sel"));
+        }
+
+        function setReadout({ n, c, l, t, off }) {
+          document.getElementById("ro-n").textContent = n;
+          document.getElementById("ro-c").textContent = c;
+          document.getElementById("ro-l").textContent = l;
+          document.getElementById("ro-t").innerHTML = t;
+          document.getElementById("readout").classList.toggle("off", !!off);
+        }
+
+        function toggleBreaker(id, el) {
+          if (offSet.has(id)) { offSet.delete(id); el.classList.remove("off"); }
+          else { offSet.add(id); el.classList.add("off"); }
+          clearSel(); el.classList.add("sel");
+          const d = B[id];
+          const isOff = offSet.has(id);
+          setReadout({
+            n: id, c: d.cal,
+            l: isOff ? "Coupé — ce qui est hors tension" : "Ce que ce disjoncteur coupe",
+            t: `<strong>Disj. ${id}</strong> (${d.cal}) — ${d.loads}`,
+            off: isOff,
+          });
+        }
+
+        function toggleMain(el) {
+          mainOff = !mainOff;
+          el.classList.toggle("off", mainOff);
+          clearSel(); el.classList.add("sel");
+          setReadout({
+            n: "⚡", c: mainOff ? "OFF" : "15A",
+            l: "Disjoncteur de branchement",
+            t: `<strong>GARDY DB90</strong> — ${SPECIAL.GARDY.info}`,
+            off: mainOff,
+          });
+        }
+
+        function selectSpecial(sp, el) {
+          clearSel(); el.classList.add("sel");
+          const s = SPECIAL[sp];
+          setReadout({ n: "•", c: sp === "DELTA" ? "HC" : "info", l: s.name, t: s.info, off: false });
+        }
+
+        function makeMod(entry) {
+          const el = document.createElement("div");
+          el.className = "mod";
+
+          if (entry.sp) {
+            const sp = SPECIAL[entry.sp];
+            el.classList.add("special");
+            if (entry.sp === "BORNIER") {
+              el.classList.add("bornier", "w2");
+              el.innerHTML = '<div class="num">BORNIER</div><div class="devname">→ cellier</div>';
+            } else if (entry.sp === "WT40") {
+              el.classList.add("contact", "w2");
+              el.innerHTML = '<div class="num" style="font-size:9px">WT 40</div><div class="devname">Contacteur 40A</div><div class="cal">dalle</div>';
+            } else if (entry.sp === "DELTA") {
+              el.classList.add("centrale", "w3");
+              el.innerHTML = '<div class="lcd">23.0<small>DELTA 125N — HC</small></div><div class="devname">Centrale dalle</div>';
+            }
+            el.addEventListener("click", () => selectSpecial(entry.sp, el));
+            return el;
+          }
+
+          const id = entry;
+          const d = B[id];
+          if (d.diff) el.classList.add("diff", "w2");
+          if (d.diff) {
+            el.innerHTML = `<div class="tag">30 mA</div><div class="num">${id}</div><div class="test">TEST</div><div class="lever"></div><div class="cal">${d.cal}</div>`;
+          } else {
+            el.innerHTML = `<div class="num">${id}</div><div class="rocker"></div><div class="cal">${d.cal}</div>`;
+          }
+          el.addEventListener("click", () => toggleBreaker(id, el));
+          return el;
+        }
+
+        function buildRow(container, list) {
+          list.forEach((e) => container.appendChild(makeMod(e)));
+        }
+        buildRow(document.getElementById("row1"), ROW1);
+        buildRow(document.getElementById("row2"), ROW2);
+        buildRow(document.getElementById("row3"), ROW3);
+
+        const mains = document.getElementById("mains");
+        mains.innerHTML = `
+          <div class="mainmod relais" data-sp="RELAIS">
+            <div class="brand">MICHAUD P38</div>
+            <div class="desc">Relais de découplage EDF</div>
+            <div class="big"><div class="swi"></div></div>
+          </div>
+          <div class="mainmod gardy" data-sp="GARDY">
+            <div class="brand">GARDY DB90</div>
+            <div class="desc">Branchement · 500 mA</div>
+            <div class="big"><div class="swi"></div><div class="amp">15<small>/30/45A</small></div></div>
+          </div>`;
+        mains.querySelectorAll(".mainmod").forEach((m) => {
+          const sp = m.dataset.sp;
+          m.addEventListener("click", () => (sp === "GARDY" ? toggleMain(m) : selectSpecial(sp, m)));
+        });
+
+        document.getElementById("reset").addEventListener("click", () => {
+          offSet.clear();
+          mainOff = false;
+          document.querySelectorAll(".mod.off").forEach((x) => x.classList.remove("off"));
+          document.querySelectorAll(".mainmod.off").forEach((x) => x.classList.remove("off"));
+          clearSel();
+          setReadout({ n: "—", c: "prêt", l: "Sélection", t: "Touche un disjoncteur du tableau.", off: false });
+          syncHeight();
+        });
+
+        // Best-effort live resize, kept for hosts that support it — but NOT
+        // relied on: it is undocumented, and on the real Homey app it looked
+        // like it simply did nothing, which is exactly how "select something,
+        // the description grows to 2-3 lines, the mains cards at the bottom
+        // get cut off" happens. Once the host has allocated a box for this
+        // widget, growing past it mid-session cannot be assumed to work.
+        function syncHeight() {
+          const height = document.getElementById("wrap").scrollHeight;
+          if (typeof Homey.setHeight === "function") Homey.setHeight(height);
+        }
+        const origSetReadout = setReadout;
+        setReadout = (args) => { origSetReadout(args); syncHeight(); };
+        window.addEventListener("resize", syncHeight);
+
+        // So the fix is to never need that resize in the first place: measure
+        // the WORST CASE readout — the longest "what this breaker feeds" text
+        // in B, rendered for real — before ever calling Homey.ready(), and
+        // report that height from the start. Whatever the user taps
+        // afterwards, the box was already sized for the longest text it could
+        // ever have to show.
+        const longest = Object.entries(B)
+          .map(([id, d]) => `<strong>Disj. ${id}</strong> (${d.cal}) — ${d.loads}`)
+          .reduce((a, b) => (b.length > a.length ? b : a), "");
+        const roT = document.getElementById("ro-t");
+        const idleHTML = roT.innerHTML;
+        roT.innerHTML = longest;
+        const worstCase = document.getElementById("wrap").scrollHeight;
+        roT.innerHTML = idleHTML;
+
+        const idle = document.getElementById("wrap").scrollHeight;
+        Homey.ready({ height: Math.max(idle, worstCase) });
+      }
+    </script>
+  </body>
+</html>

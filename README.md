@@ -312,6 +312,21 @@ Both the read and the write go through the device, so the Guest-role account,
 the optimistic update and the error logging are the ones described above — the
 widget adds no path of its own to the alarm.
 
+### Electrical panel widget (`app/widgets/tableau-electrique`)
+
+Not tied to any driver or device — a static reference tool for one specific
+breaker panel, reconstructed from a spreadsheet and close-up photos. Tap a
+breaker and the readout shows what it feeds; tap again to mark it visually cut,
+useful while actually flipping breakers by hand. No backend: the wiring never
+changes on its own, so the full breaker→loads map is embedded straight in
+`public/index.html` rather than fetched, and there is no `api.js`.
+
+A trimmed-down version of a larger standalone page (kept outside this repo):
+the full page also has a room-by-room reverse search
+("what breaker feeds my fridge?") and a to-fix/to-verify list, both left out of
+the widget for now to keep it to what fits a dashboard tile — one panel, tap to
+inspect.
+
 ## Why it exists
 
 The Zigbee spec is standard, but device *behaviour* is not: two plugs that both
@@ -437,6 +452,7 @@ app/                       the Homey app
   widgets/
     shelly-energy/         dashboard widget — today's imported kWh, one figure
     somfy-alarm/           dashboard widget — 3-wedge alarm dial, tap to arm/disarm
+    tableau-electrique/    dashboard widget — breaker panel, tap to see what it feeds (no device, no backend)
 probe/                     standalone scripts — talk to a device without Homey
   env.js                   shared .env loader: PREFIX_IP / PREFIX_TOKEN, never printed
   x20plus/ vacuum5/        miIO tooling: watch live, scan properties, list actions

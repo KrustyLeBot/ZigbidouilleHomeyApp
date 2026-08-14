@@ -37,7 +37,13 @@ const RETRY_INTERVAL = 10 * 60 * 1000;
 const STORE_KEY = 'energy_today';
 // Bumped whenever the meaning of a stored field changes; restore() refuses
 // anything older. See restore() for why this is not merely hygiene.
-const STORE_VERSION = 2;
+//
+// Bumped 2 -> 3 for the UTC/local dayKey() fix: a baseline anchored earlier
+// today by the old process-timezone logic would otherwise sit unchanged until
+// the next real local midnight (restore() never re-derives a same-day
+// baseline), so the fix would not visibly do anything until the day after it
+// shipped. This forces one fresh Insights-based rebase per channel instead.
+const STORE_VERSION = 3;
 
 // EVERY step that talks to the network gets a deadline. Not defensive padding:
 // the first version of this logged neither success nor failure, which only one
@@ -56,12 +62,24 @@ function withTimeout(promise, label, ms = STEP_TIMEOUT) {
   });
 }
 
-function dayKey(date = new Date()) {
-  // Local date, deliberately: "today" for the user is their midnight, not UTC's.
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+// Local date, deliberately: "today" for the user is their midnight, not the
+// app process's. Date.prototype.getFullYear()/getMonth()/getDate() do NOT give
+// that — they use the Node process's OS timezone, which on Homey is commonly
+// UTC regardless of the timezone configured in Homey's own settings. That
+// mismatch is exactly why the SDK ships homey.clock.getTimezone() (see
+// athombv/homey-apps-sdk-issues#169) — this widget used to skip it and roll
+// the day over at UTC midnight instead of the user's, which reads as a wrong
+// kWh figure for up to a few hours around every real midnight, worse the
+// further the user's zone sits from UTC.
+function dayKey(homey, date = new Date()) {
+  const timeZone = homey && homey.clock && typeof homey.clock.getTimezone === 'function'
+    ? homey.clock.getTimezone()
+    : undefined; // no homey instance (e.g. a unit test) — falls back to process-local
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(date);
+  const lookup = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+  return `${lookup.year}-${lookup.month}-${lookup.day}`;
 }
 
 // One HomeyAPI instance for the whole app: each channel would otherwise open
@@ -259,7 +277,7 @@ class EnergyToday {
       // simply re-anchored below.
     }
 
-    if (!stored || stored.day !== dayKey()) return; // yesterday's baseline, drop it
+    if (!stored || stored.day !== dayKey(this.device.homey)) return; // yesterday's baseline, drop it
     if (typeof stored.baselineKwh !== 'number') return;
 
     // A record written by an older build is dropped rather than trusted. This is
@@ -285,7 +303,7 @@ class EnergyToday {
   }
 
   sample() {
-    const today = dayKey();
+    const today = dayKey(this.device.homey);
 
     // A COLD START (`day === null`: nothing usable in the store) and CROSSING
     // MIDNIGHT while running both leave `day !== today`, and they are not the
@@ -380,12 +398,12 @@ class EnergyToday {
     errlog.debug(`${this.device.getName()}: rebase`, `asking Insights for ${uuid}`);
 
     const api = await getApi(this.device.homey);
-    const today = dayKey();
+    const today = dayKey(this.device.homey);
 
     const entries = await fetchEntries(api, uuid, 'meter_power');
     const todays = entries.filter((entry) => {
       const date = entryTime(entry);
-      return date && dayKey(date) === today && typeof entry.v === 'number';
+      return date && dayKey(this.device.homey, date) === today && typeof entry.v === 'number';
     });
 
     const first = todays.length ? todays[0].v : null;

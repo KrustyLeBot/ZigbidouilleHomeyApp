@@ -44,9 +44,18 @@ class ZigbidouilleApp extends Homey.App {
       .registerRunListener(({ device, delta }) => device.stepVolume(Number(delta)));
   }
 
-  // Flow cards for the miIO vacuum (drivers/x20plus). Zigbee drivers here need
-  // none: their capabilities give Homey the standard cards for free. The vacuum
-  // exposes actions with no matching capability, so they are wired by hand.
+  // Flow cards for the miIO vacuums (drivers/x20plus, drivers/vacuum5).
+  // Zigbee drivers here need none: their capabilities give Homey the standard
+  // cards for free. The vacuum exposes actions with no matching capability, so
+  // they are wired by hand.
+  //
+  // One card PER DRIVER (id prefixed x20plus_/vacuum5_, filter driver_id=...),
+  // not one shared card filtered by capabilities=vacuum_status with a device
+  // picker. They were briefly merged when the Vacuum 5 was added — same run
+  // logic either way, so it looked like free deduplication — but every flow
+  // built on the shared cards stopped firing, with no warning shown anywhere
+  // in the flow editor. Not worth re-investigating why: two near-identical
+  // cards is a small price for something that demonstrably works.
   registerVacuumFlows() {
     // Two explicit resume actions, deliberately. From a paused dock-return,
     // sending "resume cleaning" starts a brand-new clean of the whole home, so
@@ -58,21 +67,23 @@ class ZigbidouilleApp extends Homey.App {
       pause: (device) => device.pause(),
     };
 
-    for (const [card, run] of Object.entries(actions)) {
-      this.homey.flow.getActionCard(card).registerRunListener(({ device }) => run(device));
+    for (const driver of ['x20plus', 'vacuum5']) {
+      for (const [card, run] of Object.entries(actions)) {
+        this.homey.flow.getActionCard(`${driver}_${card}`).registerRunListener(({ device }) => run(device));
+      }
+
+      // Conditions read the capability, never an instance variable: it holds
+      // the displayed state, is refreshed every poll, and matches the ids the
+      // cards offer. A condition once compared a raw status code to a state id
+      // and silently never matched.
+      this.homey.flow
+        .getConditionCard(`${driver}_is_paused_from`)
+        .registerRunListener(({ device, reason }) => device.getCapabilityValue('vacuum_status') === `paused_${reason}`);
+
+      this.homey.flow
+        .getConditionCard(`${driver}_status_is`)
+        .registerRunListener(({ device, status }) => device.getCapabilityValue('vacuum_status') === status);
     }
-
-    // Conditions read the capability, never an instance variable: it holds the
-    // displayed state, is refreshed every poll, and matches the ids the cards
-    // offer. A condition once compared a raw status code to a state id and
-    // silently never matched.
-    this.homey.flow
-      .getConditionCard('is_paused_from')
-      .registerRunListener(({ device, reason }) => device.getCapabilityValue('vacuum_status') === `paused_${reason}`);
-
-    this.homey.flow
-      .getConditionCard('status_is')
-      .registerRunListener(({ device, status }) => device.getCapabilityValue('vacuum_status') === status);
   }
 
   // Imou cameras (drivers/imou-ranger2c, drivers/imou-cellpt). On/off pairs
