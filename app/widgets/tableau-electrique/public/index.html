@@ -50,14 +50,6 @@
       }
       .readout .rt{font-size:10px;font-weight:500;margin-top:1px}
       .readout .rt strong{color:var(--amber);font-weight:600}
-      .readout.off .chip{background:#2a1310;color:var(--live);border-color:#4a1c17}
-      .readout.off .chip .c{color:#d16b5b}
-      .readout .reset{
-        flex:0 0 auto; background:none; border:1px solid var(--card-edge);
-        color:var(--muted); border-radius:6px; width:20px; height:20px;
-        font-size:11px; cursor:pointer; line-height:1;
-      }
-      .readout .reset:hover{color:#e8eaed;border-color:#3d434e}
 
       /* ---------- panel ---------- */
       .panel{
@@ -106,9 +98,6 @@
         border-radius:2px; background:linear-gradient(180deg,#111,#000);
         transition:transform .18s cubic-bezier(.5,1.6,.5,1);
       }
-      .mod.off .rocker::after{transform:translateY(7px)}
-      .mod.off .rocker{background:linear-gradient(180deg,#5a1f19,#3a1310);border-color:#7a2a20}
-      .mod.off{background:linear-gradient(180deg,#ffe9e5,#ffdcd6);border-color:#f0a99f}
       .mod .tag{
         position:absolute; top:-5px; left:50%; transform:translateX(-50%);
         font-family:ui-monospace,monospace; font-size:6px; letter-spacing:.03em;
@@ -119,7 +108,6 @@
       .mod.diff{background:linear-gradient(180deg,#fbfbf8,#eef0ee)}
       .mod.diff .lever{width:16px;height:7px;border-radius:2px;background:var(--orange);border:1px solid #b96706}
       .mod.diff .test{font-family:ui-monospace,monospace;font-size:6px;color:#555;border:1px solid #cfcec6;border-radius:2px;padding:0 2px}
-      .mod.diff.off{background:linear-gradient(180deg,#ffe9e5,#ffdcd6)}
 
       .mod.bornier{background:repeating-linear-gradient(45deg,#efe9cf,#efe9cf 5px,#e7e0c2 5px,#e7e0c2 10px);border-color:#d3caa0}
       .mod.bornier .num{font-size:7px;text-align:center}
@@ -144,13 +132,50 @@
       .mainmod .desc{font-size:7.5px;color:#6a6f66;margin-top:1px}
       .mainmod .big{margin-top:4px;display:flex;align-items:center;gap:5px}
       .mainmod .swi{width:18px;height:22px;border-radius:4px;background:linear-gradient(180deg,#e9e8e2,#d7d6cf);border:1px solid #bcbbb3;position:relative;overflow:hidden}
-      .mainmod .swi::after{content:"";position:absolute;left:3px;right:3px;top:3px;height:8px;border-radius:3px;background:#000;transition:transform .2s}
-      .mainmod.off .swi::after{transform:translateY(8px);background:var(--live)}
+      .mainmod .swi::after{content:"";position:absolute;left:3px;right:3px;top:3px;height:8px;border-radius:3px;background:#000}
       .mainmod .amp{font-family:ui-monospace,monospace;font-weight:700;font-size:12px;color:var(--ink)}
       .mainmod .amp small{font-size:7px;color:#8a8f86;font-weight:500}
       .mainmod.gardy::before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:3px;background:var(--orange);border-radius:3px}
       .mainmod.sel{box-shadow:0 0 0 2px var(--amber)}
-      .mainmod.off{background:linear-gradient(180deg,#ffe9e5,#ffdcd6)}
+      .mod.flash{animation:modflash .8s ease 1}
+      @keyframes modflash{0%,100%{box-shadow:0 0 0 2px transparent}50%{box-shadow:0 0 0 2px var(--amber)}}
+
+      /* ---------- reverse search ---------- */
+      .sec-title{
+        font-family:ui-monospace,monospace; font-size:8px; letter-spacing:.12em;
+        text-transform:uppercase; color:var(--muted); margin:4px 2px 4px;
+      }
+      .search input{
+        width:100%; background:var(--bg2); border:1px solid var(--card-edge);
+        color:#e8eaed; border-radius:8px; padding:7px 9px; font-size:11px;
+        font-family:-apple-system,system-ui,sans-serif;
+      }
+      .search input:focus{outline:none;border-color:var(--amber)}
+      .search{margin-bottom:6px}
+
+      /* Fluid grid, never wider than the container: minmax(...,1fr) shrinks
+         columns down to one on a narrow phone rather than ever overflowing
+         sideways, the same "wrap, don't scroll" rule as the breaker rows. */
+      .room{margin-bottom:6px}
+      .room h4{
+        font-size:9px; font-weight:700; letter-spacing:.03em; text-transform:uppercase;
+        color:var(--muted); margin:0 0 3px 2px;
+      }
+      .items{display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:4px}
+      .item{
+        display:flex; align-items:center; gap:6px; padding:5px 7px; border-radius:7px;
+        background:var(--bg2); border:1px solid transparent; cursor:pointer; text-align:left;
+        font-family:inherit; color:#e8eaed; font-size:9.5px; width:100%;
+      }
+      .item:active{background:#20242c}
+      .item .lbl{flex:1; min-width:0; overflow-wrap:break-word}
+      .item .brk{
+        font-family:ui-monospace,monospace; font-weight:700; font-size:8px;
+        background:#242a33; color:var(--amber); border-radius:5px; padding:2px 5px; white-space:nowrap;
+      }
+      .item.hidden, .room.hidden{display:none}
+      .item.flash{animation:itflash .8s ease 1}
+      @keyframes itflash{0%{background:rgba(255,176,32,.28)}100%{background:var(--bg2)}}
     </style>
   </head>
   <body class="homey-widget">
@@ -161,7 +186,6 @@
           <div class="rl" id="ro-l">Sélection</div>
           <div class="rt" id="ro-t">Touche un disjoncteur du tableau.</div>
         </div>
-        <button class="reset" id="reset" title="Tout réarmer">↺</button>
       </div>
 
       <div class="panel" id="panel">
@@ -174,6 +198,12 @@
         <div class="rowlabel">Coupure générale</div>
         <div class="mains" id="mains"></div>
       </div>
+
+      <div class="sec-title">Qu'est-ce que je veux couper ?</div>
+      <div class="search">
+        <input id="q" type="search" placeholder="ex : frigo, radiateur SDB, box…" autocomplete="off" />
+      </div>
+      <div id="rooms"></div>
     </div>
 
     <script type="text/javascript">
@@ -232,51 +262,119 @@
         const ROW2 = ["10","11","12","13","14","15","16","17","18","19","20"];
         const ROW3 = [{sp:"WT40"},{sp:"DELTA"},"26","27","28","29","30","31"];
 
-        const offSet = new Set();
-        let mainOff = false;
+        // Reverse index: appliance -> breaker. Same data as the full
+        // reference page, room list only (no to-fix list — see README).
+        // Always fully expanded, on purpose: no <details> to collapse/expand,
+        // because that would change the widget's height AFTER Homey.ready()
+        // has already reported one — see the height comment at the bottom.
+        // The search box only ever HIDES items, so the fully-expanded, empty
+        // search state is already the tallest this section can be.
+        const ROOMS = [
+          {name:"Cuisine", ico:"🍳", items:[
+            {l:"Lave-vaisselle", b:"12"},
+            {l:"Hotte cuisine", b:"12"},
+            {l:"Four", b:"8"},
+            {l:"Micro-ondes", b:"8"},
+            {l:"Réfrigérateur", b:"8", note:"⚠ conso sur la multiprise"},
+            {l:"Prises à gauche de l'évier", b:"8"},
+            {l:"Allume-gaz (piézo)", b:"8"},
+            {l:"Lumière plafond cuisine", b:"4"},
+            {l:"Lustre salle à manger", b:"4"},
+            {l:"Lumière évier cuisine", b:"5"},
+            {l:"Lumière extérieure cuisine", b:"18"},
+            {l:"Volet roulant cuisine", b:"18"},
+            {l:"Prise gauche porte-fenêtre cuisine", b:"18"},
+            {l:"Prise entrée cuisine (au sol)", b:"30"},
+            {l:"Prises crédence gauche", b:"31"}
+          ]},
+          {name:"Séjour / Salon", ico:"🛋️", items:[
+            {l:"Box internet", b:"9"},
+            {l:"TV", b:"9", note:"peut-être aussi 18 — à vérifier"},
+            {l:"Applique mur TV", b:"9"},
+            {l:"Prise fenêtre ouest séjour", b:"9"},
+            {l:"Prises gauche/droite cheminée", b:"9"},
+            {l:"Prise droite porte-fenêtre séjour ouest", b:"14"},
+            {l:"Prise sous fenêtre ouest séjour", b:"18"},
+            {l:"Applique au-dessus de la prise box", b:"4"},
+            {l:"Lumière véranda", b:"4"},
+            {l:"Volet véranda", b:"4"},
+            {l:"Velux véranda", b:"4", note:"à vérifier — sur 4 ou autre circuit ?"}
+          ]},
+          {name:"Salle de bain / WC", ico:"🚿", items:[
+            {l:"Lumière principale SDB", b:"3"},
+            {l:"Velux SDB", b:"3", note:"en aval de l'interrupteur lumière SDB"},
+            {l:"Lumière SDB (évier)", b:"2"},
+            {l:"Prise salle de bain", b:"10"},
+            {l:"Radiateur salle de bain", b:"15"},
+            {l:"VMC salle de bain", b:"19"},
+            {l:"Lumière WC (bas)", b:"6"}
+          ]},
+          {name:"Chambres", ico:"🛏️", items:[
+            {l:"Lumières chambres 1-2-3", b:"3"},
+            {l:"Prise entrée Ch1", b:"11"},
+            {l:"Prises entrée + PC Ch2", b:"11"},
+            {l:"Prises Ch3 (×2)", b:"11"},
+            {l:"Prise fenêtre + radiateur Ch1", b:"16"},
+            {l:"Prise fenêtre + radiateur Ch2", b:"16"},
+            {l:"Prise fenêtre Ch3", b:"17"}
+          ]},
+          {name:"Circulations", ico:"🪜", items:[
+            {l:"Lumière couloir étage", b:"3"},
+            {l:"Lumière montée d'escalier", b:"3"},
+            {l:"Lumière couloir RDC", b:"4"},
+            {l:"Prises couloir bas", b:"8"},
+            {l:"Climatisation couloir étage", b:"20"}
+          ]},
+          {name:"Garage / Extérieur", ico:"🚗", items:[
+            {l:"Lumière garage", b:"1"},
+            {l:"Prises garage", b:"29"},
+            {l:"Prise établi gauche", b:"29"},
+            {l:"Moteur porte de garage", b:"29"},
+            {l:"Pompe à eau garage", b:"29"},
+            {l:"Chauffe-eau garage", b:"28"}
+          ]},
+          {name:"Grenier", ico:"📦", items:[
+            {l:"Lumière grenier", b:"19"}
+          ]},
+          {name:"Chauffage", ico:"🔥", items:[
+            {l:"Dalle chauffante 4 kW", b:"27", note:"chaîne : contacteur WT40 + centrale Delta 125N + protection 26"},
+            {l:"Centrale pilotage dalle", b:"26"}
+          ]},
+          {name:"Divers", ico:"🔌", items:[
+            {l:"Prise triple sous le tableau", b:"7"},
+            {l:"Circuit en attente (ex-lave-linge)", b:"13", note:"non connecté"}
+          ]}
+        ];
 
+        // No on/off simulation, deliberately — this widget only ever helps
+        // FIND the right breaker (tap to see what it feeds, from either the
+        // panel or the reverse search below); it never pretends to track
+        // whether it is actually cut. Selecting one just highlights it.
         function clearSel(){
           document.querySelectorAll(".mod.sel,.mainmod.sel").forEach((x) => x.classList.remove("sel"));
         }
 
-        function setReadout({ n, c, l, t, off }) {
+        function setReadout({ n, c, l, t }) {
           document.getElementById("ro-n").textContent = n;
           document.getElementById("ro-c").textContent = c;
           document.getElementById("ro-l").textContent = l;
           document.getElementById("ro-t").innerHTML = t;
-          document.getElementById("readout").classList.toggle("off", !!off);
         }
 
-        function toggleBreaker(id, el) {
-          if (offSet.has(id)) { offSet.delete(id); el.classList.remove("off"); }
-          else { offSet.add(id); el.classList.add("off"); }
+        function selectBreaker(id, el) {
           clearSel(); el.classList.add("sel");
           const d = B[id];
-          const isOff = offSet.has(id);
           setReadout({
             n: id, c: d.cal,
-            l: isOff ? "Coupé — ce qui est hors tension" : "Ce que ce disjoncteur coupe",
+            l: "Ce que ce disjoncteur coupe",
             t: `<strong>Disj. ${id}</strong> (${d.cal}) — ${d.loads}`,
-            off: isOff,
-          });
-        }
-
-        function toggleMain(el) {
-          mainOff = !mainOff;
-          el.classList.toggle("off", mainOff);
-          clearSel(); el.classList.add("sel");
-          setReadout({
-            n: "⚡", c: mainOff ? "OFF" : "15A",
-            l: "Disjoncteur de branchement",
-            t: `<strong>GARDY DB90</strong> — ${SPECIAL.GARDY.info}`,
-            off: mainOff,
           });
         }
 
         function selectSpecial(sp, el) {
           clearSel(); el.classList.add("sel");
           const s = SPECIAL[sp];
-          setReadout({ n: "•", c: sp === "DELTA" ? "HC" : "info", l: s.name, t: s.info, off: false });
+          setReadout({ n: "•", c: sp === "DELTA" ? "HC" : "info", l: s.name, t: s.info });
         }
 
         function makeMod(entry) {
@@ -302,13 +400,14 @@
 
           const id = entry;
           const d = B[id];
+          el.dataset.id = id;
           if (d.diff) el.classList.add("diff", "w2");
           if (d.diff) {
             el.innerHTML = `<div class="tag">30 mA</div><div class="num">${id}</div><div class="test">TEST</div><div class="lever"></div><div class="cal">${d.cal}</div>`;
           } else {
             el.innerHTML = `<div class="num">${id}</div><div class="rocker"></div><div class="cal">${d.cal}</div>`;
           }
-          el.addEventListener("click", () => toggleBreaker(id, el));
+          el.addEventListener("click", () => selectBreaker(id, el));
           return el;
         }
 
@@ -332,18 +431,78 @@
             <div class="big"><div class="swi"></div><div class="amp">15<small>/30/45A</small></div></div>
           </div>`;
         mains.querySelectorAll(".mainmod").forEach((m) => {
-          const sp = m.dataset.sp;
-          m.addEventListener("click", () => (sp === "GARDY" ? toggleMain(m) : selectSpecial(sp, m)));
+          m.addEventListener("click", () => selectSpecial(m.dataset.sp, m));
         });
 
-        document.getElementById("reset").addEventListener("click", () => {
-          offSet.clear();
-          mainOff = false;
-          document.querySelectorAll(".mod.off").forEach((x) => x.classList.remove("off"));
-          document.querySelectorAll(".mainmod.off").forEach((x) => x.classList.remove("off"));
-          clearSel();
-          setReadout({ n: "—", c: "prêt", l: "Sélection", t: "Touche un disjoncteur du tableau.", off: false });
-          syncHeight();
+        // ---------- reverse search ----------
+        const roomsEl = document.getElementById("rooms");
+        function buildRooms() {
+          ROOMS.forEach((room) => {
+            const box = document.createElement("div");
+            box.className = "room";
+            const h4 = document.createElement("h4");
+            h4.textContent = `${room.ico} ${room.name}`;
+            box.appendChild(h4);
+
+            const items = document.createElement("div");
+            items.className = "items";
+            room.items.forEach((it) => {
+              const b = document.createElement("button");
+              b.className = "item";
+              b.dataset.name = it.l.toLowerCase();
+              b.dataset.b = it.b;
+              b.innerHTML = `<span class="lbl">${it.l}</span><span class="brk">Disj ${it.b}</span>`;
+              b.addEventListener("click", () => pickAppliance(it, b));
+              items.appendChild(b);
+            });
+            box.appendChild(items);
+            roomsEl.appendChild(box);
+          });
+        }
+        buildRooms();
+
+        function pickAppliance(it, btn) {
+          const d = B[it.b];
+          const calTxt = d ? ` (${d.cal})` : "";
+          setReadout({
+            n: it.b, c: d ? d.cal : "—",
+            l: `Pour couper : « ${it.l} »`,
+            t: `Bascule le <strong>disjoncteur ${it.b}</strong>${calTxt}.`
+              + (it.note ? ` <span style="color:var(--muted)">— ${it.note}</span>` : ""),
+          });
+
+          const mod = document.querySelector(`.mod[data-id="${it.b}"]`);
+          if (mod) {
+            clearSel();
+            mod.classList.add("sel");
+            mod.classList.remove("flash"); void mod.offsetWidth; mod.classList.add("flash");
+            mod.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+          btn.classList.remove("flash"); void btn.offsetWidth; btn.classList.add("flash");
+        }
+
+        const q = document.getElementById("q");
+        q.addEventListener("input", () => {
+          const term = q.value.trim().toLowerCase();
+          document.querySelectorAll(".room").forEach((roomEl) => {
+            let any = false;
+            roomEl.querySelectorAll(".item").forEach((itemEl) => {
+              // Also matched against the breaker's own "what it feeds" text
+              // (B[id].loads), not just the appliance's own label — "frigo"
+              // does not literally appear in "Réfrigérateur", but it does in
+              // disjoncteur 8's loads text, and the search box's own
+              // placeholder promises "frigo" as an example.
+              const breakerLoads = (B[itemEl.dataset.b] && B[itemEl.dataset.b].loads || "").toLowerCase();
+              const hit = !term
+                || itemEl.dataset.name.includes(term)
+                || breakerLoads.includes(term)
+                || `disj ${itemEl.dataset.b}`.includes(term)
+                || itemEl.dataset.b === term;
+              itemEl.classList.toggle("hidden", !hit);
+              if (hit) any = true;
+            });
+            roomEl.classList.toggle("hidden", !any);
+          });
         });
 
         // Best-effort live resize, kept for hosts that support it — but NOT

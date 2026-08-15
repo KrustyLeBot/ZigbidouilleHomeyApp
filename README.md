@@ -316,17 +316,31 @@ widget adds no path of its own to the alarm.
 ### Electrical panel widget (`app/widgets/tableau-electrique`)
 
 Not tied to any driver or device — a static reference tool for one specific
-breaker panel, reconstructed from a spreadsheet and close-up photos. Tap a
-breaker and the readout shows what it feeds; tap again to mark it visually cut,
-useful while actually flipping breakers by hand. No backend: the wiring never
-changes on its own, so the full breaker→loads map is embedded straight in
-`public/index.html` rather than fetched, and there is no `api.js`.
+breaker panel, reconstructed from a spreadsheet and close-up photos. No
+backend: the wiring never changes on its own, so the full breaker→loads map
+and the room→appliance reverse index are embedded straight in
+`public/index.html` rather than fetched, and there is no `api.js`. Read-only —
+tapping a breaker only highlights it and shows what it feeds; there is no
+on/off simulation, since the widget never actually knows whether a breaker is
+physically cut.
+
+Two ways in: tap a breaker in the panel to see what it feeds, or use the
+search box below it to find which breaker to flip for a given appliance
+("frigo", "radiateur SDB", "box"…) — tapping a result highlights the matching
+breaker up in the panel too. The search matches both the appliance's own name
+and the breaker's "what it feeds" text, so a colloquial term like "frigo"
+still finds "Réfrigérateur" (which is on the same circuit as the actual word
+"frigo", in disjoncteur 8's description) even though it is not a literal
+substring of the appliance's own label.
 
 A trimmed-down version of a larger standalone page (kept outside this repo):
-the full page also has a room-by-room reverse search
-("what breaker feeds my fridge?") and a to-fix/to-verify list, both left out of
-the widget for now to keep it to what fits a dashboard tile — one panel, tap to
-inspect.
+the full page also has a to-fix/to-verify list, left out here to keep the
+widget to what it is for — finding the right breaker, nothing else. Width is
+kept fully responsive (breaker rows and the appliance grid both wrap rather
+than scroll sideways, checked at phone and tablet widths); height is not
+constrained the same way, so the panel and the full reverse search both stay
+permanently expanded — see the height comment in `public/index.html` for why
+that specifically matters here.
 
 ### kWh meter (virtual) (`kwh-meter`) · LAN (Homey's own local API)
 
