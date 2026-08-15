@@ -51,6 +51,7 @@ identifiers are English; only the display names are translated.
 | Imou Ranger 2C | `imou-ranger2c` | cloud |
 | Imou Cell PT | `imou-cellpt` | cloud |
 | Somfy Protect alarm | `somfy-alarm` | cloud |
+| kWh meter (virtual) — tracks any other device's `measure_power` | `kwh-meter` | LAN (Homey's own local API) |
 
 The Zigbee identity, MIoT field map or API surface of every one of them is
 written down in [docs/fingerprints.md](docs/fingerprints.md) — including the
@@ -327,6 +328,65 @@ the full page also has a room-by-room reverse search
 the widget for now to keep it to what fits a dashboard tile — one panel, tap to
 inspect.
 
+### kWh meter (virtual) (`kwh-meter`) · LAN (Homey's own local API)
+
+Not a physical device — this driver pairs a *virtual* meter to any other
+device on the same Homey that exposes `measure_power`, and turns its
+instantaneous watts into a real, monotonic `meter_power` (kWh) that Homey
+Energy, its top-consumers list and Insights can all derive day/week/month/year
+figures from. Built for one specific problem: a device whose own `meter_power`
+is missing, or present but wrong (a Sonoff Zigbee plug whose kWh count does
+not track reality), still gets first-class Energy support this way, without
+touching the source device's own driver.
+
+**Pairing is a multi-select.** It lists every device on the Homey with a
+`measure_power` capability (excluding Zigbidouille's own devices, to avoid a
+meter tracking a meter) and creates one virtual device per selection, each
+keeping the exact same name as its source (renameable afterwards, like any
+Homey device — nothing here re-applies the name later). The link to its
+source (`store.sourceId`) is fixed at pairing time — re-pairing does not
+offer a device that already has a meter tracking it. It lands in Homey's
+default zone like any newly paired device; moving it to the room its source
+is actually in (or to a shared "Energy" zone) is a manual drag, same as any
+other device.
+
+**Integration is zero-order hold, sampled continuously.** Between two
+`measure_power` readings, the source is assumed to have drawn the *older* of
+the two the whole time; a periodic 30 s timer closes an interval even when
+nothing changed, since `measure_power` only pushes on a real change and a
+constant load (a pool pump, say) would otherwise stop being counted the
+moment it stops changing. A long gap — an app restart, a Homey reboot, a
+phone that slept through some ticks — is capped at 10 minutes of assumed
+draw rather than integrated across its full length, so waking up does not
+fabricate an energy spike.
+
+**Never resets, never goes backwards.** The cumulative total only ever gets a
+non-negative amount added to it — structurally, not by an after-the-fact
+check — because Homey Energy reads any drop in a `meter_power` as negative
+consumption and corrupts its own derived figures. A reboot reloads the exact
+kWh total last persisted and restarts the clock at "now" (the downtime's power
+draw is unknown, so it is skipped rather than guessed); a fresh pairing starts
+at 0.
+
+**If the source goes offline**, the meter keeps integrating at the last known
+wattage for 10 minutes (a short Wi-Fi drop probably means the load is still
+running), then assumes 0 until the source is heard from again. **If the source
+is deleted**, the virtual device goes unavailable and its total freezes —
+never reset — until it is removed by hand.
+
+**You still have to tell Homey to stop double-counting the source.** This
+driver reads the source's `measure_power`, but does nothing to the source's
+own `meter_power` if it has one — so a Sonoff plug with a broken kWh count
+would otherwise be counted twice in Energy (once by itself, once by its
+virtual meter). Turn on **"Exclude from Energy"** on the source device itself,
+in the Homey app's own device settings. That only removes the source's own
+(wrong) kWh contribution; its live W still shows in Energy, because the
+virtual meter mirrors it into its own `measure_power`.
+
+Two assumptions in [lib/kwh-meter-device.js](app/lib/kwh-meter-device.js) are
+not yet confirmed against a real offline/deleted source — see the comments
+there and [docs/fingerprints.md](docs/fingerprints.md).
+
 ## Why it exists
 
 The Zigbee spec is standard, but device *behaviour* is not: two plugs that both
@@ -437,6 +497,8 @@ app/                       the Homey app
     somfy-account.js       shared credentials + persisted token
     somfy-events.js        the Somfy websocket: live events, ping, backoff
     somfy-alarm-device.js  the alarm device — reports state and can arm/disarm/night-mode it
+    kwh-meter-account.js   shared HomeyAPI instance + device-deleted fan-out
+    kwh-meter-device.js    the virtual meter — ZOH integration, monotonic meter_power
   drivers/
     co-hs720es/            Heiman HS-720ES CO detector          — zigbee
     shelly-em-gen4/        Shelly EM Gen4, 3 sub-devices        — zigbee
@@ -447,6 +509,7 @@ app/                       the Homey app
     imou-ranger2c/         Imou Ranger 2C                       — cloud
     imou-cellpt/           Imou Cell PT                         — cloud
     somfy-alarm/           Somfy Protect alarm                  — cloud
+    kwh-meter/             virtual kWh meter, tracks another device's measure_power — lan (Homey's own local API)
   locales/                 en.json / fr.json
   settings/                5 tabs: log · Zigbee dump · raw miIO log · Imou · Somfy
   widgets/

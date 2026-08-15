@@ -80,5 +80,9 @@
   "somfy": {
     "not_configured": "Renseigne l'email et le mot de passe du compte Somfy dans les réglages de l'app (onglet Somfy) d'abord.",
     "unreachable": "L'alarme ne répond pas"
+  },
+  "kwh_meter": {
+    "no_source": "Aucun appareil source n'est lié à ce compteur — supprime-le et réappaire-le.",
+    "source_gone": "L'appareil suivi est indisponible ou a été supprimé. Le total en kWh est conservé, mais ne se met plus à jour."
   }
 }

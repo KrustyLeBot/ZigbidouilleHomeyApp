@@ -80,5 +80,9 @@
   "somfy": {
     "not_configured": "Set the Somfy account email and password in the app settings (Somfy tab) first.",
     "unreachable": "Alarm not responding"
+  },
+  "kwh_meter": {
+    "no_source": "No source device is linked to this meter — remove and re-pair it.",
+    "source_gone": "The tracked device is unavailable or was deleted. The kWh total is kept, but stops updating."
   }
 }

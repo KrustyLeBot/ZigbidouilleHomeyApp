@@ -778,6 +778,48 @@
           }
         }
       ]
+    },
+    {
+      "id": "kwh-meter",
+      "name": {
+        "en": "kWh meter (virtual)",
+        "fr": "Compteur kWh (virtuel)"
+      },
+      "class": "sensor",
+      "connectivity": [
+        "lan"
+      ],
+      "capabilities": [
+        "meter_power",
+        "measure_power"
+      ],
+      "energy": {
+        "meterPowerImportedCapability": "meter_power"
+      },
+      "platforms": [
+        "local"
+      ],
+      "pair": [
+        {
+          "id": "list_devices",
+          "template": "list_devices",
+          "navigation": {
+            "next": "add_devices"
+          },
+          "options": {
+            "singular": false
+          }
+        },
+        {
+          "id": "add_devices",
+          "template": "add_devices"
+        }
+      ],
+      "images": {
+        "small": "/drivers/kwh-meter/assets/images/small.png",
+        "large": "/drivers/kwh-meter/assets/images/large.png",
+        "xlarge": "/drivers/kwh-meter/assets/images/xlarge.png"
+      }
     }
   ],
   "brandColor": "#00A6A6",

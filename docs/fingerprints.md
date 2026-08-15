@@ -681,3 +681,44 @@ Switching every Somfy card to `capabilities=homealarm_state` /
 `capabilities=alarm_generic` (the pattern already proven throughout the Imou
 and vacuum cards) fixed it immediately. Worth remembering before reaching for
 `driver_id=` on any future card that also needs `[[device]]`.
+
+---
+
+## kWh meter — virtual (driver `kwh-meter`)
+
+> **Status: built 2026-08-15 from a spec, not yet run against a real offline
+> or deleted source.** No hardware to interview — this driver has no fixed
+> model, it pairs to whatever OTHER device's `measure_power` the user picks.
+> See `lib/kwh-meter-device.js` and `lib/kwh-meter-account.js`.
+
+### Two assumptions about `homey-api` that need a live check
+
+Both are used to react to a source going offline or being deleted, and both
+are structured so that being WRONG degrades the feature rather than breaking
+it — see the comments in `lib/kwh-meter-device.js` for exactly what each
+guards against.
+
+1. **`device.on('update', ...)` fires when the device's own `available`
+   property changes**, e.g. it drops off Wi-Fi. If it never fires, a source
+   that is genuinely offline is simply assumed to still be drawing its last
+   known wattage forever — `OFFLINE_ZERO_AFTER_MS` never kicks in. Test by
+   pulling power on a paired source and watching `errlog` for the "source
+   offline" / "source back online" lines from `applyAvailability()`.
+
+2. **`api.devices.on('delete', device)` fires when a device is removed from
+   Homey**, used in `lib/kwh-meter-account.js` to freeze a virtual meter the
+   moment its source is deleted, rather than waiting for the next time
+   something tries to read it. If it never fires, deletion is still caught —
+   just later, the next time `connectSource()` runs (app restart) and
+   `api.devices.getDevice({id})` rejects. Test by deleting a paired source
+   and checking whether "source deleted" or "source unavailable at init"
+   shows up in the log, and how long that takes.
+
+Update this entry with the real answer once either has actually been
+observed — right now both are "expected, per the documented shape", not
+confirmed live, unlike everything else in this file.
+
+(A third candidate — auto-placing a newly paired meter in its source's zone
+via `api.devices.updateDevice({ id, device: { zone } })` — was tried and
+pulled back out: not worth the undocumented API surface for something a
+manual drag handles fine.)
