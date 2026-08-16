@@ -201,7 +201,7 @@ counts.
 
 `probe/homey/insights.js` dumps the real ids from outside the app.
 
-Four corollaries, each learned by shipping the wrong thing first:
+Seven corollaries, each learned by shipping the wrong thing first:
 
 - **A cold start is not midnight.** "Stored day != today" covers both, and they
   mean opposite things about whether the current meter reading is a real 00:00
@@ -226,6 +226,49 @@ Four corollaries, each learned by shipping the wrong thing first:
   Fixed by `this.homey.clock.getTimezone()` + `Intl.DateTimeFormat` instead of
   `Date`'s own getters — see `athombv/homey-apps-sdk-issues#169`, which is
   Homey's own name for this exact trap.
+- **A capability value is only as fresh as its listener, not as its number.**
+  The Shelly EM Gen4 skips (re-)registering `meter_power`'s report listener on
+  any boot where its multiplier/divisor read fails (`registerEnergyChannel` in
+  `drivers/shelly-em-gen4/device.js`) — correct, since a guessed scale is worse
+  than none. But `getCapabilityValue('meter_power')` still returns a NUMBER on
+  such a boot: the last one written, now frozen for the rest of that session
+  since nothing is listening for the device's reports anymore. If local
+  midnight falls inside that frozen window, `energy-today.js`'s "day boundary
+  crossed while running" branch — the one case explicitly trusted as certain,
+  no Insights needed — captured that frozen (too low) number as the day's
+  baseline, and it never fixed itself: `baselineIsGuess: false` means Insights
+  is never consulted again. Every kWh missed during the freeze then got counted
+  as "today", for the whole day. `device.isMeterLive()` is what closes this:
+  false on a boot that skipped registration, checked before trusting a
+  midnight-boundary reading as certain. The lesson generalises past this one
+  driver — any "trust the current reading" shortcut needs a way to ask "is
+  anything actually keeping this reading current right now?", because a stale
+  capability value is indistinguishable from a fresh one by type alone.
+- **A day's energy is the sum of its increments, not last-minus-first.** The two
+  agree only on a log with no discontinuity, and this device's log has them by
+  design: the freeze described above records a flat stale value for hours, then
+  the next good boot writes the true counter in ONE step carrying every kWh of
+  the frozen window. Anchoring on the midnight reading and subtracting is
+  therefore not conservative — it silently adopts whatever artefact sits at the
+  anchor. Measured here: `naive` 49.8 kWh against 11.5 kWh of real use, the
+  difference being one ~29 kWh step at 00:01 (≈350 kW for five minutes).
+  `rebaseFromInsights()` now walks consecutive entries, adds each rise, and
+  drops any exceeding `MAX_PLAUSIBLE_KW` (30 kW — far above the 36 kVA ceiling
+  of a French domestic supply, so it can only ever reject an artefact). Two
+  properties fall out of that and both matter: the result no longer depends on
+  a single anchor sample being trustworthy, and being derived wholly from the
+  log it is **idempotent**, which is what lets it re-run every 10 minutes
+  instead of once. That last part is the actual fix — a device that freezes
+  once a day needs continuous correction, not a better one-shot guess.
+- **Do not write down a lesson the evidence did not support.** This slot briefly
+  held a confident claim that `getLogEntries()` returns entries out of order,
+  written while chasing the above. It does not: the same `first=276.2245 at
+  midnight` came back before and after the "fix", which was a no-op. Ordering by
+  parsed timestamp is kept in `rebaseFromInsights()` because correct-by-
+  construction beats relying on undocumented ordering — but it fixed nothing,
+  and recording it as the cause would have sent the next reader hunting a bug
+  that was never there. Verify a hypothesis against the numbers before it earns
+  a line in here.
 
 ### Every network step in a widget's backend needs a deadline
 

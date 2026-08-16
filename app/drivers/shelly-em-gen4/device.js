@@ -153,6 +153,14 @@ class ShellyEmGen4Device extends ZigbidouilleDevice {
     return this.energyToday ? this.energyToday.toJSON() : null;
   }
 
+  // Read by lib/energy-today.js: false whenever registerEnergyChannel skipped
+  // meter_power registration this session (see the flag's own comment there).
+  // Devices without this method (the virtual kwh-meter) are always live —
+  // energy-today.js treats a missing method as "trust it".
+  isMeterLive() {
+    return Boolean(this.meterLive);
+  }
+
   // NOTE: there is no way for a device to rename itself in Homey SDK v3 —
   // Device has no setName() method (confirmed against the SDK docs). A
   // previous attempt at auto-renaming the root device to "Channel A" called a
@@ -250,6 +258,13 @@ class ShellyEmGen4Device extends ZigbidouilleDevice {
   // readings may well come from different clusters, and one missing cluster
   // must not cost us the other tile.
   async registerEnergyChannel(zclNode, endpoint) {
+    // Whether meter_power has a live reportParser wired up THIS session. Read
+    // by EnergyToday: a day-boundary reading captured while this is false is a
+    // frozen leftover from a previous session, not the true value at midnight,
+    // and must not be trusted as a certain baseline. See the `!scale` branch
+    // below for why registration can be skipped some sessions.
+    this.meterLive = false;
+
     // Instantaneous power in W, signed: negative = exporting to the grid.
     this.registerMeasurePower(endpoint);
 
@@ -277,6 +292,7 @@ class ShellyEmGen4Device extends ZigbidouilleDevice {
     await this.setAvailable().catch(() => {});
 
     this.registerMeterPower(endpoint, scale);
+    this.meterLive = true;
 
     // Push the correctly-scaled value immediately rather than trust
     // getOpts.getOnStart to run it through our reportParser: whether the SDK's

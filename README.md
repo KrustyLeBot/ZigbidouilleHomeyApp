@@ -98,29 +98,34 @@ It used to draw a per-minute bar chart of the day. That is gone, along with the
 sample per minute per channel in the device store to draw it was the tail
 wagging the dog.
 
-Today's kWh is a **delta against the meter's own cumulative total**, never a sum
+Today's kWh comes from the meter's **own cumulative total**, never from a sum
 this app accumulates: an accumulator drifts, and it restarts at zero on every
-reinstall. So the only thing [app/lib/energy-today.js](app/lib/energy-today.js)
-has to know is the meter reading as it stood at 00:00, and it gets that from
-three places, in order:
+reinstall. [app/lib/energy-today.js](app/lib/energy-today.js) reads the day out
+of Homey's Insights log for `meter_power` and **adds up the increments between
+consecutive samples**, rather than subtracting the midnight reading from the
+current one.
 
-1. **The device store**, if the saved reading is from today — this is what
-   survives an app restart or a CLI reinstall, and it is the usual case.
-2. **Homey's Insights**, through the Web API — the only way to learn the 00:00
-   reading of a day that is already underway (a fresh pair, or a store that was
-   wiped). This is what stops the widget from reading `0.00` for the rest of the
-   day after a mid-afternoon reinstall.
-3. **The meter right now** — wrong, but wrong in the obvious direction: the
-   figure starts at 0 and climbs. The widget labels itself *since install* while
-   this is the case, rather than passing a partial total off as the day's, and it
-   keeps asking Insights every 10 minutes until one of them answers.
+The distinction only matters when the log has a discontinuity — and this device
+produces them. Whenever a boot fails to read the metering scale, `meter_power`
+stops updating for that whole session (a guessed scale would be worse than none,
+so the driver skips registering it), Insights records the same stale value for
+hours, and the next good boot writes the true counter in a single step carrying
+every kWh of the frozen window. Subtracting a midnight anchor swallows that step
+whole: measured here, **49.8 kWh reported for a day that really used 11.5**, the
+difference being one ~29 kWh jump at 00:01 — around 350 kW for five minutes.
 
-**A cold start is not midnight.** Both leave "the stored day is not today", and
-treating them alike is what made the widget read ~0.00 after a reinstall: the
-baseline was marked a *certain* 00:00 reading, so the Insights lookup was skipped
-and never even logged. Crossing midnight while running means the meter right now
-IS the 00:00 value; starting with an empty store means it is a guess. Only the
-previous day being known separates the two.
+So each rise is added and anything above 30 kW is dropped. That ceiling sits far
+above the largest French domestic supply (36 kVA), so it can only ever reject an
+artefact, never real consumption. Two things follow, and the second is the point:
+the figure no longer depends on any single sample being trustworthy, and being
+derived entirely from the log it is idempotent — so it is **recomputed every 10
+minutes** rather than settled once. A meter that freezes once a day needs
+continuous correction, not a better one-shot guess.
+
+Between recomputations the widget still shows `meter now − baseline`, where the
+baseline is simply the value that would have produced the last computed total.
+Until the first successful Insights read the widget says *since install* rather
+than passing a partial figure off as the day's.
 
 The app's own `homey.insights` is *not* the way in: its `getLog(id)` takes a
 lowercase-alphanumeric id and only returns logs the app itself created. A

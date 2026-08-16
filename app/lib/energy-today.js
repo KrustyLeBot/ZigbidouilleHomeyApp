@@ -43,7 +43,21 @@ const STORE_KEY = 'energy_today';
 // the next real local midnight (restore() never re-derives a same-day
 // baseline), so the fix would not visibly do anything until the day after it
 // shipped. This forces one fresh Insights-based rebase per channel instead.
-const STORE_VERSION = 3;
+//
+// Bumped 3 -> 4 for the frozen-meter-at-midnight fix (see the `live` check in
+// sample()): a baseline captured while meter_power was frozen from an earlier
+// failed boot got marked "certain" and never revisited, overreporting the
+// whole day by the missed amount. Same reasoning as the 2->3 bump — a same-day
+// record is never re-derived on its own, so this is what makes today's figure
+// correct today instead of tomorrow.
+//
+// Bumped 4 -> 5 for the rebaseFromInsights() ordering fix: `todays[0]` assumed
+// getLogEntries() returns entries oldest-first, and a live response proved
+// that assumption wrong — entries[0] was NOT the earliest of the day, so the
+// 4->5 rebase itself picked a bad (much too old) baseline and marked it
+// certain. Forces one more re-derivation, this time picking the actual
+// earliest entry by timestamp.
+const STORE_VERSION = 7;
 
 // EVERY step that talks to the network gets a deadline. Not defensive padding:
 // the first version of this logged neither success nor failure, which only one
@@ -132,8 +146,11 @@ function reportLogs(logs, uuid, matched) {
   const message = mine.length
     ? `logs for device ${uuid}: ${mine.join(' | ')}`
     : `no Insights log has ownerUri containing ${uuid} (of ${logs.length} logs)`;
-  if (matched) errlog.debug('insights', message);
-  else errlog.info('insights', message);
+  // At INFO unconditionally: a match is NOT evidence the right log was picked.
+  // Reading another channel's kWh log satisfies every check here (right unit,
+  // plausible value, below the meter) and yields a silently wrong figure — so
+  // the listing has to be visible even, especially, on the success path.
+  errlog.info('insights', `${message} — matched=${matched}`);
 }
 
 // The unit each capability's log carries, for the fallback below.
@@ -179,15 +196,20 @@ async function resolveLogIds(api, uuid, capabilityId) {
 }
 
 async function fetchEntries(api, uuid, capabilityId) {
-  const candidates = [];
+  // The composed id goes FIRST. It names this device and this capability
+  // exactly, so when it resolves there is nothing to rank — whereas
+  // resolveLogIds' unit-based fallback can legitimately return a SIBLING
+  // channel's kWh log (same node, same unit, plausible value), which then
+  // passes every downstream check and produces a confidently wrong figure.
+  // Trying the exact id last meant the fuzzy answer won whenever it existed.
+  const candidates = [`homey:device:${uuid}:${capabilityId}`];
 
   try {
     candidates.push(...await resolveLogIds(api, uuid, capabilityId));
   } catch (err) {
     // getLogs() itself failed (permission, firmware, timeout) — the composed id
-    // below is still worth a try, and the error surfaces if that fails too.
+    // above is still worth a try, and the error surfaces if that fails too.
   }
-  candidates.push(`homey:device:${uuid}:${capabilityId}`);
 
   let lastError = null;
   let answered = false; // at least one candidate existed, even if it was empty
@@ -211,6 +233,10 @@ async function fetchEntries(api, uuid, capabilityId) {
         // over a later candidate that actually holds today.
         if (entries.length) {
           errlog.debug('insights', `${capabilityId}: ${entries.length} entries from log ${id}`);
+          // The id travels with the data: WHICH log answered is the thing that
+          // separates a right figure from a plausible wrong one, and it used to
+          // be dropped here.
+          entries.logId = id;
           return entries;
         }
       } catch (err) {
@@ -239,9 +265,10 @@ class EnergyToday {
     this.device = device;
     this.day = null;
     this.baselineKwh = null;
-    // True while the baseline is a guess made mid-day (case 3 above) rather than
-    // a real 00:00 reading. Only then is Insights worth asking, and only then may
-    // its answer overwrite what is already here.
+    // True while the baseline has never been confirmed against the log — a
+    // mid-day guess (case 3 above), or a midnight reading taken while the meter
+    // was frozen. It no longer gates whether Insights is consulted (that now
+    // happens on a fixed cadence), only what the widget labels as partial.
     this.baselineIsGuess = false;
     this.timer = null;
     this.rebasing = false;
@@ -250,6 +277,17 @@ class EnergyToday {
 
   async start() {
     await this.restore();
+
+    // The restored triple (day/baselineKwh/baselineIsGuess), before sample()
+    // gets a chance to change all three in the same tick. Verbose: the first
+    // rebase of every app run reports the outcome at INFO, and a rebase failure
+    // does too, so this is only needed when the persistence itself is suspect.
+    errlog.debug(
+      `${this.device.getName()}: restore`,
+      `day=${this.day} baselineKwh=${this.baselineKwh} guess=${this.baselineIsGuess} `
+      + `meterNow=${this.readMeter()} today=${dayKey(this.device.homey)}`,
+    );
+
     this.sample();
 
     // Deliberately not awaited: this talks to the Web API, and onNodeInit must
@@ -258,7 +296,7 @@ class EnergyToday {
     // invisible in the widget (it just shows a smaller number) and used to be
     // invisible in the log too, which is how a broken Insights log id survived
     // unnoticed.
-    if (this.baselineIsGuess) this.retryRebase();
+    this.retryRebase();
 
     this.timer = this.device.homey.setInterval(() => this.sample(), SAMPLE_INTERVAL);
   }
@@ -327,7 +365,24 @@ class EnergyToday {
     if (this.day !== today) {
       this.day = today;
       this.baselineKwh = this.readMeter();
-      this.baselineIsGuess = false;
+
+      // "Certain" only holds if the meter is actually LIVE right now. A device
+      // that skipped re-registering its report listener this session (this
+      // Shelly does, when a boot-time attribute read fails — see
+      // registerEnergyChannel) has a capability value frozen at whatever it
+      // was when reporting stopped, not the true reading at this instant. If
+      // midnight falls inside such a session, trusting that frozen number as
+      // the day's baseline understates it — every kWh missed since the freeze
+      // then gets counted as "today", overreporting the whole day (proven:
+      // a freeze from 17:46 to 00:01 the next boot, baseline off by ~9.7 kWh
+      // until fixed here). A device with no isMeterLive() (e.g. the virtual
+      // kwh-meter) is assumed live — it never freezes this way.
+      const live = typeof this.device.isMeterLive !== 'function' || this.device.isMeterLive();
+      this.baselineIsGuess = !live;
+      if (!live) {
+        errlog.info(`${this.device.getName()}: day boundary`,
+          'meter not live this session — baseline flagged for Insights correction');
+      }
       this.persist();
       return;
     }
@@ -341,16 +396,16 @@ class EnergyToday {
       return;
     }
 
-    // Still working off a guess: try Insights again. One attempt at boot is not
-    // enough — the meter may not have reported yet when it ran, or the request
-    // may have timed out, and either way a wrong figure would then stand for the
-    // rest of the day.
-    if (this.baselineIsGuess) this.retryRebase();
+    // Re-derive from the log on every tick (rate-limited to RETRY_INTERVAL
+    // inside retryRebase). Not just while the baseline is a guess: a baseline
+    // that was right an hour ago stops being right the moment the meter freezes
+    // and catches up, and that is a routine event on this device.
+    this.retryRebase();
   }
 
-  // Rate-limited retry, driven by the same one-minute tick as sample(). Bounded
-  // by baselineIsGuess going false, so a Homey whose Insights genuinely holds
-  // nothing for today retries every 10 minutes and no more.
+  // Rate-limited, driven by the same one-minute tick as sample(). No longer
+  // bounded by baselineIsGuess: this is the day's figure being re-derived from
+  // the log, so it runs every 10 minutes for as long as the app does.
   retryRebase() {
     if (this.rebasing) return;
     const now = Date.now();
@@ -381,8 +436,15 @@ class EnergyToday {
   // start of today. This is the entire reason the widget can be installed at
   // 16:00 and still report the day.
   async rebaseFromInsights() {
-    if (!this.baselineIsGuess) return; // the baseline is a real midnight reading
-
+    // Deliberately NOT guarded on baselineIsGuess anymore. It used to run once
+    // and stop, on the assumption that a settled baseline stays correct for the
+    // rest of the day — which holds only if the meter behaves for the rest of
+    // the day. This one does not: a scale-read failure at any boot freezes
+    // meter_power, and the catch-up step on the next boot inflates the figure
+    // exactly as it did across midnight. Now that the computation derives the
+    // whole day from the log rather than adjusting prior state, re-running it
+    // is idempotent, so it simply runs on the same 10-minute cadence all day
+    // and any artefact is corrected within one interval.
     const uuid = deviceUuid(this.device);
     // Logged rather than returned silently: no uuid means device-uuid.js failed
     // to discover Homey's id on the instance, which is a real failure and not
@@ -401,40 +463,109 @@ class EnergyToday {
     const today = dayKey(this.device.homey);
 
     const entries = await fetchEntries(api, uuid, 'meter_power');
-    const todays = entries.filter((entry) => {
-      const date = entryTime(entry);
-      return date && dayKey(this.device.homey, date) === today && typeof entry.v === 'number';
-    });
+    // Keep the parsed Date alongside each entry — needed below to find the
+    // actual earliest one, not just filter.
+    const todays = entries
+      .map((entry) => ({ entry, date: entryTime(entry) }))
+      .filter(({ entry, date }) => date && dayKey(this.device.homey, date) === today
+        && typeof entry.v === 'number');
 
-    const first = todays.length ? todays[0].v : null;
+    // The EARLIEST entry by timestamp, not entries[0]. getLogEntries' order is
+    // undocumented and was assumed ascending — wrongly: a real response handed
+    // back entries out of order, entries[0] landed on a value from BEFORE
+    // yesterday evening, and that got accepted as "today's start" because nothing
+    // here ever checked its timestamp, only its position. Reducing by date is
+    // correct regardless of what order the API happens to return.
+    let first = null;
+    let firstAt = null;
+    for (const { entry, date } of todays) {
+      if (firstAt === null || date.getTime() < firstAt.getTime()) {
+        first = entry.v;
+        firstAt = date;
+      }
+    }
     const meter = this.readMeter();
+    const sorted = todays.slice().sort((a, b) => a.date.getTime() - b.date.getTime());
 
-    // Sanity: the day's first reading cannot be meaningfully above the meter's
-    // current total, since the counter only climbs. A value well over it is a log
-    // for another device or another unit, and using it would show a negative day.
+    // Today's energy is the SUM OF PLAUSIBLE INCREMENTS, not last-minus-first.
     //
-    // The tolerance is not slack — Insights ROUNDS: a channel sitting at
-    // 0.048647 kWh all day comes back as 0.05, which is genuinely above the
-    // meter. Compared strictly, that channel is rejected every ten minutes
-    // forever and stays labelled "since install" for a day in which it used
-    // nothing. Observed on "Dalle chauffante", 9 entries found and all refused.
-    const TOLERANCE_KWH = 0.05;
-    const usable = first !== null && (meter === null || first <= meter + TOLERANCE_KWH);
+    // Those two are identical on a healthy day and differ exactly when the log
+    // contains a discontinuity — which this device produces routinely. When a
+    // boot fails to read the metering scale, meter_power stops being updated
+    // (see registerEnergyChannel) and Insights records the same stale value for
+    // hours; the next successful boot writes the true counter in one step, and
+    // that step carries ALL the consumption of the frozen window. If the freeze
+    // spans local midnight, last-minus-first credits the whole of yesterday
+    // evening to today: observed here as 49.8 kWh on a day whose own log shows
+    // a steady ~1 kW draw, i.e. ~20 kWh of real use plus a ~29 kWh step at
+    // 00:01.
+    //
+    // Summing increments and dropping the impossible ones removes the step
+    // without needing to know why it happened. The cap is deliberately far
+    // above any real domestic load (the largest French domestic supply is
+    // 36 kVA) so it can only ever reject an artefact: a genuine 5-minute step
+    // at 30 kW would be 2.5 kWh, an order of magnitude past anything this
+    // house draws, while the artefact was ~350 kW-equivalent.
+    const MAX_PLAUSIBLE_KW = 30;
+    let consumed = 0;
+    let steps = 0; // increments rejected as physically impossible
+    let drops = 0; // decreases: a counter reset, never real consumption
+
+    for (let i = 1; i < sorted.length; i++) {
+      const hours = (sorted[i].date.getTime() - sorted[i - 1].date.getTime()) / 3600000;
+      const delta = sorted[i].entry.v - sorted[i - 1].entry.v;
+
+      if (delta < 0) { drops++; continue; }
+      if (hours > 0 && delta > MAX_PLAUSIBLE_KW * hours) { steps++; continue; }
+      consumed += delta;
+    }
+
+    // The gap between the last logged sample (up to 5 minutes old) and the live
+    // meter. Same plausibility rule, so an unfreeze landing in this window
+    // cannot sneak in either.
+    const last = sorted.length ? sorted[sorted.length - 1] : null;
+    if (last && meter !== null) {
+      const hours = Math.max((Date.now() - last.date.getTime()) / 3600000, 1 / 60);
+      const delta = meter - last.entry.v;
+      if (delta > 0 && delta <= MAX_PLAUSIBLE_KW * hours) consumed += delta;
+    }
+
+    // Everything downstream still works off `baselineKwh`, so the result is
+    // expressed as the baseline that WOULD have produced it. That keeps the
+    // live figure (meter - baseline) climbing correctly between rebases,
+    // instead of freezing at whatever Insights last knew.
+    const usable = sorted.length > 1 && meter !== null;
 
     if (usable) {
-      // Clamped, so the rounding that made the tolerance necessary can never
-      // produce a negative figure either.
-      this.baselineKwh = meter === null ? first : Math.min(first, meter);
+      this.baselineKwh = Math.min(meter, Math.max(0, meter - consumed));
       this.baselineIsGuess = false;
       this.persist();
     }
 
-    errlog.info(
-      `${this.device.getName()}: rebase`,
-      `${entries.length} Insights entries, ${todays.length} today, `
-      + `first=${first}, meter=${meter}, `
-      + `baseline=${usable ? this.baselineKwh : 'unchanged (rejected)'}`,
-    );
+    // The last few entries, nearest NOW: their values must track the live meter.
+    // If the log belonged to another channel they would not, and that comparison
+    // is the only cheap way to catch it — a wrong log looks healthy on every
+    // other criterion.
+    const tail = sorted.slice(-3)
+      .map(({ entry, date }) => `${date.toISOString()}=${entry.v}`)
+      .join(' ');
+
+    const message = `log=${entries.logId || '?'} — ${entries.length} entries, ${todays.length} today, `
+      + `first=${first} at=${firstAt ? firstAt.toISOString() : null}, meter=${meter}, `
+      + `naive=${first !== null && meter !== null ? (meter - first).toFixed(2) : '?'}, `
+      + `consumed=${consumed.toFixed(2)} (rejected ${steps} impossible steps, ${drops} drops), `
+      + `latest[${tail}], `
+      + `baseline=${usable ? this.baselineKwh : 'unchanged (rejected)'}`;
+
+    // This now runs every 10 minutes, so INFO on every pass would be ~144 lines
+    // a day per channel — the log would be useless for everything else. INFO is
+    // kept for the passes that actually carry news: the first of an app run, a
+    // rejected artefact (the whole reason this code exists), and a refusal to
+    // produce a figure at all. The routine "nothing unusual" pass is verbose.
+    const notable = !this.loggedRebase || steps > 0 || drops > 0 || !usable;
+    this.loggedRebase = true;
+    if (notable) errlog.info(`${this.device.getName()}: rebase`, message);
+    else errlog.debug(`${this.device.getName()}: rebase`, message);
   }
 
   // Shape consumed by the widget.
