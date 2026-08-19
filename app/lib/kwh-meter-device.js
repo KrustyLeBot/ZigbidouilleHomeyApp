@@ -21,6 +21,7 @@
 // implemented here since nothing paired so far needs it.
 
 const errlog = require('./errlog');
+const EnergyToday = require('./energy-today');
 const { getApi, onSourceDeleted, offSourceDeleted } = require('./kwh-meter-account');
 
 // Two independent timers, easy to conflate:
@@ -59,7 +60,62 @@ class KwhMeterDevice extends require('homey').Device {
     await this.restore();
     await this.connectSource();
 
+    // Honour the "whole-home meter" setting: a virtual meter is the natural
+    // replacement for a built-in one that miscounts, so it needs to be able to
+    // BE the Homey Energy total, not just another sub-load.
+    await this.applyCumulative();
+
     this.timer = this.homey.setInterval(() => this.tick(), SAMPLE_INTERVAL);
+
+    // Today's imported energy, for the dashboard widget — same tracker the
+    // Shelly channels use. This meter never freezes (it recomputes its own
+    // counter every 30 s), so isMeterLive() is always true; EnergyToday still
+    // earns its keep here by giving the widget the since-midnight figure and
+    // the Insights recovery after a reinstall.
+    this.energyToday = new EnergyToday(this);
+    await this.energyToday.start();
+  }
+
+  // EnergyToday reads this to decide whether a midnight-boundary meter reading
+  // can be trusted as certain. A virtual meter's counter is always current
+  // (accumulate() runs every tick regardless of the source), so it never has
+  // the frozen-capability problem the Shelly does — always live.
+  isMeterLive() {
+    return true;
+  }
+
+  // Read by the dashboard widget's api.js.
+  getEnergyToday() {
+    return this.energyToday ? this.energyToday.toJSON() : null;
+  }
+
+  // Translate the `cumulative` setting into Homey's energy model. Cumulative =
+  // "this is the whole home": Homey subtracts every other metered device from
+  // it and shows the remainder as "other", and offers the native "tracks total
+  // home energy" option on the device. Otherwise it is just this source's own
+  // consumption.
+  //
+  // Mirrors the Shelly EM driver EXACTLY, including the empty object when off:
+  // the driver deliberately declares NO `energy` block in the manifest (see
+  // app.json — the Shelly has none either). A manifest energy object pins the
+  // device as a plain per-device meter, and Homey then never surfaces the
+  // cumulative option no matter what setEnergy() overrides at runtime. With no
+  // manifest block, setEnergy() is the sole authority and cumulative takes.
+  async applyCumulative() {
+    const cumulative = Boolean(this.getSetting('cumulative'));
+    const energy = cumulative
+      ? { cumulative: true, cumulativeImportedCapability: 'meter_power' }
+      : {};
+    await this.setEnergy(energy)
+      .then(() => this.note('cumulative', `setEnergy ok — ${JSON.stringify(energy)}`))
+      .catch((err) => {
+        this.error('setEnergy', err);
+        errlog.add(`${this.getName()}: setEnergy failed`, err);
+      });
+  }
+
+  async onSettings({ changedKeys }) {
+    if (changedKeys.includes('cumulative')) await this.applyCumulative();
   }
 
   note(context, message) {
@@ -249,7 +305,15 @@ class KwhMeterDevice extends require('homey').Device {
 
   async onDeleted() {
     if (this.timer) this.homey.clearInterval(this.timer);
+    if (this.energyToday) this.energyToday.stop();
     this.detachSource();
+  }
+
+  // Homey manages timers across an app reload, but stopping them here keeps a
+  // reloaded app from running two samplers against the same device.
+  async onUninit() {
+    if (this.timer) this.homey.clearInterval(this.timer);
+    if (this.energyToday) this.energyToday.stop();
   }
 }
 

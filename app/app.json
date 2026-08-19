@@ -793,9 +793,6 @@
         "meter_power",
         "measure_power"
       ],
-      "energy": {
-        "meterPowerImportedCapability": "meter_power"
-      },
       "platforms": [
         "local"
       ],
@@ -819,7 +816,22 @@
         "small": "/drivers/kwh-meter/assets/images/small.png",
         "large": "/drivers/kwh-meter/assets/images/large.png",
         "xlarge": "/drivers/kwh-meter/assets/images/xlarge.png"
-      }
+      },
+      "settings": [
+        {
+          "id": "cumulative",
+          "type": "checkbox",
+          "value": false,
+          "label": {
+            "en": "Whole-home meter (cumulative)",
+            "fr": "Compteur global du foyer (cumulatif)"
+          },
+          "hint": {
+            "en": "Enable to make this the whole-home total in Homey Energy — use it to replace a built-in meter that reports wrong kWh. Homey then subtracts every other metered device and shows the remainder as \"other\". Leave off for a single appliance.",
+            "fr": "Activez pour en faire le total du foyer dans Homey Energy — pratique pour remplacer un compteur intégré qui affiche de mauvais kWh. Homey soustrait alors tous les autres appareils mesurés et affiche le reste comme « autre ». Laissez désactivé pour un seul appareil."
+          }
+        }
+      ]
     }
   ],
   "brandColor": "#00A6A6",
@@ -857,8 +869,8 @@
     "shelly-energy": {
       "id": "shelly-energy",
       "name": {
-        "en": "Shelly energy (today)",
-        "fr": "Énergie Shelly (jour)"
+        "en": "Energy (today)",
+        "fr": "Énergie (jour)"
       },
       "height": 130,
       "settings": [],

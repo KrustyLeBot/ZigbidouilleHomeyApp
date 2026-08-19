@@ -88,10 +88,13 @@ The split into three devices is deliberate — Homey's `cumulative` flag is
 per-device, so two clamps needing different cumulative settings cannot share
 one.
 
-**Dashboard widget** — "Shelly energy (today)"
+**Dashboard widget** — "Energy (today)"
 (`app/widgets/shelly-energy`) shows **one figure**: the energy imported since
-local midnight, in kWh. Pick which channel it shows in the widget's own
-settings; add it twice to watch both.
+local midnight, in kWh. It is not Shelly-specific despite the folder name — the
+picker lists **any of this app's devices with a `meter_power` counter**, so it
+works on a Shelly channel or on a virtual kWh meter (see below) just the same.
+Pick the device in the widget's own settings; add the widget twice to watch
+two.
 
 It used to draw a per-minute bar chart of the day. That is gone, along with the
 1440-slot recorder that fed it — the number is what was wanted, and keeping a
@@ -402,6 +405,17 @@ in the Homey app's own device settings. That only removes the source's own
 (wrong) kWh contribution; its live W still shows in Energy, because the
 virtual meter mirrors it into its own `measure_power`.
 
+**Making it the whole-home meter.** The virtual meter has a **"Whole-home meter
+(cumulative)"** setting (off by default). Turn it on to make Homey treat this
+meter as the household total — Homey then subtracts every other metered device
+and shows the remainder as "other", exactly as it would for a built-in main
+meter. This is the point of the driver's cumulative option: a built-in meter
+that reports wrong kWh (the Shelly EM's frozen counter, a Sonoff's double
+count) can be replaced as the Energy total by a virtual meter that recomputes
+those kWh cleanly. Leave it off for a single appliance. It maps to Homey's
+per-device `cumulative` energy flag via `setEnergy()`, applied at pairing and
+whenever the setting changes.
+
 Two assumptions in [lib/kwh-meter-device.js](app/lib/kwh-meter-device.js) are
 not yet confirmed against a real offline/deleted source — see the comments
 there and [docs/fingerprints.md](docs/fingerprints.md).
@@ -532,7 +546,7 @@ app/                       the Homey app
   locales/                 en.json / fr.json
   settings/                5 tabs: log · Zigbee dump · raw miIO log · Imou · Somfy
   widgets/
-    shelly-energy/         dashboard widget — today's imported kWh, one figure
+    shelly-energy/         dashboard widget — today's imported kWh for any meter_power device, one figure
     somfy-alarm/           dashboard widget — 3-wedge alarm dial, tap to arm/disarm
     tableau-electrique/    dashboard widget — breaker panel, tap to see what it feeds (no device, no backend)
 probe/                     standalone scripts — talk to a device without Homey
