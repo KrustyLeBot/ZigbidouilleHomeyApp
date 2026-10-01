@@ -832,6 +832,192 @@
           }
         }
       ]
+    },
+    {
+      "id": "fingerbot-plus",
+      "name": {
+        "en": "Fingerbot Plus",
+        "fr": "Fingerbot Plus"
+      },
+      "class": "button",
+      "capabilities": [
+        "onoff",
+        "measure_battery"
+      ],
+      "platforms": [
+        "local"
+      ],
+      "connectivity": [
+        "zigbee"
+      ],
+      "images": {
+        "small": "/drivers/fingerbot-plus/assets/images/small.png",
+        "large": "/drivers/fingerbot-plus/assets/images/large.png",
+        "xlarge": "/drivers/fingerbot-plus/assets/images/xlarge.png"
+      },
+      "zigbee": {
+        "manufacturerName": [
+          "_TZ3210_dse8ogfy",
+          "_TZ3210_j4pdtz9v",
+          "_TZ3210_7vgttna6",
+          "_TZ3210_a04acm9s",
+          "_TZ3210_cm9mbpr1"
+        ],
+        "productId": [
+          "TS0001"
+        ],
+        "endpoints": {
+          "1": {
+            "clusters": [
+              0,
+              4,
+              5,
+              6,
+              61184
+            ],
+            "bindings": [
+              6,
+              61184
+            ]
+          }
+        },
+        "learnmode": {
+          "image": "/drivers/fingerbot-plus/assets/learnmode.svg",
+          "instruction": {
+            "en": "Hold the Fingerbot's button until its LED blinks fast to enter pairing, close to the Homey.",
+            "fr": "Maintenez le bouton du Fingerbot jusqu'à ce que sa LED clignote rapidement pour lancer l'appairage, près du Homey."
+          }
+        }
+      },
+      "settings": [
+        {
+          "id": "mode",
+          "type": "dropdown",
+          "value": "click",
+          "label": {
+            "en": "Working mode",
+            "fr": "Mode de fonctionnement"
+          },
+          "hint": {
+            "en": "Click = push and spring back. Switch = push down on On, release on Off. Program = run the recorded sequence.",
+            "fr": "Clic = appuie et revient. Interrupteur = appuie sur Marche, relâche sur Arrêt. Programme = exécute la séquence enregistrée."
+          },
+          "values": [
+            {
+              "id": "click",
+              "label": {
+                "en": "Click (push & return)",
+                "fr": "Clic (appuie et revient)"
+              }
+            },
+            {
+              "id": "switch",
+              "label": {
+                "en": "Switch (hold down)",
+                "fr": "Interrupteur (maintient)"
+              }
+            },
+            {
+              "id": "program",
+              "label": {
+                "en": "Program",
+                "fr": "Programme"
+              }
+            }
+          ]
+        },
+        {
+          "id": "lower",
+          "type": "number",
+          "value": 100,
+          "min": 50,
+          "max": 100,
+          "step": 1,
+          "units": {
+            "en": "%",
+            "fr": "%"
+          },
+          "label": {
+            "en": "Stroke — pushed position",
+            "fr": "Course — position appuyée"
+          },
+          "hint": {
+            "en": "How far the arm travels down when pressing (50–100%). Higher = pushes further.",
+            "fr": "Distance parcourue par le bras vers le bas lors de l'appui (50–100 %). Plus élevé = appuie plus loin."
+          }
+        },
+        {
+          "id": "upper",
+          "type": "number",
+          "value": 0,
+          "min": 0,
+          "max": 50,
+          "step": 1,
+          "units": {
+            "en": "%",
+            "fr": "%"
+          },
+          "label": {
+            "en": "Stroke — resting position",
+            "fr": "Course — position repos"
+          },
+          "hint": {
+            "en": "Where the arm sits when idle (0–50%). Raise it if the arm rubs the button at rest.",
+            "fr": "Position du bras au repos (0–50 %). Augmentez-la si le bras frotte le bouton au repos."
+          }
+        },
+        {
+          "id": "delay",
+          "type": "number",
+          "value": 0,
+          "min": 0,
+          "max": 10,
+          "step": 1,
+          "units": {
+            "en": "s",
+            "fr": "s"
+          },
+          "label": {
+            "en": "Sustain time",
+            "fr": "Temps de maintien"
+          },
+          "hint": {
+            "en": "How long the arm holds the button down before returning, in seconds (0–10). Switch/click only.",
+            "fr": "Durée pendant laquelle le bras maintient le bouton avant de revenir, en secondes (0–10). Interrupteur/clic uniquement."
+          }
+        },
+        {
+          "id": "reverse",
+          "type": "checkbox",
+          "value": false,
+          "label": {
+            "en": "Reverse action",
+            "fr": "Inverser l'action"
+          },
+          "hint": {
+            "en": "Swap the pushed and resting directions, for a button the arm should pull up instead of push down.",
+            "fr": "Inverse les positions appuyée et repos, pour un bouton que le bras doit tirer vers le haut au lieu de pousser."
+          }
+        },
+        {
+          "id": "touch",
+          "type": "checkbox",
+          "value": true,
+          "label": {
+            "en": "On-device touch button",
+            "fr": "Bouton tactile de l'appareil"
+          },
+          "hint": {
+            "en": "Enable the physical touch button on the Fingerbot itself.",
+            "fr": "Active le bouton tactile physique sur le Fingerbot lui-même."
+          }
+        }
+      ],
+      "energy": {
+        "batteries": [
+          "CR2"
+        ]
+      }
     }
   ],
   "brandColor": "#00A6A6",
@@ -3089,6 +3275,28 @@
         "titleFormatted": {
           "en": "Set [[device]] to [[state]]",
           "fr": "Régler [[device]] sur [[state]]"
+        }
+      },
+      {
+        "id": "fingerbot_press",
+        "title": {
+          "en": "Press the button",
+          "fr": "Cliquer sur le bouton"
+        },
+        "hint": {
+          "en": "Makes the Fingerbot push the button once. In click mode it springs back on its own.",
+          "fr": "Fait appuyer le Fingerbot une fois sur le bouton. En mode clic, il revient tout seul."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=fingerbot-plus"
+          }
+        ],
+        "titleFormatted": {
+          "en": "Press [[device]]",
+          "fr": "Cliquer sur [[device]]"
         }
       }
     ]

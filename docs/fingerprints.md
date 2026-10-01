@@ -355,6 +355,120 @@ work at all.
 
 ---
 
+## MOES Fingerbot Plus — button pusher (driver `fingerbot-plus`)
+
+> **Status: paired and confirmed 2026-08-19** on a `_TZ3210_7vgttna6` unit. The
+> mapping below is from `TS0001_fingerbot` in
+> [zigbee-herdsman-converters](https://github.com/Koenkk/zigbee-herdsman-converters)
+> (`src/devices/tuya.ts`); the endpoint/cluster list matched the interview
+> exactly — endpoint 1 came back as `basic(0), groups(4), scenes(5), onOff(6),
+> tuya(61184)`, precisely the fingerprint below. Other `_TZ3210_*` variants share
+> the same layout; add a variant's `manufacturerName` if it pairs as generic.
+
+| field | value |
+|-------|-------|
+| `manufacturerName` | `_TZ3210_dse8ogfy`, `_TZ3210_j4pdtz9v`, `_TZ3210_7vgttna6` (confirmed), `_TZ3210_a04acm9s`, `_TZ3210_cm9mbpr1` |
+| `productId` | `TS0001` |
+| endpoint | `1` |
+| clusters | `0` basic, `4` groups, `5` scenes, `6` onOff, `61184` **Tuya EF00** |
+| bindings | `6` onOff, `61184` Tuya |
+
+### The press is standard onOff — only config is Tuya
+
+The single fact that makes this device easy: the physical press rides the
+**standard `genOnOff` cluster** (the converter uses `fz.on_off` / `tz.on_off`
+and exposes `e.switch()`). So `onoff` is a plain `registerCapability` and the
+"press" flow action is just `setOn()`. Everything else — mode, stroke limits,
+sustain, battery — is a Tuya datapoint on cluster **0xEF00**, which
+`zigbee-clusters` does not ship. It is declared in `app/lib/tuya-cluster.js`.
+
+### The EF00 datapoint protocol
+
+One EF00 command body is `[status(1)][transid(1)][dp(1)][type(1)][len(2, BE)][data(len)]`,
+and a frame may carry several DP blocks. `len` and the numeric `value` payload
+are **big-endian**, where ZCLDataTypes are little-endian — so the DP block is
+carried as one opaque `buffer` arg and byte-packed by hand in `tuya-cluster.js`.
+The two leading bytes are read here as status+transid; zigbee-herdsman reads
+them as one 16-bit sequence — identical on the wire.
+
+DP value types: `0` raw · `1` bool · `2` value (4-byte BE int) · `4` enum (1 byte).
+
+### Datapoint map (from the converter)
+
+| dp | name | type | meaning / range |
+|----|------|------|-----------------|
+| `0x65` (101) | mode | enum | `0` click · `1` switch · `2` program |
+| `0x66` (102) | lower | value | pushed position, 50–100 % (how far the arm presses) |
+| `0x67` (103) | delay | value | sustain time, 0–10 s |
+| `0x68` (104) | reverse | enum | `0` off · `1` on |
+| `0x69` (105) | battery | value | % → `measure_battery` |
+| `0x6a` (106) | upper | value | resting position, 0–50 % |
+| `0x6b` (107) | touch | bool | on-device touch button |
+
+`mode`/`lower`/`upper`/`delay`/`reverse`/`touch` are Homey **device settings**,
+written to the device only on user change (writing `lower`/`upper` moves the arm,
+so they are never pushed at startup). They are deliberately **not** synced back
+from device reports: the device echoes a config DP the instant it is written, and
+pushing that into `setSettings` while `onSettings` is still resolving makes Homey
+reject the save — the "I can't change the %" bug. Settings are the source of
+truth; the device is only read for battery. `battery` is a capability. The click
+is `onoff`, never a datapoint.
+
+**Full DP map** (from kkossev's Hubitat Fingerbot driver, the most complete
+reference — the Z2M converter omits several): `0x01` switch · `0x04` battery
+(alternate) · `0x65` mode · `0x66` down% · `0x67` sustain · `0x68` reverse ·
+`0x69` battery · `0x6a` up% · `0x6b` touch · `0x6c` click count · `0x6d` custom
+program · `0x6e` production test · `0x6f` **"sports statistics"** (a press
+counter — this is the `dp=111` the `_TZ3210_7vgttna6` unit reports spontaneously,
+NOT battery) · `0x70` custom timing. The driver reads battery from `0x69` OR
+`0x04`.
+
+**Battery is device-scheduled, not queryable.** The observed unit never answered
+`dataQuery` and reported only `0x6f` on its own. Battery (`0x69`/`0x04`) arrives
+when the device decides — periodically, often hours apart — and no command
+forces it (kkossev's mature driver has no trick for it either). So the battery
+tile stays blank until the device's first spontaneous battery report, then
+tracks. That is expected, not a fault; the capability is kept because the DP is
+real and does eventually arrive.
+
+### Writes MUST use `sendData` (0x04), not `dataRequest` (0x00)
+
+This cost the most time, and the answer was in the converter the whole time: its
+`meta.tuyaSendCommand` is **`"sendData"`**. Tuya EF00 has two write commands —
+`dataRequest` (0x00, the common one) and `sendData` (0x04) — and this Fingerbot
+**only acts on 0x04**. A write sent on 0x00 was accepted by the radio and
+silently did nothing: the exact "I set the % to 50 and nothing changes" symptom,
+with a log line proving the frame left the coordinator. The frame bytes were
+correct all along; only the command id was wrong. Always read
+`meta.tuyaSendCommand` and honour it.
+
+### Nothing is received until you use the right command AND catch every report id
+
+Two things had to be right together before a single datapoint came back:
+
+1. **The receive side needs a `BoundCluster`, not just `cluster.onXxx`.** This
+   device sends its reports **client→server**, and zigbee-clusters routes those
+   to a BoundCluster bound on the endpoint — a plain instance handler
+   (`cluster.onDataReport`) only sees server→client frames and stayed silent.
+   The driver now binds a `TuyaBoundCluster` AND sets the instance handlers, so
+   either direction is caught. (Contrast the Philips dimmer, whose
+   `hueNotification` IS server→client and works from the instance handler — the
+   direction is per device, so support both.)
+2. **The report command id varies by firmware.** Reports arrive as
+   `dataResponse` (0x01), `dataReport` (0x02), or the `activeStatusReport`
+   pair (0x05/0x06); all carry the same DP body. The driver points every one at
+   the same parser.
+
+None of the incoming commands carry a `direction` in the cluster definition:
+marking them `SERVER_TO_CLIENT` makes the BoundCluster filter them out (it drops
+server→client commands on a client→server frame), which is how the first version
+received nothing.
+
+Also send **`dataQuery` (0x03)** at init: a Tuya end-device reports nothing until
+asked, so without it the battery and current config never populate.
+
+---
+
 ## Imou cameras — Ranger 2C & Cell PT (drivers `imou-ranger2c`, `imou-cellpt`)
 
 > **Status: switches confirmed live 2026-08-08** via `probe/imou/probe.js`

@@ -514,6 +514,28 @@ their old capability list. Add the missing ones in `onNodeInit` (see
 `lib/zigbee-device.js` `migrateCapabilities`) so features appear without the user
 removing and re-pairing.
 
+### Tuya EF00 devices are a protocol inside a cluster — obey the converter's meta
+
+A Tuya Zigbee device tunnels everything through one manufacturer cluster
+(`0xEF00`) as "datapoints", modelled here in `lib/tuya-cluster.js` (the Fingerbot
+Plus is the first). Three traps, all learned on that device — full write-up in
+docs/fingerprints.md:
+
+- **The write command id is per-device.** Two exist: `dataRequest` (0x00) and
+  `sendData` (0x04). Honour the converter's `meta.tuyaSendCommand` — this
+  Fingerbot ignores 0x00 entirely, and a write on the wrong id is accepted by
+  the radio and silently does nothing. This is the single most time-wasting
+  Tuya bug: the frame bytes look perfect, the log says "sent", the device does
+  not move.
+- **Receiving needs a `BoundCluster` when the device reports client→server**,
+  which many do. A plain `cluster.onDataReport` only catches server→client (the
+  Philips dimmer's case). Bind a `BoundCluster` AND set the instance handlers,
+  and leave the incoming commands' `direction` UNSET or the BoundCluster filters
+  them out. Reports also arrive under several ids (0x01/0x02/0x05/0x06) — point
+  them all at one parser.
+- **Send `dataQuery` (0x03) at init.** A Tuya end-device reports nothing until
+  asked, so battery and current config stay blank without it.
+
 ## One driver per device — why
 
 It is tempting to write one universal driver that inspects clusters at runtime

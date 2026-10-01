@@ -5,6 +5,12 @@ const Homey = require('homey');
 // sends/receives to the app logs. Very noisy — leave off in normal use.
 // const { Cluster, debug } = require('zigbee-clusters');
 
+// Registers the Tuya EF00 cluster with zigbee-clusters at boot, BEFORE
+// homey-zigbeedriver builds any node's cluster instances — otherwise a paired
+// Fingerbot's EF00 cluster would come back as unknown. Requiring it for the
+// side effect (Cluster.addCluster) is enough; the driver requires it too.
+require('./lib/tuya-cluster');
+
 const errlog = require('./lib/errlog');
 
 class ZigbidouilleApp extends Homey.App {
@@ -21,6 +27,15 @@ class ZigbidouilleApp extends Homey.App {
     this.registerRemoteFlows();
     this.registerImouFlows();
     this.registerSomfyFlows();
+    this.registerFingerbotFlows();
+  }
+
+  // One action: make the Fingerbot press. The onoff tile covers manual/switch
+  // use; this is the card a flow reaches for ("when X, click the button").
+  registerFingerbotFlows() {
+    this.homey.flow
+      .getActionCard('fingerbot_press')
+      .registerRunListener(({ device }) => device.press());
   }
 
   // The dimmer fires one trigger for every button event; this listener is what

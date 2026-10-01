@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet" style="width:100vw;height:100vh;display:block">
+  <rect x="0" y="0" width="200" height="200" fill="#ffffff"/>
+  <!-- Fingerbot body -->
+  <rect x="58" y="70" width="84" height="84" rx="16" fill="#0E2A47"/>
+  <rect x="58" y="70" width="84" height="84" rx="16" fill="none" stroke="#0A1F35" stroke-width="3"/>
+  <!-- top touch dot -->
+  <circle cx="100" cy="88" r="9" fill="#00A6A6"/>
+  <!-- pivot -->
+  <circle cx="70" cy="112" r="6" fill="#00A6A6"/>
+  <!-- pressing arm -->
+  <rect x="66" y="107" width="70" height="11" rx="5.5" fill="#E8ECEF" transform="rotate(18 70 112)"/>
+  <!-- button being pressed -->
+  <circle cx="150" cy="150" r="22" fill="#ffffff" stroke="#0E2A47" stroke-width="6"/>
+  <circle cx="150" cy="150" r="9" fill="#D64545"/>
+</svg>

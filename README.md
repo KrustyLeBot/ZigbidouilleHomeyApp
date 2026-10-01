@@ -45,6 +45,7 @@ identifiers are English; only the display names are translated.
 | Heiman HS-720ES — CO detector | `co-hs720es` | Zigbee |
 | Shelly EM Gen4 — 2-channel energy meter + dry contact | `shelly-em-gen4` | Zigbee |
 | Philips Hue Dimmer Switch v3 (RWL022) | `hue-dimmer-v3` | Zigbee |
+| MOES Fingerbot Plus — button pusher (TS0001, `_TZ3210_*`) | `fingerbot-plus` | Zigbee (Tuya EF00) |
 | Xiaomi Robot Vacuum X20+ (`c102gl`) | `x20plus` | LAN (miIO) |
 | Xiaomi Robot Vacuum 5 (`ov31gl`) | `vacuum5` | LAN (miIO) |
 | Devialet Phantom (single or stereo system) | `devialet` | LAN (HTTP) |
@@ -207,6 +208,44 @@ volume" work.
 
 Pairing: hold the small setup button **on the back, next to the battery** for
 ~10 s — not one of the four front buttons.
+
+### MOES Fingerbot Plus — button pusher (`fingerbot-plus`) · Zigbee (Tuya EF00)
+
+A Zigbee finger that physically presses a button. This is the app's **first
+Tuya device**, and Tuya's Zigbee is the odd one out: instead of standard
+clusters, the node tunnels its functions through one proprietary cluster
+(`0xEF00`) as a stream of *datapoints*. zigbee-clusters ships no definition for
+it, so the app adds one in [app/lib/tuya-cluster.js](app/lib/tuya-cluster.js) —
+sending a datapoint stays a normal `cluster.setData(...)` call, receiving one a
+normal handler, so the "never raw frames" rule holds.
+
+The Fingerbot is a **hybrid**, which is what makes it tractable: the press
+itself rides the **standard `genOnOff` cluster**, and only its configuration and
+battery come through EF00. So:
+
+- **The press** is the `onoff` capability, and the **"Press the button"** flow
+  action is just an On command. In *click* mode the arm pushes and springs back
+  on its own; in *switch* mode On holds it down and Off releases.
+- **Battery** shows on the tile (`measure_battery`), reported over EF00.
+- **The stroke and behaviour are device settings**, written back over EF00 when
+  you change one: **working mode** (click / switch / program), **pushed
+  position** and **resting position** (the two ends of the arm's travel, in %),
+  **sustain time** (how long it holds), **reverse**, and the on-device **touch
+  button**. Settings are also synced *from* the device, so a change made in the
+  Smart Life app or on the device shows up here.
+
+The stroke limits are the "% of travel" — *pushed position* (50–100%) is how far
+it presses, *resting position* (0–50%) is where it sits idle. Settings are never
+pushed to the device at startup (that would move the arm on every reboot); only
+a user change writes them.
+
+The datapoint map (dp `0x65` mode · `0x66` lower · `0x67` sustain · `0x68`
+reverse · `0x69` battery · `0x6a` upper · `0x6b` touch) is lifted verbatim from
+the Zigbee2MQTT converter (`TS0001_fingerbot`), which per the workflow below is
+ground truth. Fingerprint and datapoints are in
+[docs/fingerprints.md](docs/fingerprints.md); the interview of a `_TZ3210_7vgttna6`
+unit matched them exactly — endpoint 1 came back as `basic, groups, scenes,
+onOff, tuya(61184)`, precisely the manifest fingerprint.
 
 ### Xiaomi Robot Vacuum X20+ (`x20plus`) and Robot Vacuum 5 (`vacuum5`) · LAN (miIO)
 
@@ -513,6 +552,8 @@ app/                       the Homey app
     energy-today.js        today's imported kWh + Insights 00:00 baseline (widget)
     device-uuid.js         discovers Homey's device UUID — the SDK exposes none
     philips-hue-cluster.js Philips 0xFC00 cluster — not shipped by zigbee-clusters
+    tuya-cluster.js        Tuya 0xEF00 cluster + datapoint encode/decode — not shipped by zigbee-clusters
+    fingerbot-device.js    MOES Fingerbot Plus — onoff press (genOnOff) + EF00 config/battery
     miio-client.js         miIO client: UDP handshake + AES-128 (both vacuums)
     miio-vacuum-device.js  shared vacuum device: poll loop, state machine, triggers
     x20plus.js             the X20+ MIoT map and status profile
@@ -536,6 +577,7 @@ app/                       the Homey app
     co-hs720es/            Heiman HS-720ES CO detector          — zigbee
     shelly-em-gen4/        Shelly EM Gen4, 3 sub-devices        — zigbee
     hue-dimmer-v3/         Philips Hue Dimmer Switch v3         — zigbee
+    fingerbot-plus/        MOES Fingerbot Plus button pusher    — zigbee (Tuya EF00)
     x20plus/               Xiaomi X20+ vacuum                   — lan (miIO)
     vacuum5/               Xiaomi Robot Vacuum 5                — lan (miIO)
     devialet/              Devialet Phantom, one tile per system — lan (HTTP)
