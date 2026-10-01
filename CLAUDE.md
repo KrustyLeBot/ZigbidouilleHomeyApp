@@ -31,6 +31,13 @@ Everything runs locally. No cloud, no bridge, no account.
   surrounding file.
 - One driver = one device model (or one tight family of near-identical models).
   Resist a single "does everything" driver; see below.
+- **`android-auto/` is not part of the Homey app.** It is a companion Android
+  app (Kotlin, built in WSL) whose two tiles fire Homey webhooks from the car.
+  It shares no code with `app/` and nothing in `app/` may depend on it. Its own
+  hard rules — the three that keep Spotify playing, the manifest attribute that
+  makes it invisible when wrong, and why its items are `FLAG_PLAYABLE` — live in
+  [android-auto/README.md](android-auto/README.md). Read that before touching
+  it; every rule in it was paid for.
 
 ## The core workflow: adopting a new device
 

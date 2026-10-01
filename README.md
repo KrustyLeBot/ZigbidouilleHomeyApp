@@ -459,6 +459,34 @@ Two assumptions in [lib/kwh-meter-device.js](app/lib/kwh-meter-device.js) are
 not yet confirmed against a real offline/deleted source — see the comments
 there and [docs/fingerprints.md](docs/fingerprints.md).
 
+## Companion app — Android Auto (`android-auto/`)
+
+Not a driver: a small **Android app** that puts two tiles in the car —
+**DÉPART** and **ARRIVÉE** — each firing a Homey webhook. One tap leaving, one
+tap arriving. The same two buttons sit on the phone, where the webhook URLs are
+configured.
+
+It is here because it is useless without the Flows on the other end. Android
+Auto only admits app categories Google approved — navigation, media, messaging,
+charging — so there is no "button that calls a URL" category and no such app
+passes review. The app therefore **presents as a media app** whose browse tree
+holds two tiles that are really actions, and the tap fires the webhook instead
+of starting playback. Spotify keeps playing throughout, which takes three
+non-negotiable rules (never request audio focus, never reach `STATE_PLAYING`, no
+`MediaStyle` notification).
+
+Built in WSL, no Android Studio:
+
+```bash
+cd /mnt/g/ZigbidouilleHomeyApp/android-auto
+bash scripts/01-setup.sh     # JDK 17, Android SDK 34, Gradle 8.9 — once
+bash scripts/02-build.sh     # APK lands in android-auto/dist/
+```
+
+Everything else — the Homey webhook side, why the items are `FLAG_PLAYABLE`, the
+manifest attribute that makes the app invisible when wrong, and the WSL/NTFS
+traps — is in [android-auto/README.md](android-auto/README.md).
+
 ## Why it exists
 
 The Zigbee spec is standard, but device *behaviour* is not: two plugs that both
@@ -599,6 +627,10 @@ probe/                     standalone scripts — talk to a device without Homey
   imou/                    probe the cloud API; sweep.js diffs all 49 camera switches
   somfy/                   probe the REST API; listen.js dumps the live event socket
   homey/insights.js        Homey's own Insights logs: real ids, and do they fetch?
+android-auto/              companion Android app — two Android Auto tiles that fire Homey webhooks
+  app/                     the Android module (Kotlin, MediaBrowserService + 2-button phone UI)
+  scripts/                 WSL toolchain install, build, adb install
+  README.md                why a media app, the Homey webhook side, build commands, the traps
 docs/fingerprints.md       every device interviewed: identity, field maps, wrong readings
 docs/Homey Notification.mp3  notification sound, for use in Flows (not used by the app)
 FINDINGS.md                everything learned by probing the real vacuum

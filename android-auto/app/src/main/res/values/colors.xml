@@ -1,0 +1,8 @@
+<resources>
+    <color name="depart">#FF4B3A</color>
+    <color name="depart_dark">#B8291C</color>
+    <color name="arrivee">#1E9E52</color>
+    <color name="arrivee_dark">#116634</color>
+    <color name="bg">#101214</color>
+    <color name="on_bg">#F2F4F6</color>
+</resources>

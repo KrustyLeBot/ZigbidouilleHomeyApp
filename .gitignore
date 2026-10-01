@@ -15,3 +15,12 @@ node_modules/
 probe/**/*.txt
 probe/**/*.csv
 probe/**/*.json
+
+# Android Auto companion app (android-auto/) — build outputs and the local SDK
+# path. The APK is rebuilt from source in seconds; local.properties points at
+# one machine's SDK and has no business being shared.
+android-auto/dist/
+android-auto/local.properties
+android-auto/.gradle/
+android-auto/build/
+android-auto/app/build/

@@ -1,2 +1,10 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# The Android Auto companion builds inside WSL. With `text=auto` above, a Windows
+# checkout would hand bash CRLF scripts and it dies on `set -euo pipefail\r`.
+*.sh text eol=lf
+gradlew text eol=lf
+
+# Gradle wrapper jar — never normalise.
+*.jar binary
