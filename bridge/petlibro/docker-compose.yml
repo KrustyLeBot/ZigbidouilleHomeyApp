@@ -1,0 +1,38 @@
+# petlibro-bridge on a Synology NAS (docker-compose v1 compatible). Copy to /volume1/docker/petlibro-bridge/, next to a
+# `.env` made from .env.example, create the two folders by hand (mkdir data auth), put the Homey login in
+# auth/htpasswd (see README, "Petlibro One RFID"), then: docker-compose up -d
+#
+# Two ports, both on the LAN only — never route either through the Cloudflare tunnel:
+# - 1883 MQTT: the feeders. mqtt.us.petlibro.com is rewritten by AdGuard to the NAS's LAN IP, and the feeders dial
+#   that IP on 1883 — they cannot resolve a container name, so this port must be published on the NAS itself.
+# - 8484 HTTP: Homey (API + event websocket), login from auth/htpasswd.
+#
+# Restarting this container makes the feeders reboot (their firmware does that whenever the broker goes away): update
+# it away from a meal time. Meals already on the feeder still run while it is down.
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+
+services:
+  petlibro-bridge:
+    image: ghcr.io/krustylebot/petlibro-bridge:latest
+    container_name: petlibro-bridge
+    restart: unless-stopped
+    logging: *logging
+    security_opt: [ "no-new-privileges:true" ]
+    cap_drop: [ ALL ]
+    read_only: true
+    tmpfs: [ "/tmp:rw,noexec,nosuid,nodev,size=16m" ]
+    pids_limit: 64
+    # The owner of the data folder (your DSM user, usually 1026:100): the bridge writes its state and MQTT capture there.
+    user: "${PUID}:${PGID}"
+    env_file: .env
+    environment:
+      TZ: Europe/Paris
+    volumes:
+      - /volume1/docker/petlibro-bridge/data:/data
+      - /volume1/docker/petlibro-bridge/auth:/auth:ro
+    ports:
+      - "1883:1883"
+      - "${API_PORT}:8484"
+    mem_limit: 128m

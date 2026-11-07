@@ -11,15 +11,20 @@ cards and Insights — the same first-class experience a supported device gets.
 
 **Protocol-agnostic by design.** Homey declares connectivity *per driver*, so a
 single app can host several at once. Today: **Zigbee** (via the Homey radio),
-**LAN** (miIO over UDP for the vacuums, local HTTP for the Devialet) and
+**LAN** (miIO over UDP for the vacuums, local HTTP for the Devialet, and the
+Petlibro feeders through a small bridge container on the NAS) and
 **cloud** (the Imou cameras and the Somfy alarm, where no local protocol reaches
 the settings that matter). Matter or anything else can join later without
 restructuring anything — only the device layer differs, and the shared plumbing
 (logging, debugging, settings) is protocol-neutral.
 
-Everything runs **locally where the device allows it** — no bridge, no vendor
-hub. The Imou cameras and the Somfy alarm are the exceptions, marked as such
-below, and only because what they expose exists nowhere but the vendor's cloud.
+Everything runs **locally where the device allows it** — no vendor hub, no
+vendor cloud. The Imou cameras and the Somfy alarm are the exceptions, marked as
+such below, and only because what they expose exists nowhere but the vendor's
+cloud. The Petlibro feeders are the one driver that needs something running
+next to Homey: **petlibro-bridge** (`bridge/petlibro`), a container that
+*replaces* the Petlibro cloud on the LAN, so the feeders work with no account
+and no internet at all.
 
 The app is bilingual (English / French): it follows Homey's language. Internal
 identifiers are English; only the display names are translated.
@@ -53,6 +58,7 @@ identifiers are English; only the display names are translated.
 | Imou Cell PT | `imou-cellpt` | cloud |
 | Somfy Protect alarm | `somfy-alarm` | cloud |
 | kWh meter (virtual) — tracks any other device's `measure_power` | `kwh-meter` | LAN (Homey's own local API) |
+| Petlibro One RFID Smart Feeder (`PLAF301`) | `petlibro-plaf301` | LAN (MQTT, via `bridge/petlibro`) |
 
 The Zigbee identity, MIoT field map or API surface of every one of them is
 written down in [docs/fingerprints.md](docs/fingerprints.md) — including the
@@ -459,6 +465,56 @@ Two assumptions in [lib/kwh-meter-device.js](app/lib/kwh-meter-device.js) are
 not yet confirmed against a real offline/deleted source — see the comments
 there and [docs/fingerprints.md](docs/fingerprints.md).
 
+### Petlibro One RFID Smart Feeder (`petlibro-plaf301`) · LAN (MQTT, via petlibro-bridge)
+
+The Petlibro app needs an account, the cloud, and is the only way to set meals.
+This driver plus its bridge make the feeder fully local: **no account, no
+internet for the feeder, the Petlibro app can be uninstalled**.
+
+How it works: the feeder speaks plain MQTT to `mqtt.us.petlibro.com:1883`.
+AdGuard Home (on the NAS) rewrites that name to the NAS, the feeder's internet
+access is blocked at the router, and **petlibro-bridge** (`bridge/petlibro`, one
+container, image `ghcr.io/krustylebot/petlibro-bridge` built by CI) answers in
+place of the cloud: time sync with DST, the acks the feeder waits for, its meal
+plans after every reboot, an attribute poll every 5 minutes. That part runs on
+the NAS on purpose — meals must keep being served on time while Homey restarts.
+The protocol comes from [smcneece/petlibro-local](https://github.com/smcneece/petlibro-local),
+which built it from captures of the real cloud (tested there on fw 3.0.72).
+
+**In Homey** — tiles: lid open/close, lid mode (opens for the tagged pet / always
+open / always closed), meals paused, last meal, food low, lid jammed, power
+(mains / battery), battery %, offline. **Flow triggers**: food served (portions,
+manual or scheduled), a meal came out empty, a pet ate (RFID tag, duration), food
+low / refilled, switched to battery / mains back, battery below a threshold, lid
+jammed, offline / back online, a meal skipped by a clock correction, any other
+feeder error code. **Conditions**: food low, on battery, lid open, online.
+**Actions**: serve N portions now, open / close the lid, set the lid mode,
+pause / resume the meals, show a text on the LED display.
+
+**The schedule** is edited in the device settings — up to 6 meals, each a local
+time, a portion count and a set of days — and sent to the bridge with Homey's
+timezone. The bridge keeps it, converts it to the UTC the feeder runs on, and
+re-sends it on every DST change (a meal that would fire twice in the fall-back
+hour is skipped once). Until a meal is saved from Homey (or the bridge page),
+the feeder keeps the plans it already had. Lid delay and speed, sound, volume,
+button lock, display on/off and display text are device settings too; values
+the feeder reports are written back, so the page shows what the feeder holds.
+
+**The bridge's own web page** (`http://<NAS>:8484/`, same login) shows every
+feeder and offers the same controls and schedule editor — whatever is changed
+there shows up in Homey, and the other way round. **Settings → Petlibro** in
+the app holds the bridge address and login (with a *Test* button) and shows the
+bridge's log and its raw MQTT capture, the tool for decoding anything the feeder
+does that is not understood yet.
+
+Things to know: restarting the bridge makes the feeders reboot (their firmware
+does that whenever the broker goes away), so update it away from meal times; the
+food sensor is described by petlibro-local as not always reliable; on a power
+cut the feeder tends to drop Wi-Fi soon after reporting it, so "switched to
+battery" often arrives together with "offline".
+
+Setup and the bridge API: [bridge/petlibro/README.md](bridge/petlibro/README.md).
+
 ## Why it exists
 
 The Zigbee spec is standard, but device *behaviour* is not: two plugs that both
@@ -515,6 +571,8 @@ shared plumbing — logging, verbose switch, settings — is the same.
   drivers.
 - Zigbee devices physically in range during pairing; LAN devices reachable on
   the network (each vacuum also needs a fixed IP and its miIO token).
+- For the Petlibro feeders, a NAS (or any always-on Docker host) running
+  `bridge/petlibro` and a DNS server able to rewrite one name (AdGuard Home).
 - For the cloud drivers, credentials entered in the app settings before pairing:
   an Imou Open Platform app id/secret for the cameras, and a Somfy Protect
   account for the alarm (a Guest-role secondary one, see above).
@@ -573,6 +631,8 @@ app/                       the Homey app
     somfy-alarm-device.js  the alarm device — reports state and can arm/disarm/night-mode it
     kwh-meter-account.js   shared HomeyAPI instance + device-deleted fan-out
     kwh-meter-device.js    the virtual meter — ZOH integration, monotonic meter_power
+    petlibro-bridge.js     HTTP + event websocket to petlibro-bridge, shared by the feeders
+    petlibro-feeder-device.js  the feeder device — capabilities, triggers, settings <-> schedule
   drivers/
     co-hs720es/            Heiman HS-720ES CO detector          — zigbee
     shelly-em-gen4/        Shelly EM Gen4, 3 sub-devices        — zigbee
@@ -585,12 +645,21 @@ app/                       the Homey app
     imou-cellpt/           Imou Cell PT                         — cloud
     somfy-alarm/           Somfy Protect alarm                  — cloud
     kwh-meter/             virtual kWh meter, tracks another device's measure_power — lan (Homey's own local API)
+    petlibro-plaf301/      Petlibro One RFID feeder             — lan (via bridge/petlibro)
   locales/                 en.json / fr.json
-  settings/                5 tabs: log · Zigbee dump · raw miIO log · Imou · Somfy
+  settings/                6 tabs: log · Zigbee dump · raw miIO log · Imou · Somfy · Petlibro
   widgets/
     shelly-energy/         dashboard widget — today's imported kWh for any meter_power device, one figure
     somfy-alarm/           dashboard widget — 3-wedge alarm dial, tap to arm/disarm
     tableau-electrique/    dashboard widget — breaker panel, tap to see what it feeds (no device, no backend)
+bridge/petlibro/           petlibro-bridge: stands in for the Petlibro cloud (container, image built by CI)
+  src/feeder.js            the cloud's part for one PLAF301: time sync, acks, plans, events
+  src/plans.js             local meals <-> the feeder's UTC plans, DST skips
+  src/broker.js            embedded MQTT broker (aedes), feeders fenced to their own topics
+  src/api.js               Homey API + event websocket + web page, htpasswd login
+  src/web/index.html       the bridge's control page
+  docker-compose.yml       Synology deployment (+ .env.example)
+.github/workflows/         petlibro-bridge.yml: test, then build + push the image to GHCR
 probe/                     standalone scripts — talk to a device without Homey
   env.js                   shared .env loader: PREFIX_IP / PREFIX_TOKEN, never printed
   x20plus/ vacuum5/        miIO tooling: watch live, scan properties, list actions
@@ -634,6 +703,9 @@ INSTALL.md                 install steps and CLI/Node gotchas
   [Minims/SomfyProtect2MQTT](https://github.com/Minims/SomfyProtect2MQTT) (whose
   websocket timings this app reuses) and
   [jay-d-tyler/homebridge-somfy-protect](https://github.com/jay-d-tyler/homebridge-somfy-protect).
+- Petlibro: [smcneece/petlibro-local](https://github.com/smcneece/petlibro-local)
+  (MIT) — the whole MQTT protocol, the clock/DST handling rules, and the LED
+  display font, ported to `bridge/petlibro`.
 - Devialet: the speakers' own local `ipcontrol/v1` API, with
   [winnieoursbrun/homey-devialet](https://github.com/winnieoursbrun/homey-devialet)
   as prior art (this app differs by mapping a tile to a *system*, not a speaker).

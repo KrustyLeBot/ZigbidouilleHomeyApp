@@ -43,7 +43,21 @@
     "somfy_test": "Test connection",
     "somfy_testing": "Connecting to the Somfy cloud...",
     "somfy_test_ok": "Connected — {{count}} site(s) visible on this account.",
-    "somfy_test_fail": "Failed: "
+    "somfy_test_fail": "Failed: ",
+    "tab_petlibro": "Petlibro",
+    "petlibro_intro": "Address and login of petlibro-bridge, the container that replaces the Petlibro cloud for the feeders (bridge/petlibro in the repo; setup in the README). The login is one from the bridge's auth/htpasswd file. Set this once, then pair: the pairing screen lists every feeder that has connected to the bridge.",
+    "petlibro_url": "Bridge address",
+    "petlibro_username": "Username",
+    "petlibro_password": "Password",
+    "petlibro_save": "Save",
+    "petlibro_saved": "Saved.",
+    "petlibro_test": "Test connection",
+    "petlibro_testing": "Connecting to the bridge...",
+    "petlibro_test_ok": "Connected — {{count}} feeder(s) known to the bridge",
+    "petlibro_test_fail": "Failed: ",
+    "petlibro_tools": "The bridge's own log, and its raw MQTT capture (every message to and from the feeders) — to decode what the feeder does that this app does not understand yet.",
+    "petlibro_log_load": "Bridge log",
+    "petlibro_capture_load": "MQTT capture"
   },
   "unreachable": "Robot not responding",
   "pair": {
@@ -84,5 +98,15 @@
   "kwh_meter": {
     "no_source": "No source device is linked to this meter — remove and re-pair it.",
     "source_gone": "The tracked device is unavailable or was deleted. The kWh total is kept, but stops updating."
+  },
+  "petlibro": {
+    "not_configured": "Set the Petlibro bridge address, username and password in the app settings (Petlibro tab) first.",
+    "bad_login": "The bridge refused the username or password (Settings > Petlibro).",
+    "bridge_unreachable": "Petlibro bridge unreachable",
+    "no_feeder": "The bridge knows no feeder yet. Check that the feeder's internet is blocked and mqtt.us.petlibro.com points to the bridge, then restart the feeder.",
+    "bad_time": "Meal __slot__: \"__value__\" is not a time — use HH:MM, e.g. 07:30.",
+    "source_manual": "manual",
+    "source_scheduled": "scheduled",
+    "last_feed": "__time__ · __portions__ portion(s), __source__"
   }
 }

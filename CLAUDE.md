@@ -12,6 +12,7 @@ one app can host several protocols side by side:
 |---|---|---|
 | `zigbee` | `co-hs720es`, `shelly-em-gen4` | [`homey-zigbeedriver`](https://athombv.github.io/node-homey-zigbeedriver/) + [`zigbee-clusters`](https://github.com/athombv/node-zigbee-clusters) — never raw frames |
 | `lan` | `x20plus` (Xiaomi vacuum) | miIO over UDP + AES-128, `lib/miio-client.js`, self-contained (dgram + crypto only) |
+| `lan` | `petlibro-plaf301` (Petlibro One RFID feeder) | HTTP + websocket to **petlibro-bridge** (`bridge/petlibro`, a container on the NAS) which speaks MQTT to the feeder |
 
 Adding Matter or anything else means adding drivers, not restructuring: only the
 device layer is protocol-specific. Everything shared — the log, the verbose
@@ -19,7 +20,9 @@ switch, the settings page — is protocol-neutral, and new code should keep it
 that way. Put anything reusable in `lib/errlog.js` rather than a Zigbee-only
 base class.
 
-Everything runs locally. No cloud, no bridge, no account.
+Everything runs locally where the device allows it. The Petlibro feeders are the
+one driver that needs something running outside Homey: `bridge/petlibro`, a
+container that replaces the Petlibro cloud on the LAN (see its section below).
 
 ## Conventions
 
@@ -139,7 +142,9 @@ invisible on screen.
 
 Both live in the app's settings page, so nothing needs the CLI:
 
-The settings page is three tabs: **Log**, **Zigbee**, **Vacuum (miIO)**.
+The settings page has tabs: **Log**, **Zigbee**, **Vacuum (miIO)**, **Imou**,
+**Somfy**, **Petlibro** (bridge address/login, plus the bridge's own log and raw
+MQTT capture).
 
 - **Verbose logging** (checkbox, Log tab) — turns on the breadcrumbs:
   `debugNote()` on Zigbee devices, `errlog.debug()` anywhere else. Off by
@@ -402,6 +407,48 @@ explicit resume cards**. Resuming a paused dock-return with "resume cleaning"
 starts a **full clean of the whole home** — the destructive case, most likely
 with nobody there to stop it. The user's flow picks; the app never guesses. Do
 not add an auto-resume.
+
+## Hard rules — the Petlibro feeder (`petlibro-plaf301` + `bridge/petlibro`)
+
+The One RFID talks plain MQTT to `mqtt.us.petlibro.com:1883`. AdGuard Home on
+the NAS rewrites that name to the NAS, the feeder's internet is blocked at the
+Freebox, and `bridge/petlibro` (aedes broker + one `Feeder` per serial) plays
+the cloud. Protocol source: [smcneece/petlibro-local](https://github.com/smcneece/petlibro-local)
+(`docs/mqtt-protocol.md`, `addon/app/devices.py`) — read it before touching
+the protocol, and record anything new in docs/fingerprints.md.
+
+### The bridge plays the cloud, not Homey
+
+Time sync, acks and re-sending the plans after a feeder reboot live in the
+bridge, never in the Homey app. They must keep happening while Homey restarts or
+updates: a feeder whose clock is not corrected serves meals at the wrong time.
+Homey only reads state, sends commands and edits the schedule.
+
+### Plans are UTC on the wire; the schedule is stored in local time
+
+Confirmed on fw 3.0.72: `executionTime` is UTC, and the feeder does not move its
+plans at a DST change. So the bridge stores the meals in local time with the
+IANA zone Homey sends (`homey.clock.getTimezone()`), derives the UTC list, and
+re-derives + re-sends when the offset changes (with a one-off `skipEndTime` so
+a fall-back hour cannot serve a meal twice). Never store the UTC list as the
+truth.
+
+### Until Homey saves a meal, the feeder keeps its own plans
+
+A plan request is answered with an empty list while no schedule was ever set
+from Homey (petlibro-local's tested behaviour: the feeder keeps what it holds).
+`FEEDING_PLAN_SERVICE` with an empty list, on the other hand, ERASES the plans —
+that is what "pause meals" and "all meal slots empty" deliberately send.
+
+### Never act on a message carrying `linkId`
+
+It was written by a cloud, not by the feeder. Echoing a command reply made a
+Polar re-run the command in an endless loop.
+
+### Restarting the broker reboots the feeders
+
+Every broker restart (container update included) makes the feeders reboot and
+come back with a clock minutes off. Update the container away from meal times.
 
 ## Hard rules (Homey Zigbee, learned the hard way elsewhere)
 

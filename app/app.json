@@ -1018,6 +1018,892 @@
           "CR2"
         ]
       }
+    },
+    {
+      "id": "petlibro-plaf301",
+      "name": {
+        "en": "Petlibro One RFID feeder",
+        "fr": "Distributeur Petlibro One RFID"
+      },
+      "class": "other",
+      "connectivity": [
+        "lan"
+      ],
+      "capabilities": [
+        "feeder_lid_open",
+        "feeder_lid_mode",
+        "feeder_meals_paused",
+        "feeder_last_feed",
+        "alarm_food_low",
+        "alarm_lid_jammed",
+        "feeder_power",
+        "measure_battery",
+        "alarm_offline"
+      ],
+      "platforms": [
+        "local"
+      ],
+      "pair": [
+        {
+          "id": "list_devices",
+          "template": "list_devices",
+          "navigation": {
+            "next": "add_devices"
+          }
+        },
+        {
+          "id": "add_devices",
+          "template": "add_devices"
+        }
+      ],
+      "images": {
+        "small": "/drivers/petlibro-plaf301/assets/images/small.png",
+        "large": "/drivers/petlibro-plaf301/assets/images/large.png",
+        "xlarge": "/drivers/petlibro-plaf301/assets/images/xlarge.png"
+      },
+      "energy": {
+        "batteries": [
+          "OTHER"
+        ]
+      },
+      "settings": [
+        {
+          "type": "group",
+          "label": {
+            "en": "Meals",
+            "fr": "Repas"
+          },
+          "children": [
+            {
+              "id": "meal1_time",
+              "type": "text",
+              "label": {
+                "en": "Meal 1 — time",
+                "fr": "Repas 1 — heure"
+              },
+              "value": "",
+              "hint": {
+                "en": "HH:MM, local time. Empty = no meal in this slot.",
+                "fr": "HH:MM, heure locale. Vide = pas de repas sur ce créneau."
+              }
+            },
+            {
+              "id": "meal1_portions",
+              "type": "number",
+              "label": {
+                "en": "Meal 1 — portions",
+                "fr": "Repas 1 — portions"
+              },
+              "value": 1,
+              "min": 1,
+              "max": 10,
+              "step": 1
+            },
+            {
+              "id": "meal1_days",
+              "type": "dropdown",
+              "label": {
+                "en": "Meal 1 — days",
+                "fr": "Repas 1 — jours"
+              },
+              "value": "daily",
+              "values": [
+                {
+                  "id": "daily",
+                  "label": {
+                    "en": "Every day",
+                    "fr": "Tous les jours"
+                  }
+                },
+                {
+                  "id": "weekdays",
+                  "label": {
+                    "en": "Monday to Friday",
+                    "fr": "Du lundi au vendredi"
+                  }
+                },
+                {
+                  "id": "weekend",
+                  "label": {
+                    "en": "Weekend",
+                    "fr": "Week-end"
+                  }
+                },
+                {
+                  "id": "mon",
+                  "label": {
+                    "en": "Monday",
+                    "fr": "Lundi"
+                  }
+                },
+                {
+                  "id": "tue",
+                  "label": {
+                    "en": "Tuesday",
+                    "fr": "Mardi"
+                  }
+                },
+                {
+                  "id": "wed",
+                  "label": {
+                    "en": "Wednesday",
+                    "fr": "Mercredi"
+                  }
+                },
+                {
+                  "id": "thu",
+                  "label": {
+                    "en": "Thursday",
+                    "fr": "Jeudi"
+                  }
+                },
+                {
+                  "id": "fri",
+                  "label": {
+                    "en": "Friday",
+                    "fr": "Vendredi"
+                  }
+                },
+                {
+                  "id": "sat",
+                  "label": {
+                    "en": "Saturday",
+                    "fr": "Samedi"
+                  }
+                },
+                {
+                  "id": "sun",
+                  "label": {
+                    "en": "Sunday",
+                    "fr": "Dimanche"
+                  }
+                },
+                {
+                  "id": "custom",
+                  "label": {
+                    "en": "Custom (set on the bridge page)",
+                    "fr": "Personnalisé (réglé sur la page du pont)"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "meal2_time",
+              "type": "text",
+              "label": {
+                "en": "Meal 2 — time",
+                "fr": "Repas 2 — heure"
+              },
+              "value": "",
+              "hint": {
+                "en": "HH:MM, local time. Empty = no meal in this slot.",
+                "fr": "HH:MM, heure locale. Vide = pas de repas sur ce créneau."
+              }
+            },
+            {
+              "id": "meal2_portions",
+              "type": "number",
+              "label": {
+                "en": "Meal 2 — portions",
+                "fr": "Repas 2 — portions"
+              },
+              "value": 1,
+              "min": 1,
+              "max": 10,
+              "step": 1
+            },
+            {
+              "id": "meal2_days",
+              "type": "dropdown",
+              "label": {
+                "en": "Meal 2 — days",
+                "fr": "Repas 2 — jours"
+              },
+              "value": "daily",
+              "values": [
+                {
+                  "id": "daily",
+                  "label": {
+                    "en": "Every day",
+                    "fr": "Tous les jours"
+                  }
+                },
+                {
+                  "id": "weekdays",
+                  "label": {
+                    "en": "Monday to Friday",
+                    "fr": "Du lundi au vendredi"
+                  }
+                },
+                {
+                  "id": "weekend",
+                  "label": {
+                    "en": "Weekend",
+                    "fr": "Week-end"
+                  }
+                },
+                {
+                  "id": "mon",
+                  "label": {
+                    "en": "Monday",
+                    "fr": "Lundi"
+                  }
+                },
+                {
+                  "id": "tue",
+                  "label": {
+                    "en": "Tuesday",
+                    "fr": "Mardi"
+                  }
+                },
+                {
+                  "id": "wed",
+                  "label": {
+                    "en": "Wednesday",
+                    "fr": "Mercredi"
+                  }
+                },
+                {
+                  "id": "thu",
+                  "label": {
+                    "en": "Thursday",
+                    "fr": "Jeudi"
+                  }
+                },
+                {
+                  "id": "fri",
+                  "label": {
+                    "en": "Friday",
+                    "fr": "Vendredi"
+                  }
+                },
+                {
+                  "id": "sat",
+                  "label": {
+                    "en": "Saturday",
+                    "fr": "Samedi"
+                  }
+                },
+                {
+                  "id": "sun",
+                  "label": {
+                    "en": "Sunday",
+                    "fr": "Dimanche"
+                  }
+                },
+                {
+                  "id": "custom",
+                  "label": {
+                    "en": "Custom (set on the bridge page)",
+                    "fr": "Personnalisé (réglé sur la page du pont)"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "meal3_time",
+              "type": "text",
+              "label": {
+                "en": "Meal 3 — time",
+                "fr": "Repas 3 — heure"
+              },
+              "value": "",
+              "hint": {
+                "en": "HH:MM, local time. Empty = no meal in this slot.",
+                "fr": "HH:MM, heure locale. Vide = pas de repas sur ce créneau."
+              }
+            },
+            {
+              "id": "meal3_portions",
+              "type": "number",
+              "label": {
+                "en": "Meal 3 — portions",
+                "fr": "Repas 3 — portions"
+              },
+              "value": 1,
+              "min": 1,
+              "max": 10,
+              "step": 1
+            },
+            {
+              "id": "meal3_days",
+              "type": "dropdown",
+              "label": {
+                "en": "Meal 3 — days",
+                "fr": "Repas 3 — jours"
+              },
+              "value": "daily",
+              "values": [
+                {
+                  "id": "daily",
+                  "label": {
+                    "en": "Every day",
+                    "fr": "Tous les jours"
+                  }
+                },
+                {
+                  "id": "weekdays",
+                  "label": {
+                    "en": "Monday to Friday",
+                    "fr": "Du lundi au vendredi"
+                  }
+                },
+                {
+                  "id": "weekend",
+                  "label": {
+                    "en": "Weekend",
+                    "fr": "Week-end"
+                  }
+                },
+                {
+                  "id": "mon",
+                  "label": {
+                    "en": "Monday",
+                    "fr": "Lundi"
+                  }
+                },
+                {
+                  "id": "tue",
+                  "label": {
+                    "en": "Tuesday",
+                    "fr": "Mardi"
+                  }
+                },
+                {
+                  "id": "wed",
+                  "label": {
+                    "en": "Wednesday",
+                    "fr": "Mercredi"
+                  }
+                },
+                {
+                  "id": "thu",
+                  "label": {
+                    "en": "Thursday",
+                    "fr": "Jeudi"
+                  }
+                },
+                {
+                  "id": "fri",
+                  "label": {
+                    "en": "Friday",
+                    "fr": "Vendredi"
+                  }
+                },
+                {
+                  "id": "sat",
+                  "label": {
+                    "en": "Saturday",
+                    "fr": "Samedi"
+                  }
+                },
+                {
+                  "id": "sun",
+                  "label": {
+                    "en": "Sunday",
+                    "fr": "Dimanche"
+                  }
+                },
+                {
+                  "id": "custom",
+                  "label": {
+                    "en": "Custom (set on the bridge page)",
+                    "fr": "Personnalisé (réglé sur la page du pont)"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "meal4_time",
+              "type": "text",
+              "label": {
+                "en": "Meal 4 — time",
+                "fr": "Repas 4 — heure"
+              },
+              "value": "",
+              "hint": {
+                "en": "HH:MM, local time. Empty = no meal in this slot.",
+                "fr": "HH:MM, heure locale. Vide = pas de repas sur ce créneau."
+              }
+            },
+            {
+              "id": "meal4_portions",
+              "type": "number",
+              "label": {
+                "en": "Meal 4 — portions",
+                "fr": "Repas 4 — portions"
+              },
+              "value": 1,
+              "min": 1,
+              "max": 10,
+              "step": 1
+            },
+            {
+              "id": "meal4_days",
+              "type": "dropdown",
+              "label": {
+                "en": "Meal 4 — days",
+                "fr": "Repas 4 — jours"
+              },
+              "value": "daily",
+              "values": [
+                {
+                  "id": "daily",
+                  "label": {
+                    "en": "Every day",
+                    "fr": "Tous les jours"
+                  }
+                },
+                {
+                  "id": "weekdays",
+                  "label": {
+                    "en": "Monday to Friday",
+                    "fr": "Du lundi au vendredi"
+                  }
+                },
+                {
+                  "id": "weekend",
+                  "label": {
+                    "en": "Weekend",
+                    "fr": "Week-end"
+                  }
+                },
+                {
+                  "id": "mon",
+                  "label": {
+                    "en": "Monday",
+                    "fr": "Lundi"
+                  }
+                },
+                {
+                  "id": "tue",
+                  "label": {
+                    "en": "Tuesday",
+                    "fr": "Mardi"
+                  }
+                },
+                {
+                  "id": "wed",
+                  "label": {
+                    "en": "Wednesday",
+                    "fr": "Mercredi"
+                  }
+                },
+                {
+                  "id": "thu",
+                  "label": {
+                    "en": "Thursday",
+                    "fr": "Jeudi"
+                  }
+                },
+                {
+                  "id": "fri",
+                  "label": {
+                    "en": "Friday",
+                    "fr": "Vendredi"
+                  }
+                },
+                {
+                  "id": "sat",
+                  "label": {
+                    "en": "Saturday",
+                    "fr": "Samedi"
+                  }
+                },
+                {
+                  "id": "sun",
+                  "label": {
+                    "en": "Sunday",
+                    "fr": "Dimanche"
+                  }
+                },
+                {
+                  "id": "custom",
+                  "label": {
+                    "en": "Custom (set on the bridge page)",
+                    "fr": "Personnalisé (réglé sur la page du pont)"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "meal5_time",
+              "type": "text",
+              "label": {
+                "en": "Meal 5 — time",
+                "fr": "Repas 5 — heure"
+              },
+              "value": "",
+              "hint": {
+                "en": "HH:MM, local time. Empty = no meal in this slot.",
+                "fr": "HH:MM, heure locale. Vide = pas de repas sur ce créneau."
+              }
+            },
+            {
+              "id": "meal5_portions",
+              "type": "number",
+              "label": {
+                "en": "Meal 5 — portions",
+                "fr": "Repas 5 — portions"
+              },
+              "value": 1,
+              "min": 1,
+              "max": 10,
+              "step": 1
+            },
+            {
+              "id": "meal5_days",
+              "type": "dropdown",
+              "label": {
+                "en": "Meal 5 — days",
+                "fr": "Repas 5 — jours"
+              },
+              "value": "daily",
+              "values": [
+                {
+                  "id": "daily",
+                  "label": {
+                    "en": "Every day",
+                    "fr": "Tous les jours"
+                  }
+                },
+                {
+                  "id": "weekdays",
+                  "label": {
+                    "en": "Monday to Friday",
+                    "fr": "Du lundi au vendredi"
+                  }
+                },
+                {
+                  "id": "weekend",
+                  "label": {
+                    "en": "Weekend",
+                    "fr": "Week-end"
+                  }
+                },
+                {
+                  "id": "mon",
+                  "label": {
+                    "en": "Monday",
+                    "fr": "Lundi"
+                  }
+                },
+                {
+                  "id": "tue",
+                  "label": {
+                    "en": "Tuesday",
+                    "fr": "Mardi"
+                  }
+                },
+                {
+                  "id": "wed",
+                  "label": {
+                    "en": "Wednesday",
+                    "fr": "Mercredi"
+                  }
+                },
+                {
+                  "id": "thu",
+                  "label": {
+                    "en": "Thursday",
+                    "fr": "Jeudi"
+                  }
+                },
+                {
+                  "id": "fri",
+                  "label": {
+                    "en": "Friday",
+                    "fr": "Vendredi"
+                  }
+                },
+                {
+                  "id": "sat",
+                  "label": {
+                    "en": "Saturday",
+                    "fr": "Samedi"
+                  }
+                },
+                {
+                  "id": "sun",
+                  "label": {
+                    "en": "Sunday",
+                    "fr": "Dimanche"
+                  }
+                },
+                {
+                  "id": "custom",
+                  "label": {
+                    "en": "Custom (set on the bridge page)",
+                    "fr": "Personnalisé (réglé sur la page du pont)"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "meal6_time",
+              "type": "text",
+              "label": {
+                "en": "Meal 6 — time",
+                "fr": "Repas 6 — heure"
+              },
+              "value": "",
+              "hint": {
+                "en": "HH:MM, local time. Empty = no meal in this slot.",
+                "fr": "HH:MM, heure locale. Vide = pas de repas sur ce créneau."
+              }
+            },
+            {
+              "id": "meal6_portions",
+              "type": "number",
+              "label": {
+                "en": "Meal 6 — portions",
+                "fr": "Repas 6 — portions"
+              },
+              "value": 1,
+              "min": 1,
+              "max": 10,
+              "step": 1
+            },
+            {
+              "id": "meal6_days",
+              "type": "dropdown",
+              "label": {
+                "en": "Meal 6 — days",
+                "fr": "Repas 6 — jours"
+              },
+              "value": "daily",
+              "values": [
+                {
+                  "id": "daily",
+                  "label": {
+                    "en": "Every day",
+                    "fr": "Tous les jours"
+                  }
+                },
+                {
+                  "id": "weekdays",
+                  "label": {
+                    "en": "Monday to Friday",
+                    "fr": "Du lundi au vendredi"
+                  }
+                },
+                {
+                  "id": "weekend",
+                  "label": {
+                    "en": "Weekend",
+                    "fr": "Week-end"
+                  }
+                },
+                {
+                  "id": "mon",
+                  "label": {
+                    "en": "Monday",
+                    "fr": "Lundi"
+                  }
+                },
+                {
+                  "id": "tue",
+                  "label": {
+                    "en": "Tuesday",
+                    "fr": "Mardi"
+                  }
+                },
+                {
+                  "id": "wed",
+                  "label": {
+                    "en": "Wednesday",
+                    "fr": "Mercredi"
+                  }
+                },
+                {
+                  "id": "thu",
+                  "label": {
+                    "en": "Thursday",
+                    "fr": "Jeudi"
+                  }
+                },
+                {
+                  "id": "fri",
+                  "label": {
+                    "en": "Friday",
+                    "fr": "Vendredi"
+                  }
+                },
+                {
+                  "id": "sat",
+                  "label": {
+                    "en": "Saturday",
+                    "fr": "Samedi"
+                  }
+                },
+                {
+                  "id": "sun",
+                  "label": {
+                    "en": "Sunday",
+                    "fr": "Dimanche"
+                  }
+                },
+                {
+                  "id": "custom",
+                  "label": {
+                    "en": "Custom (set on the bridge page)",
+                    "fr": "Personnalisé (réglé sur la page du pont)"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "meal_call_sound",
+              "type": "checkbox",
+              "label": {
+                "en": "Meal call sound",
+                "fr": "Son d'appel au repas"
+              },
+              "value": true,
+              "hint": {
+                "en": "Play the feeder's call when a scheduled meal is served.",
+                "fr": "Le distributeur joue son appel quand un repas programmé est servi."
+              }
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "label": {
+            "en": "Lid",
+            "fr": "Trappe"
+          },
+          "children": [
+            {
+              "id": "lid_close_delay",
+              "type": "number",
+              "label": {
+                "en": "Close after (seconds)",
+                "fr": "Fermeture après (secondes)"
+              },
+              "value": 10,
+              "min": 1,
+              "max": 10,
+              "step": 1,
+              "hint": {
+                "en": "In \"opens for the pet\" mode: how long the lid stays open once the tag has left.",
+                "fr": "En mode « s'ouvre pour l'animal » : combien de temps la trappe reste ouverte après le départ de la puce."
+              }
+            },
+            {
+              "id": "lid_close_speed",
+              "type": "dropdown",
+              "label": {
+                "en": "Closing speed",
+                "fr": "Vitesse de fermeture"
+              },
+              "value": "FAST",
+              "values": [
+                {
+                  "id": "FAST",
+                  "label": {
+                    "en": "Fast",
+                    "fr": "Rapide"
+                  }
+                },
+                {
+                  "id": "SLOW",
+                  "label": {
+                    "en": "Slow",
+                    "fr": "Lente"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "label": {
+            "en": "Feeder",
+            "fr": "Distributeur"
+          },
+          "children": [
+            {
+              "id": "sound",
+              "type": "checkbox",
+              "label": {
+                "en": "Sound",
+                "fr": "Son"
+              },
+              "value": true
+            },
+            {
+              "id": "volume",
+              "type": "number",
+              "label": {
+                "en": "Volume",
+                "fr": "Volume"
+              },
+              "value": 50,
+              "min": 0,
+              "max": 100,
+              "step": 5
+            },
+            {
+              "id": "child_lock",
+              "type": "checkbox",
+              "label": {
+                "en": "Button lock",
+                "fr": "Verrouillage des boutons"
+              },
+              "value": false
+            },
+            {
+              "id": "display_on",
+              "type": "checkbox",
+              "label": {
+                "en": "LED display",
+                "fr": "Afficheur LED"
+              },
+              "value": true
+            },
+            {
+              "id": "display_text",
+              "type": "text",
+              "label": {
+                "en": "Display text",
+                "fr": "Texte affiché"
+              },
+              "value": "",
+              "hint": {
+                "en": "Up to 20 characters, A-Z, 0-9 and spaces (accents are dropped). Scrolls when longer than about 6 characters.",
+                "fr": "20 caractères max, A-Z, 0-9 et espaces (accents retirés). Défile au-delà d'environ 6 caractères."
+              }
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "label": {
+            "en": "Alerts",
+            "fr": "Alertes"
+          },
+          "children": [
+            {
+              "id": "battery_low_threshold",
+              "type": "number",
+              "label": {
+                "en": "Battery low below (%)",
+                "fr": "Batterie faible sous (%)"
+              },
+              "value": 20,
+              "min": 0,
+              "max": 100,
+              "step": 5,
+              "hint": {
+                "en": "Fires the \"battery low\" trigger when the backup battery crosses this level. 0 disables it.",
+                "fr": "Déclenche la carte « batterie faible » quand la batterie de secours passe sous ce seuil. 0 la désactive."
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "brandColor": "#00A6A6",
@@ -1049,6 +1935,18 @@
     "testSomfy": {
       "method": "POST",
       "path": "/somfy/test"
+    },
+    "testPetlibro": {
+      "method": "POST",
+      "path": "/petlibro/test"
+    },
+    "getPetlibroLog": {
+      "method": "GET",
+      "path": "/petlibro/log"
+    },
+    "getPetlibroCapture": {
+      "method": "GET",
+      "path": "/petlibro/capture"
     }
   },
   "widgets": {
@@ -1579,6 +2477,120 @@
       "setable": false,
       "uiComponent": null,
       "insights": true
+    },
+    "feeder_power": {
+      "type": "enum",
+      "title": {
+        "en": "Power",
+        "fr": "Alimentation"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "insights": false,
+      "values": [
+        {
+          "id": "mains",
+          "title": {
+            "en": "Mains",
+            "fr": "Secteur"
+          }
+        },
+        {
+          "id": "battery",
+          "title": {
+            "en": "Battery (power cut)",
+            "fr": "Batterie (coupure)"
+          }
+        }
+      ]
+    },
+    "alarm_food_low": {
+      "type": "boolean",
+      "title": {
+        "en": "Food low",
+        "fr": "Croquettes basses"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "insights": true
+    },
+    "feeder_lid_open": {
+      "type": "boolean",
+      "title": {
+        "en": "Lid open",
+        "fr": "Trappe ouverte"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "toggle",
+      "insights": true
+    },
+    "feeder_lid_mode": {
+      "type": "enum",
+      "title": {
+        "en": "Lid mode",
+        "fr": "Mode de la trappe"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "picker",
+      "values": [
+        {
+          "id": "CUSTOM",
+          "title": {
+            "en": "Opens for the pet, closes after the delay",
+            "fr": "S'ouvre pour l'animal, se ferme après le délai"
+          }
+        },
+        {
+          "id": "KEEP_OPEN",
+          "title": {
+            "en": "Always open",
+            "fr": "Toujours ouverte"
+          }
+        },
+        {
+          "id": "KEEP_CLOSE",
+          "title": {
+            "en": "Always closed",
+            "fr": "Toujours fermée"
+          }
+        }
+      ]
+    },
+    "alarm_lid_jammed": {
+      "type": "boolean",
+      "title": {
+        "en": "Lid jammed",
+        "fr": "Trappe bloquée"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "insights": true
+    },
+    "feeder_meals_paused": {
+      "type": "boolean",
+      "title": {
+        "en": "Meals paused",
+        "fr": "Repas suspendus"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "toggle",
+      "insights": false
+    },
+    "feeder_last_feed": {
+      "type": "string",
+      "title": {
+        "en": "Last meal",
+        "fr": "Dernier repas"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor"
     }
   },
   "flow": {
@@ -2395,6 +3407,348 @@
             "filter": "capabilities=alarm_generic"
           }
         ]
+      },
+      {
+        "id": "petlibro_fed",
+        "title": {
+          "en": "Food was served",
+          "fr": "Des croquettes ont été servies"
+        },
+        "titleFormatted": {
+          "en": "Food was served",
+          "fr": "Des croquettes ont été servies"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          }
+        ],
+        "tokens": [
+          {
+            "name": "portions",
+            "type": "number",
+            "title": {
+              "en": "Portions",
+              "fr": "Portions"
+            },
+            "example": 2
+          },
+          {
+            "name": "source",
+            "type": "string",
+            "title": {
+              "en": "Source",
+              "fr": "Origine"
+            },
+            "example": "scheduled"
+          }
+        ]
+      },
+      {
+        "id": "petlibro_feed_failed",
+        "title": {
+          "en": "A meal came out empty",
+          "fr": "Un repas est sorti vide"
+        },
+        "titleFormatted": {
+          "en": "A meal came out empty",
+          "fr": "Un repas est sorti vide"
+        },
+        "hint": {
+          "en": "The feeder reported a finished dispense with zero portions: empty hopper or a jam, most likely.",
+          "fr": "Le distributeur a terminé une distribution sans aucune portion : réservoir vide ou bourrage, le plus souvent."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          }
+        ],
+        "tokens": [
+          {
+            "name": "source",
+            "type": "string",
+            "title": {
+              "en": "Source",
+              "fr": "Origine"
+            },
+            "example": "scheduled"
+          }
+        ]
+      },
+      {
+        "id": "petlibro_pet_visit",
+        "title": {
+          "en": "A pet ate",
+          "fr": "Un animal a mangé"
+        },
+        "titleFormatted": {
+          "en": "A pet ate",
+          "fr": "Un animal a mangé"
+        },
+        "hint": {
+          "en": "The tag came into range then left. The duration is how long it stayed.",
+          "fr": "La puce est arrivée puis repartie. La durée est le temps passé devant."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          }
+        ],
+        "tokens": [
+          {
+            "name": "tag",
+            "type": "string",
+            "title": {
+              "en": "RFID tag",
+              "fr": "Puce RFID"
+            },
+            "example": "900123456789012"
+          },
+          {
+            "name": "seconds",
+            "type": "number",
+            "title": {
+              "en": "Duration (s)",
+              "fr": "Durée (s)"
+            },
+            "example": 45
+          }
+        ]
+      },
+      {
+        "id": "petlibro_food_low",
+        "title": {
+          "en": "Food is running low",
+          "fr": "Les croquettes sont presque épuisées"
+        },
+        "titleFormatted": {
+          "en": "Food is running low",
+          "fr": "Les croquettes sont presque épuisées"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          }
+        ]
+      },
+      {
+        "id": "petlibro_food_refilled",
+        "title": {
+          "en": "Food was refilled",
+          "fr": "Les croquettes ont été remplies"
+        },
+        "titleFormatted": {
+          "en": "Food was refilled",
+          "fr": "Les croquettes ont été remplies"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          }
+        ]
+      },
+      {
+        "id": "petlibro_on_battery",
+        "title": {
+          "en": "Switched to battery (power cut)",
+          "fr": "Passé sur batterie (coupure)"
+        },
+        "titleFormatted": {
+          "en": "Switched to battery (power cut)",
+          "fr": "Passé sur batterie (coupure)"
+        },
+        "hint": {
+          "en": "The feeder tends to drop Wi-Fi soon after a power cut to save its battery, so this often arrives together with \"went offline\".",
+          "fr": "Le distributeur coupe souvent son Wi-Fi peu après une coupure pour économiser la batterie : cette carte arrive donc souvent avec « hors ligne »."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          }
+        ]
+      },
+      {
+        "id": "petlibro_mains_restored",
+        "title": {
+          "en": "Mains power restored",
+          "fr": "Secteur rétabli"
+        },
+        "titleFormatted": {
+          "en": "Mains power restored",
+          "fr": "Secteur rétabli"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          }
+        ]
+      },
+      {
+        "id": "petlibro_battery_low",
+        "title": {
+          "en": "Backup battery is low",
+          "fr": "La batterie de secours est faible"
+        },
+        "titleFormatted": {
+          "en": "Backup battery is low",
+          "fr": "La batterie de secours est faible"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          }
+        ],
+        "tokens": [
+          {
+            "name": "battery",
+            "type": "number",
+            "title": {
+              "en": "Battery (%)",
+              "fr": "Batterie (%)"
+            },
+            "example": 15
+          }
+        ]
+      },
+      {
+        "id": "petlibro_lid_jammed",
+        "title": {
+          "en": "The lid is jammed",
+          "fr": "La trappe est bloquée"
+        },
+        "titleFormatted": {
+          "en": "The lid is jammed",
+          "fr": "La trappe est bloquée"
+        },
+        "hint": {
+          "en": "Something kept the lid from closing (feeder error 2032).",
+          "fr": "Quelque chose a empêché la trappe de se fermer (erreur 2032 du distributeur)."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          }
+        ]
+      },
+      {
+        "id": "petlibro_offline",
+        "title": {
+          "en": "Went offline",
+          "fr": "Est passé hors ligne"
+        },
+        "titleFormatted": {
+          "en": "Went offline",
+          "fr": "Est passé hors ligne"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          }
+        ]
+      },
+      {
+        "id": "petlibro_online",
+        "title": {
+          "en": "Came back online",
+          "fr": "Est de nouveau en ligne"
+        },
+        "titleFormatted": {
+          "en": "Came back online",
+          "fr": "Est de nouveau en ligne"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          }
+        ]
+      },
+      {
+        "id": "petlibro_meal_skipped",
+        "title": {
+          "en": "A meal was skipped by a clock correction",
+          "fr": "Un repas a été sauté par une correction d'heure"
+        },
+        "titleFormatted": {
+          "en": "A meal was skipped by a clock correction",
+          "fr": "Un repas a été sauté par une correction d'heure"
+        },
+        "hint": {
+          "en": "The feeder's clock was slow and correcting it jumped over this meal. Nothing was served to make up for it.",
+          "fr": "L'horloge du distributeur retardait et sa correction a sauté ce repas. Rien n'a été servi pour compenser."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          }
+        ],
+        "tokens": [
+          {
+            "name": "time",
+            "type": "string",
+            "title": {
+              "en": "Meal time",
+              "fr": "Heure du repas"
+            },
+            "example": "08:00"
+          }
+        ]
+      },
+      {
+        "id": "petlibro_device_error",
+        "title": {
+          "en": "Reported an error",
+          "fr": "A signalé une erreur"
+        },
+        "titleFormatted": {
+          "en": "Reported an error",
+          "fr": "A signalé une erreur"
+        },
+        "hint": {
+          "en": "Any feeder error code other than the jammed lid. Undocumented: the code is passed on as is.",
+          "fr": "Tout code d'erreur autre que la trappe bloquée. Non documenté : le code est transmis tel quel."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          }
+        ],
+        "tokens": [
+          {
+            "name": "code",
+            "type": "number",
+            "title": {
+              "en": "Error code",
+              "fr": "Code d'erreur"
+            },
+            "example": 2040
+          }
+        ]
       }
     ],
     "conditions": [
@@ -2876,6 +4230,78 @@
             "filter": "capabilities=alarm_generic"
           }
         ]
+      },
+      {
+        "id": "petlibro_food_is_low",
+        "title": {
+          "en": "Food !{{is|is not}} low",
+          "fr": "Les croquettes !{{sont|ne sont pas}} basses"
+        },
+        "titleFormatted": {
+          "en": "Food !{{is|is not}} low",
+          "fr": "Les croquettes !{{sont|ne sont pas}} basses"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          }
+        ]
+      },
+      {
+        "id": "petlibro_is_on_battery",
+        "title": {
+          "en": "!{{Is|Is not}} on battery",
+          "fr": "!{{Est|N'est pas}} sur batterie"
+        },
+        "titleFormatted": {
+          "en": "!{{Is|Is not}} on battery",
+          "fr": "!{{Est|N'est pas}} sur batterie"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          }
+        ]
+      },
+      {
+        "id": "petlibro_lid_is_open",
+        "title": {
+          "en": "Lid !{{is|is not}} open",
+          "fr": "La trappe !{{est|n'est pas}} ouverte"
+        },
+        "titleFormatted": {
+          "en": "Lid !{{is|is not}} open",
+          "fr": "La trappe !{{est|n'est pas}} ouverte"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          }
+        ]
+      },
+      {
+        "id": "petlibro_is_online",
+        "title": {
+          "en": "!{{Is|Is not}} online",
+          "fr": "!{{Est|N'est pas}} en ligne"
+        },
+        "titleFormatted": {
+          "en": "!{{Is|Is not}} online",
+          "fr": "!{{Est|N'est pas}} en ligne"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          }
+        ]
       }
     ],
     "actions": [
@@ -3298,6 +4724,190 @@
           "en": "Press [[device]]",
           "fr": "Cliquer sur [[device]]"
         }
+      },
+      {
+        "id": "petlibro_feed",
+        "title": {
+          "en": "Serve food now",
+          "fr": "Servir des croquettes maintenant"
+        },
+        "titleFormatted": {
+          "en": "Serve [[portions]] portion(s) now",
+          "fr": "Servir [[portions]] portion(s) maintenant"
+        },
+        "hint": {
+          "en": "Refused if the feeder is offline, rather than queued: a meal must not land hours late.",
+          "fr": "Refusé si le distributeur est hors ligne, plutôt que mis en attente : un repas ne doit pas tomber des heures plus tard."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          },
+          {
+            "name": "portions",
+            "type": "number",
+            "min": 1,
+            "max": 10,
+            "step": 1,
+            "placeholder": {
+              "en": "1",
+              "fr": "1"
+            }
+          }
+        ]
+      },
+      {
+        "id": "petlibro_open_lid",
+        "title": {
+          "en": "Open the lid",
+          "fr": "Ouvrir la trappe"
+        },
+        "titleFormatted": {
+          "en": "Open the lid",
+          "fr": "Ouvrir la trappe"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          }
+        ]
+      },
+      {
+        "id": "petlibro_close_lid",
+        "title": {
+          "en": "Close the lid",
+          "fr": "Fermer la trappe"
+        },
+        "titleFormatted": {
+          "en": "Close the lid",
+          "fr": "Fermer la trappe"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          }
+        ]
+      },
+      {
+        "id": "petlibro_set_lid_mode",
+        "title": {
+          "en": "Set the lid mode",
+          "fr": "Changer le mode de la trappe"
+        },
+        "titleFormatted": {
+          "en": "Set the lid to [[mode]]",
+          "fr": "Régler la trappe sur [[mode]]"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          },
+          {
+            "name": "mode",
+            "type": "dropdown",
+            "values": [
+              {
+                "id": "CUSTOM",
+                "title": {
+                  "en": "Opens for the pet, closes after the delay",
+                  "fr": "S'ouvre pour l'animal, se ferme après le délai"
+                }
+              },
+              {
+                "id": "KEEP_OPEN",
+                "title": {
+                  "en": "Always open",
+                  "fr": "Toujours ouverte"
+                }
+              },
+              {
+                "id": "KEEP_CLOSE",
+                "title": {
+                  "en": "Always closed",
+                  "fr": "Toujours fermée"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "petlibro_pause_meals",
+        "title": {
+          "en": "Pause scheduled meals",
+          "fr": "Suspendre les repas programmés"
+        },
+        "titleFormatted": {
+          "en": "Pause scheduled meals",
+          "fr": "Suspendre les repas programmés"
+        },
+        "hint": {
+          "en": "Clears the plans on the feeder; the schedule stays saved and comes back with \"resume\".",
+          "fr": "Efface les plans du distributeur ; le planning reste enregistré et revient avec « reprendre »."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          }
+        ]
+      },
+      {
+        "id": "petlibro_resume_meals",
+        "title": {
+          "en": "Resume scheduled meals",
+          "fr": "Reprendre les repas programmés"
+        },
+        "titleFormatted": {
+          "en": "Resume scheduled meals",
+          "fr": "Reprendre les repas programmés"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          }
+        ]
+      },
+      {
+        "id": "petlibro_show_text",
+        "title": {
+          "en": "Show a text on the display",
+          "fr": "Afficher un texte"
+        },
+        "titleFormatted": {
+          "en": "Show [[text]] on the display",
+          "fr": "Afficher [[text]]"
+        },
+        "hint": {
+          "en": "A-Z, 0-9 and spaces, 20 characters at most.",
+          "fr": "A-Z, 0-9 et espaces, 20 caractères maximum."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          },
+          {
+            "name": "text",
+            "type": "text",
+            "placeholder": {
+              "en": "MIAOU",
+              "fr": "MIAOU"
+            }
+          }
+        ]
       }
     ]
   },

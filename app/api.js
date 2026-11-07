@@ -7,6 +7,7 @@ const errlog = require('./lib/errlog');
 const { ImouClient } = require('./lib/imou-client');
 const { rememberHost } = require('./lib/imou-account');
 const { getClient: getSomfyClient } = require('./lib/somfy-account');
+const petlibroBridge = require('./lib/petlibro-bridge');
 
 // Every miIO vacuum driver. Listing them explicitly rather than hardcoding one:
 // the raw log used to reach only the X20+, so a paired Vacuum 5 recorded its
@@ -145,5 +146,32 @@ module.exports = {
     } catch (err) {
       return { ok: false, error: err.message };
     }
+  },
+
+  // Backs the "Test connection" button on the settings page's Petlibro tab.
+  // Same rule as the two above: reads what was just saved, so the password
+  // never travels through this endpoint's body. Also returns the bridge's own
+  // recent log, the quickest way to see its side of a problem from here.
+  async testPetlibro({ homey }) {
+    try {
+      const { feeders } = await petlibroBridge.request(homey, 'GET', '/api/feeders');
+      return {
+        ok: true,
+        feeders: feeders.map((f) => ({ serial: f.serial, online: f.online, firmware: f.firmware })),
+      };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  },
+
+  // The bridge's log and raw MQTT capture, proxied so the settings page can
+  // show them without the NAS: the capture is to the feeders what the miIO
+  // CSV is to the vacuums.
+  async getPetlibroLog({ homey }) {
+    return petlibroBridge.request(homey, 'GET', '/api/log?limit=300');
+  },
+
+  async getPetlibroCapture({ homey }) {
+    return petlibroBridge.request(homey, 'GET', '/api/capture?limit=1000');
   },
 };

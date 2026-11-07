@@ -74,6 +74,7 @@
       <button type="button" class="tab" data-panel="miio" id="t-tab-miio"></button>
       <button type="button" class="tab" data-panel="imou" id="t-tab-imou"></button>
       <button type="button" class="tab" data-panel="somfy" id="t-tab-somfy"></button>
+      <button type="button" class="tab" data-panel="petlibro" id="t-tab-petlibro"></button>
     </div>
 
     <!-- Log -->
@@ -163,6 +164,37 @@
       <div class="status" id="somfy-status"></div>
     </section>
 
+    <!-- Petlibro bridge (bridge/petlibro, a container on the LAN) -->
+    <section class="panel" id="panel-petlibro">
+      <h2 id="t-petlibro-title">Petlibro</h2>
+      <p class="intro" id="t-petlibro-intro"></p>
+      <div class="field">
+        <label for="petlibro-url" id="t-petlibro-url"></label>
+        <input type="text" id="petlibro-url" autocomplete="off" placeholder="http://192.168.1.10:8484" />
+      </div>
+      <div class="field">
+        <label for="petlibro-username" id="t-petlibro-username"></label>
+        <input type="text" id="petlibro-username" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label for="petlibro-password" id="t-petlibro-password"></label>
+        <input type="password" id="petlibro-password" autocomplete="off" />
+      </div>
+      <div class="row">
+        <button type="button" class="primary" id="petlibro-save"></button>
+        <button type="button" id="petlibro-test"></button>
+      </div>
+      <div class="status" id="petlibro-status"></div>
+
+      <p class="intro" id="t-petlibro-tools"></p>
+      <div class="row">
+        <button type="button" id="petlibro-log-load"></button>
+        <button type="button" id="petlibro-capture-load"></button>
+        <button type="button" id="petlibro-copy"></button>
+      </div>
+      <textarea id="petlibro-out" readonly></textarea>
+    </section>
+
     <script type="text/javascript">
       function onHomeyReady(Homey) {
         const __ = (k) => Homey.__('settings.' + k);
@@ -185,6 +217,12 @@
           't-tab-somfy': 'tab_somfy', 't-somfy-intro': 'somfy_intro',
           't-somfy-email': 'somfy_email', 't-somfy-password': 'somfy_password',
           'somfy-save': 'somfy_save', 'somfy-test': 'somfy_test',
+          't-tab-petlibro': 'tab_petlibro', 't-petlibro-intro': 'petlibro_intro',
+          't-petlibro-url': 'petlibro_url', 't-petlibro-username': 'petlibro_username',
+          't-petlibro-password': 'petlibro_password', 'petlibro-save': 'petlibro_save',
+          'petlibro-test': 'petlibro_test', 't-petlibro-tools': 'petlibro_tools',
+          'petlibro-log-load': 'petlibro_log_load', 'petlibro-capture-load': 'petlibro_capture_load',
+          'petlibro-copy': 'copy',
         };
         for (const [id, key] of Object.entries(labels)) $(id).textContent = __(key);
 
@@ -385,6 +423,68 @@
             somfyStatusEl.className = 'status ok';
             somfyStatusEl.textContent = __('somfy_test_ok').replace('{{count}}', result.count);
           });
+        });
+
+        // --- Petlibro bridge ---
+        // Address and login of petlibro-bridge, the container that stands in
+        // for the Petlibro cloud. Same app-settings pattern as Somfy: set once,
+        // and pairing becomes a picker over the feeders the bridge has seen.
+        // Saving makes the app reconnect its event stream (app.js).
+        const plUrlEl = $('petlibro-url');
+        const plUserEl = $('petlibro-username');
+        const plPassEl = $('petlibro-password');
+        const plStatusEl = $('petlibro-status');
+        const plOutEl = $('petlibro-out');
+
+        Homey.get('petlibro_url', (err, value) => { if (!err && value) plUrlEl.value = value; });
+        Homey.get('petlibro_username', (err, value) => { if (!err && value) plUserEl.value = value; });
+        Homey.get('petlibro_password', (err, value) => { if (!err && value) plPassEl.value = value; });
+
+        $('petlibro-save').addEventListener('click', () => {
+          Homey.set('petlibro_url', plUrlEl.value.trim(), () => {
+            Homey.set('petlibro_username', plUserEl.value.trim(), () => {
+              Homey.set('petlibro_password', plPassEl.value, (err) => {
+                plStatusEl.className = 'status ' + (err ? 'error' : 'ok');
+                plStatusEl.textContent = err ? (err.message || String(err)) : __('petlibro_saved');
+              });
+            });
+          });
+        });
+
+        $('petlibro-test').addEventListener('click', () => {
+          plStatusEl.className = 'status busy';
+          plStatusEl.textContent = __('petlibro_testing');
+          Homey.api('POST', '/petlibro/test', null, (err, result) => {
+            if (err || !result || !result.ok) {
+              plStatusEl.className = 'status error';
+              plStatusEl.textContent = __('petlibro_test_fail') + ((result && result.error) || (err && err.message) || String(err));
+              return;
+            }
+            const list = result.feeders.map((f) => f.serial.slice(-4) + (f.online ? ' ✓' : ' ✗')).join(', ');
+            plStatusEl.className = 'status ok';
+            plStatusEl.textContent = __('petlibro_test_ok').replace('{{count}}', result.feeders.length) + (list ? ' — ' + list : '');
+          });
+        });
+
+        const fmtTime = (t) => new Date(t).toLocaleString();
+        $('petlibro-log-load').addEventListener('click', () => {
+          Homey.api('GET', '/petlibro/log', null, (err, result) => {
+            if (err) { plOutEl.value = String(err.message || err); return; }
+            plOutEl.value = result.entries
+              .map((e) => fmtTime(e.t) + ' ' + e.level.toUpperCase() + ' ' + e.context + ': ' + e.message)
+              .join('\n');
+          });
+        });
+        $('petlibro-capture-load').addEventListener('click', () => {
+          Homey.api('GET', '/petlibro/capture', null, (err, result) => {
+            if (err) { plOutEl.value = String(err.message || err); return; }
+            plOutEl.value = result.lines.map((l) => JSON.stringify(l)).join('\n');
+          });
+        });
+        $('petlibro-copy').addEventListener('click', () => {
+          plOutEl.select();
+          document.execCommand('copy');
+          $('petlibro-copy').textContent = __('copied');
         });
 
         load();

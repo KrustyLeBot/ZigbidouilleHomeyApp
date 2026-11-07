@@ -12,6 +12,7 @@ const Homey = require('homey');
 require('./lib/tuya-cluster');
 
 const errlog = require('./lib/errlog');
+const petlibroBridge = require('./lib/petlibro-bridge');
 
 class ZigbidouilleApp extends Homey.App {
   async onInit() {
@@ -28,6 +29,41 @@ class ZigbidouilleApp extends Homey.App {
     this.registerImouFlows();
     this.registerSomfyFlows();
     this.registerFingerbotFlows();
+    this.registerPetlibroFlows();
+  }
+
+  // Petlibro feeders (drivers/petlibro-plaf301). Triggers fire from the device
+  // (lib/petlibro-feeder-device.js) as the bridge reports events; conditions
+  // read capabilities, never instance state, same rule as the vacuums.
+  registerPetlibroFlows() {
+    const actions = {
+      petlibro_feed: (device, { portions }) => device.feed(portions),
+      petlibro_open_lid: (device) => device.setLid(true),
+      petlibro_close_lid: (device) => device.setLid(false),
+      petlibro_set_lid_mode: (device, { mode }) => device.setLidMode(mode),
+      petlibro_pause_meals: (device) => device.setMealsPaused(true),
+      petlibro_resume_meals: (device) => device.setMealsPaused(false),
+      petlibro_show_text: (device, { text }) => device.showText(text),
+    };
+    for (const [card, run] of Object.entries(actions)) {
+      this.homey.flow.getActionCard(card).registerRunListener((args) => run(args.device, args));
+    }
+
+    const conditions = {
+      petlibro_food_is_low: (device) => Boolean(device.getCapabilityValue('alarm_food_low')),
+      petlibro_is_on_battery: (device) => device.getCapabilityValue('feeder_power') === 'battery',
+      petlibro_lid_is_open: (device) => Boolean(device.getCapabilityValue('feeder_lid_open')),
+      petlibro_is_online: (device) => device.getAvailable() && !device.getCapabilityValue('alarm_offline'),
+    };
+    for (const [card, run] of Object.entries(conditions)) {
+      this.homey.flow.getConditionCard(card).registerRunListener(({ device }) => run(device));
+    }
+
+    // The bridge address/login live in app settings (Settings -> Petlibro):
+    // a save there must reach the open event stream, not wait for a restart.
+    this.homey.settings.on('set', (key) => {
+      if (/^petlibro_/.test(key)) petlibroBridge.reconnect();
+    });
   }
 
   // One action: make the Fingerbot press. The onoff tile covers manual/switch

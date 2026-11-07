@@ -836,3 +836,51 @@ confirmed live, unlike everything else in this file.
 via `api.devices.updateDevice({ id, device: { zone } })` — was tried and
 pulled back out: not worth the undocumented API surface for something a
 manual drag handles fine.)
+
+## Petlibro One RFID Smart Feeder — `PLAF301` (driver `petlibro-plaf301`, via `bridge/petlibro`)
+
+Not interviewed by sniffing here yet: the map below is
+[smcneece/petlibro-local](https://github.com/smcneece/petlibro-local)'s, built
+from captures of the real Petlibro cloud. Add what our own capture shows
+(Settings → Petlibro → MQTT capture) as it comes.
+
+| | |
+|---|---|
+| Serial prefix | `AF06` (ours: `AF0601…`) — the box says `PLAF301` |
+| MQTT model in topics | `PLAF301` |
+| Firmware seen | 3.0.72 (hw 5.0.0) — ours; 2.0.47 (hw 4.0.0) elsewhere |
+| Broker | `mqtt.us.petlibro.com:1883`, plain MQTT 3.1.1, client id = serial |
+| DNS | fw 3.0.72 resolves the name (with `8.8.4.4` as fallback DNS — blocked with the rest of its internet); fw 2.0.47 never does a DNS lookup and needs DNAT instead |
+
+Topics `dl/PLAF301/<serial>/device/<channel>/post` (feeder → us) and `.../sub`
+(us → feeder). Messages are JSON with `cmd`, `ts` (ms), `msgId`, `code` (0 = ok).
+
+| Feeder sends | Meaning | The bridge answers |
+|---|---|---|
+| `HEARTBEAT` (heart, ~90 s) | `rssi`, `ts` = its clock | clock check, correction by `NTP_SYNC` when > 30 s off and no meal is in the jump |
+| `NTP` (ntp) | time request | `NTP` with `calibrationTag`, timezone, offset, next two DST transitions |
+| `DEVICE_START_EVENT` (event) | boot, `softwareVersion`, `hardwareVersion` | ack with the same `msgId` |
+| `GET_FEEDING_PLAN_EVENT` (event) | asks for its plans | `GET_FEEDING_PLAN_EVENT` `code 0` + plans (empty while none set) |
+| `FEEDING_PLAN_SERVICE` (service) | ack of our plans, each `planId` + `syncTime` | marks the schedule acknowledged |
+| `GRAIN_OUTPUT_EVENT` (event) | dispense progress; `finished` + `actualGrainNum` | ack echoing `execStep` |
+| `WAREHOUSE_DOOR_EVENT` | `barnDoorState`, `triggerType` (`PET_IDENTIFY`) | — |
+| `PET_IDENTIFY_EVENT` | `rfid`, `type` NEAR / LEAVE | — |
+| `ERROR_EVENT` | `errorCode`; 2032 = lid blocked from closing | — |
+| `ATTR_PUSH_EVENT` | `surplusGrain` (food present), `barnDoorState`, `electricQuantity` (%), `powerType` (2 battery, 3 mains), settings | — |
+
+Commands (service/sub): `MANUAL_FEEDING_SERVICE {grainNum}`,
+`SWITCH_DOOR_SERVICE {barnDoorState}`, `FEEDING_PLAN_SERVICE {plans}` (replaces
+the whole list; `executionTime` "HH:MM" **UTC**, `repeatDay` 1 = Monday,
+`grainNum`, `enableAudio`, `audioTimes`, `planId`, `syncTime`, optional
+`skipEndTime`), `ATTR_GET_SERVICE`, `ATTR_SET_SERVICE` with one of
+`coverOpenMode` (`KEEP_CLOSE` / `CUSTOM` = opens for the tag, closes after
+`closeDoorTimeSec` / `KEEP_OPEN`), `coverCloseSpeed` (`FAST`/`SLOW`),
+`closeDoorTimeSec` (1..10), `childLockSwitch`, `soundSwitch`, `volume`,
+`screenDisplaySwitch` (+ `screenDisplayAgingType`, `screenDisplayInterval` 2),
+and `DISPLAY_MATRIX_SERVICE` for the LED text (frames of 5 row bitmasks, 26
+columns, 20 frames per message, 140 max).
+
+Behaviour worth remembering: plans do not follow DST on their own (the bridge
+re-sends them); the clock does not survive a reboot; every broker restart
+reboots the feeder; `powerType` from an `ATTR_GET_SERVICE` reply was only ever
+seen as mains, so only pushes are trusted for it.

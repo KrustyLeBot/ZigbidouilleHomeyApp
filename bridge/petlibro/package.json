@@ -1,0 +1,23 @@
+{
+  "name": "petlibro-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local stand-in for the Petlibro cloud: MQTT broker for the feeders, an authenticated API for Homey.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test \"test/*.test.js\""
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "aedes": "^1.2.0",
+    "bcryptjs": "^3.0.3",
+    "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "mqtt": "^5.14.1"
+  }
+}

@@ -43,7 +43,21 @@
     "somfy_test": "Tester la connexion",
     "somfy_testing": "Connexion au cloud Somfy...",
     "somfy_test_ok": "Connecté — {{count}} site(s) visibles sur ce compte.",
-    "somfy_test_fail": "Échec : "
+    "somfy_test_fail": "Échec : ",
+    "tab_petlibro": "Petlibro",
+    "petlibro_intro": "Adresse et identifiants de petlibro-bridge, le conteneur qui remplace le cloud Petlibro pour les distributeurs (bridge/petlibro dans le dépôt ; installation dans le README). L'identifiant est l'un de ceux du fichier auth/htpasswd du pont. À régler une fois, puis appairer : l'écran d'appairage liste tous les distributeurs qui se sont connectés au pont.",
+    "petlibro_url": "Adresse du pont",
+    "petlibro_username": "Identifiant",
+    "petlibro_password": "Mot de passe",
+    "petlibro_save": "Enregistrer",
+    "petlibro_saved": "Enregistré.",
+    "petlibro_test": "Tester la connexion",
+    "petlibro_testing": "Connexion au pont...",
+    "petlibro_test_ok": "Connecté — {{count}} distributeur(s) connu(s) du pont",
+    "petlibro_test_fail": "Échec : ",
+    "petlibro_tools": "Le journal du pont, et sa capture MQTT brute (chaque message échangé avec les distributeurs) — pour décoder ce que fait le distributeur et que cette app ne comprend pas encore.",
+    "petlibro_log_load": "Journal du pont",
+    "petlibro_capture_load": "Capture MQTT"
   },
   "unreachable": "Le robot ne répond pas",
   "pair": {
@@ -84,5 +98,15 @@
   "kwh_meter": {
     "no_source": "Aucun appareil source n'est lié à ce compteur — supprime-le et réappaire-le.",
     "source_gone": "L'appareil suivi est indisponible ou a été supprimé. Le total en kWh est conservé, mais ne se met plus à jour."
+  },
+  "petlibro": {
+    "not_configured": "Renseignez d'abord l'adresse, l'identifiant et le mot de passe du pont Petlibro dans les réglages de l'app (onglet Petlibro).",
+    "bad_login": "Le pont a refusé l'identifiant ou le mot de passe (Réglages > Petlibro).",
+    "bridge_unreachable": "Pont Petlibro injoignable",
+    "no_feeder": "Le pont ne connaît encore aucun distributeur. Vérifiez que l'accès Internet du distributeur est bloqué et que mqtt.us.petlibro.com pointe vers le pont, puis redémarrez le distributeur.",
+    "bad_time": "Repas __slot__ : « __value__ » n'est pas une heure — utilisez HH:MM, par ex. 07:30.",
+    "source_manual": "manuel",
+    "source_scheduled": "programmé",
+    "last_feed": "__time__ · __portions__ portion(s), __source__"
   }
 }

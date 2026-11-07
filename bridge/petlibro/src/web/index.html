@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Petlibro bridge</title>
+<!-- Served by the bridge itself at /, behind the same htpasswd login as the
+     API (the browser asks once). Same API Homey uses: anything done here shows
+     up in Homey, and the other way round. Polls every 5 s rather than using the
+     websocket: a browser cannot attach a Basic login to a websocket reliably. -->
+<style>
+  :root { --bg:#f6f7f8; --card:#fff; --fg:#1f2937; --muted:#6b7280; --line:#e5e7eb; --accent:#0ea6a6; --bad:#dc2626; --warn:#d97706; --ok:#16a34a; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111418; --card:#1b1f24; --fg:#e5e7eb; --muted:#9ca3af; --line:#2d333b; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.45 -apple-system, system-ui, sans-serif; background:var(--bg); color:var(--fg); }
+  header { padding:14px 16px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); background:var(--card); }
+  header h1 { font-size:17px; margin:0; }
+  main { max-width:980px; margin:0 auto; padding:16px; display:grid; gap:16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .card h2 { font-size:16px; margin:0 0 10px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .pill { font-size:12px; padding:2px 8px; border-radius:99px; border:1px solid var(--line); color:var(--muted); font-weight:500; }
+  .pill.ok { color:var(--ok); border-color:var(--ok); } .pill.bad { color:var(--bad); border-color:var(--bad); } .pill.warn { color:var(--warn); border-color:var(--warn); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px; margin-bottom:12px; }
+  .stat { border:1px solid var(--line); border-radius:8px; padding:6px 10px; }
+  .stat b { display:block; font-size:12px; color:var(--muted); font-weight:500; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:8px 0; }
+  h3 { font-size:13px; margin:14px 0 4px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  button, select, input { font:inherit; color:inherit; background:var(--card); border:1px solid var(--line); border-radius:6px; padding:6px 10px; }
+  button { cursor:pointer; } button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button:disabled { opacity:.5; cursor:default; }
+  input[type=number] { width:70px; } input[type=time] { width:110px; }
+  table { border-collapse:collapse; width:100%; } td, th { padding:4px 6px; border-bottom:1px solid var(--line); text-align:left; font-size:13px; }
+  .days label { font-size:12px; margin-right:4px; white-space:nowrap; }
+  #toast { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:var(--fg); color:var(--bg); padding:8px 14px; border-radius:8px; display:none; max-width:90%; }
+  pre { max-height:260px; overflow:auto; font-size:11px; background:var(--bg); padding:8px; border-radius:6px; margin:0; }
+  .muted { color:var(--muted); font-size:12px; }
+</style>
+</head>
+<body>
+<header><h1>Petlibro bridge</h1><span class="muted" id="version"></span></header>
+<main id="feeders"></main>
+<main>
+  <div class="card">
+    <h2 data-t="log">Log</h2>
+    <pre id="log"></pre>
+  </div>
+</main>
+<div id="toast"></div>
+<script>
+'use strict';
+const FR = (navigator.language || '').toLowerCase().startsWith('fr');
+const T = FR ? {
+  online:'En ligne', offline:'Hors ligne', battery:'Batterie', power:'Alimentation', mains:'Secteur', onBattery:'Batterie (coupure)',
+  food:'Croquettes', foodOk:'OK', foodLow:'Basses', lid:'Trappe', open:'Ouverte', closed:'Fermée', jammed:'BLOQUÉE',
+  lastFeed:'Dernier repas', lastVisit:'Dernière visite', firmware:'Firmware', clock:'Horloge', wifi:'Wi-Fi',
+  feedNow:'Servir', portions:'portion(s)', openLid:'Ouvrir la trappe', closeLid:'Fermer la trappe',
+  lidMode:'Mode de trappe', CUSTOM:"S'ouvre pour l'animal", KEEP_OPEN:'Toujours ouverte', KEEP_CLOSE:'Toujours fermée',
+  closeDelay:'Fermeture après (s)', speed:'Vitesse', FAST:'Rapide', SLOW:'Lente', sound:'Son', volume:'Volume',
+  childLock:'Verrou boutons', display:'Afficheur', displayText:'Texte', send:'Envoyer', apply:'Appliquer',
+  schedule:'Planning', time:'Heure', days:'Jours', add:'Ajouter un repas', save:'Enregistrer le planning', remove:'Suppr.',
+  callSound:"Son d'appel", paused:'Repas suspendus', pause:'Suspendre', resume:'Reprendre', acked:'confirmé par le distributeur',
+  notAcked:'en attente de confirmation', noSchedule:"Aucun planning défini ici : le distributeur garde ses propres plans. Le premier enregistrement les remplace.",
+  dayNames:['Lu','Ma','Me','Je','Ve','Sa','Di'], done:'Envoyé', manual:'manuel', scheduled:'programmé', log:'Journal', none:'Aucun distributeur connu pour l’instant.',
+  settings:'Réglages', control:'Contrôle', state:'État', tz:'Fuseau',
+} : {
+  online:'Online', offline:'Offline', battery:'Battery', power:'Power', mains:'Mains', onBattery:'Battery (power cut)',
+  food:'Food', foodOk:'OK', foodLow:'Low', lid:'Lid', open:'Open', closed:'Closed', jammed:'JAMMED',
+  lastFeed:'Last meal', lastVisit:'Last visit', firmware:'Firmware', clock:'Clock', wifi:'Wi-Fi',
+  feedNow:'Serve', portions:'portion(s)', openLid:'Open lid', closeLid:'Close lid',
+  lidMode:'Lid mode', CUSTOM:'Opens for the pet', KEEP_OPEN:'Always open', KEEP_CLOSE:'Always closed',
+  closeDelay:'Close after (s)', speed:'Speed', FAST:'Fast', SLOW:'Slow', sound:'Sound', volume:'Volume',
+  childLock:'Button lock', display:'Display', displayText:'Text', send:'Send', apply:'Apply',
+  schedule:'Schedule', time:'Time', days:'Days', add:'Add a meal', save:'Save schedule', remove:'Del.',
+  callSound:'Meal call sound', paused:'Meals paused', pause:'Pause', resume:'Resume', acked:'acknowledged by the feeder',
+  notAcked:'waiting for the feeder', noSchedule:'No schedule set here: the feeder keeps its own plans. The first save replaces them.',
+  dayNames:['Mo','Tu','We','Th','Fr','Sa','Su'], done:'Sent', manual:'manual', scheduled:'scheduled', log:'Log', none:'No feeder known yet.',
+  settings:'Settings', control:'Control', state:'State', tz:'Timezone',
+};
+document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = T[el.dataset.t]; });
+
+const MAX_MEALS = 6;
+const drafts = {}; // serial -> meals being edited, so a poll does not wipe the editor
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const when = (t) => (t ? new Date(t).toLocaleString(undefined, { weekday:'short', hour:'2-digit', minute:'2-digit' }) : '—');
+
+function toast(msg, bad) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.style.display = 'block'; el.style.background = bad ? 'var(--bad)' : '';
+  clearTimeout(toast.t); toast.t = setTimeout(() => { el.style.display = 'none'; }, 3500);
+}
+
+async function api(method, path, body) {
+  const res = await fetch(path, { method, headers: { 'Content-Type':'application/json' }, body: body ? JSON.stringify(body) : undefined, credentials:'same-origin' });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+  return data;
+}
+
+async function act(path, body, method = 'POST') {
+  try { await api(method, path, body); toast(T.done); setTimeout(refresh, 400); }
+  catch (err) { toast(err.message, true); }
+}
+
+function stat(label, value, cls) { return `<div class="stat"><b>${esc(label)}</b><span class="${cls || ''}">${value}</span></div>`; }
+
+function mealRow(serial, meal, i) {
+  const days = T.dayNames.map((n, d) => `<label><input type="checkbox" data-day="${d + 1}" ${meal.days.includes(d + 1) ? 'checked' : ''}>${n}</label>`).join('');
+  return `<tr data-i="${i}">
+    <td><input type="time" value="${esc(meal.time)}" data-k="time"></td>
+    <td><input type="number" min="1" max="10" value="${meal.portions}" data-k="portions"></td>
+    <td class="days">${days}</td>
+    <td><button data-del>${T.remove}</button></td></tr>`;
+}
+
+function render(feeders) {
+  const root = document.getElementById('feeders');
+  if (!feeders.length) { root.innerHTML = `<div class="card">${T.none}</div>`; return; }
+  // Keep focus/typing alive: only re-render cards whose content changed.
+  for (const f of feeders) {
+    const id = 'f-' + f.serial;
+    let card = document.getElementById(id);
+    const sig = JSON.stringify(f) + JSON.stringify(drafts[f.serial] || null);
+    if (card && card.dataset.sig === sig) continue;
+    if (card && card.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') continue;
+    if (!card) { card = document.createElement('div'); card.className = 'card'; card.id = id; root.appendChild(card); }
+    card.dataset.sig = sig;
+    card.innerHTML = cardHtml(f);
+    wire(card, f);
+  }
+}
+
+function cardHtml(f) {
+  const s = f.settings || {};
+  const sched = f.schedule;
+  const meals = drafts[f.serial] || (sched ? sched.meals.map((m) => ({ ...m })) : []);
+  const lastFeed = f.lastFeed ? `${when(f.lastFeed.t)} · ${f.lastFeed.portions} ${T.portions} (${T[f.lastFeed.source] || f.lastFeed.source})` : '—';
+  const lastVisit = f.lastVisit ? `${when(f.lastVisit.t)}${f.lastVisit.seconds != null ? ` · ${f.lastVisit.seconds} s` : ''}${f.lastVisit.rfid ? ` · ${esc(f.lastVisit.rfid)}` : ''}` : '—';
+  const opt = (v, cur) => `<option value="${v}" ${cur === v ? 'selected' : ''}>${T[v]}</option>`;
+  return `
+  <h2>Petlibro One RFID · ${esc(f.serial.slice(-4))}
+    <span class="pill ${f.online ? 'ok' : 'bad'}">${f.online ? T.online : T.offline}</span>
+    ${f.lidJammed ? `<span class="pill bad">${T.lid} ${T.jammed}</span>` : ''}
+    ${f.power === 'battery' ? `<span class="pill warn">${T.onBattery}</span>` : ''}
+    <span class="muted">${esc(f.serial)}</span></h2>
+  <div class="grid">
+    ${stat(T.food, f.foodLow == null ? '—' : f.foodLow ? T.foodLow : T.foodOk, f.foodLow ? 'pill bad' : '')}
+    ${stat(T.battery, f.battery == null ? '—' : f.battery + ' %')}
+    ${stat(T.power, f.power === 'battery' ? T.onBattery : f.power === 'mains' ? T.mains : '—')}
+    ${stat(T.lid, f.lidOpen == null ? '—' : f.lidOpen ? T.open : T.closed)}
+    ${stat(T.lastFeed, lastFeed)}
+    ${stat(T.lastVisit, lastVisit)}
+    ${stat(T.clock, f.clockOffsetSeconds == null ? '—' : `${f.clockOffsetSeconds > 0 ? '-' : '+'}${Math.abs(f.clockOffsetSeconds)} s`)}
+    ${stat(T.firmware, esc(f.firmware || '—'))}
+    ${stat(T.wifi, f.rssi == null ? '—' : f.rssi + ' dBm')}
+  </div>
+
+  <h3>${T.control}</h3>
+  <div class="row">
+    <input type="number" min="1" max="10" value="1" data-feed-n> <button class="primary" data-feed>${T.feedNow}</button>
+    <button data-lid="1">${T.openLid}</button><button data-lid="0">${T.closeLid}</button>
+    <button data-pause="${sched && sched.paused ? 0 : 1}" ${sched ? '' : 'disabled'}>${sched && sched.paused ? T.resume : T.pause}</button>
+  </div>
+
+  <h3>${T.settings}</h3>
+  <div class="row">
+    <label>${T.lidMode} <select data-set="lidMode">${opt('CUSTOM', s.lidMode)}${opt('KEEP_OPEN', s.lidMode)}${opt('KEEP_CLOSE', s.lidMode)}</select></label>
+    <label>${T.closeDelay} <input type="number" min="1" max="10" value="${s.lidCloseDelay == null ? 10 : s.lidCloseDelay}" data-set="lidCloseDelay"></label>
+    <label>${T.speed} <select data-set="lidCloseSpeed">${opt('FAST', s.lidCloseSpeed)}${opt('SLOW', s.lidCloseSpeed)}</select></label>
+  </div>
+  <div class="row">
+    <label><input type="checkbox" data-set="sound" ${s.sound !== false ? 'checked' : ''}> ${T.sound}</label>
+    <label>${T.volume} <input type="number" min="0" max="100" step="5" value="${s.volume == null ? 50 : s.volume}" data-set="volume"></label>
+    <label><input type="checkbox" data-set="childLock" ${s.childLock ? 'checked' : ''}> ${T.childLock}</label>
+    <label><input type="checkbox" data-set="displayOn" ${s.displayOn !== false ? 'checked' : ''}> ${T.display}</label>
+  </div>
+  <div class="row">
+    <label>${T.displayText} <input type="text" maxlength="20" value="${esc(s.displayText || '')}" data-text></label>
+    <button data-send-text>${T.send}</button>
+  </div>
+
+  <h3>${T.schedule} ${sched ? `<span class="muted">· ${T.tz} ${esc(sched.timezone)} · ${sched.acked ? T.acked : T.notAcked}${sched.paused ? ' · ' + T.paused : ''}</span>` : ''}</h3>
+  ${sched ? '' : `<p class="muted">${T.noSchedule}</p>`}
+  <table><thead><tr><th>${T.time}</th><th>${T.portions}</th><th>${T.days}</th><th></th></tr></thead>
+    <tbody>${meals.map((m, i) => mealRow(f.serial, m, i)).join('')}</tbody></table>
+  <div class="row">
+    <button data-add ${meals.length >= MAX_MEALS ? 'disabled' : ''}>${T.add}</button>
+    <label><input type="checkbox" data-callsound ${!sched || sched.callSound ? 'checked' : ''}> ${T.callSound}</label>
+    <button class="primary" data-save>${T.save}</button>
+  </div>`;
+}
+
+function readMeals(card) {
+  return [...card.querySelectorAll('tbody tr')].map((tr) => ({
+    time: tr.querySelector('[data-k=time]').value,
+    portions: Number(tr.querySelector('[data-k=portions]').value),
+    days: [...tr.querySelectorAll('[data-day]')].filter((c) => c.checked).map((c) => Number(c.dataset.day)),
+    enabled: true,
+  }));
+}
+
+function wire(card, f) {
+  const base = `/api/feeders/${encodeURIComponent(f.serial)}`;
+  card.querySelector('[data-feed]').onclick = () => act(`${base}/feed`, { portions: Number(card.querySelector('[data-feed-n]').value) });
+  card.querySelectorAll('[data-lid]').forEach((b) => { b.onclick = () => act(`${base}/lid`, { open: b.dataset.lid === '1' }); });
+  const pause = card.querySelector('[data-pause]');
+  pause.onclick = () => act(`${base}/schedule/paused`, { paused: pause.dataset.pause === '1' });
+  card.querySelectorAll('[data-set]').forEach((el) => {
+    el.onchange = () => {
+      const v = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
+      act(`${base}/settings`, { [el.dataset.set]: v });
+    };
+  });
+  card.querySelector('[data-send-text]').onclick = () => act(`${base}/display`, { text: card.querySelector('[data-text]').value });
+  const keepDraft = () => { drafts[f.serial] = readMeals(card); };
+  card.querySelectorAll('tbody input').forEach((el) => { el.oninput = keepDraft; });
+  card.querySelectorAll('[data-del]').forEach((b) => {
+    b.onclick = () => { const m = readMeals(card); m.splice(Number(b.closest('tr').dataset.i), 1); drafts[f.serial] = m; render(window.lastFeeders); };
+  });
+  card.querySelector('[data-add]').onclick = () => {
+    const m = readMeals(card); m.push({ time:'08:00', portions:1, days:[1,2,3,4,5,6,7], enabled:true }); drafts[f.serial] = m; render(window.lastFeeders);
+  };
+  card.querySelector('[data-save]').onclick = async () => {
+    try {
+      await api('PUT', `${base}/schedule`, {
+        meals: readMeals(card),
+        timezone: (f.schedule && f.schedule.timezone) || Intl.DateTimeFormat().resolvedOptions().timeZone,
+        callSound: card.querySelector('[data-callsound]').checked,
+      });
+      delete drafts[f.serial];
+      toast(T.done);
+      refresh();
+    } catch (err) { toast(err.message, true); }
+  };
+}
+
+async function refresh() {
+  try {
+    const { feeders } = await api('GET', '/api/feeders');
+    window.lastFeeders = feeders;
+    render(feeders);
+    const { entries } = await api('GET', '/api/log?limit=80');
+    document.getElementById('log').textContent = entries.map((e) => `${new Date(e.t).toLocaleTimeString()} ${e.level.toUpperCase()} ${e.context}: ${e.message}`).join('\n');
+  } catch (err) { toast(err.message, true); }
+}
+
+fetch('/health').then((r) => r.json()).then((h) => { document.getElementById('version').textContent = 'v' + h.version; }).catch(() => {});
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>
