@@ -889,3 +889,26 @@ Behaviour worth remembering: plans do not follow DST on their own (the bridge
 re-sends them); the clock does not survive a reboot; every broker restart
 reboots the feeder; `powerType` from an `ATTR_GET_SERVICE` reply was only ever
 seen as mains, so only pushes are trusted for it.
+
+### Observed on our two units (fw 3.0.72 and 3.0.47, hw 5.0.0)
+
+- `GRAIN_OUTPUT_EVENT` carries the **msgId of the `MANUAL_FEEDING_SERVICE`**
+  that started it, plus `type` (2 for a manual feed), `expectGrainNum` and
+  `actualGrainNum`. The bridge matches manual feeds by that msgId.
+- A feed requested while another is dispensing is refused: `ERROR_EVENT`
+  `errorCode 2002`, a `GRAIN_OUTPUT_EVENT` finished with `actualGrainNum 0`, and
+  the command's reply with `code 2002`. Not a fault, not an empty meal — the
+  first build reported both.
+- `actualGrainNum` reported 1 for each 1-portion feed throughout; whether it
+  ever reports 0 on an empty hopper is still unknown.
+- Lifting the hopper off sends nothing at all: `surplusGrain` stays `true`.
+- `powerType` is **1** with no batteries fitted (`electricQuantity 0`,
+  `powerMode 1`) — neither of the documented 2 (battery) / 3 (mains).
+- A tag in range re-opens the lid at once (`WAREHOUSE_DOOR_EVENT`,
+  `triggerType PET_IDENTIFY`, with the `rfid`), so a "close" from the app
+  seems to fail while the cat sits in front.
+- Extra messages, ignored by the bridge: `DIAG_LOG_REPORT_EVENT` (network
+  diagnostics, incl. the DNS servers in use), `DEVICE_LOG_REPORT_EVENT`
+  (sensor/IO log), `MACHINE_INFRARED_EVENT`. Each feeder also subscribes to
+  `dl/PLAF301/device/broadcast/sub`. `DEVICE_START_EVENT` comes 2-3 times per
+  boot, and the clock is minutes off after a power cycle (165-3194 s seen).

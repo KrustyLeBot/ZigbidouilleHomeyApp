@@ -142,11 +142,30 @@ test('bridge plays the cloud for a PLAF301', async (t) => {
   assert.strictEqual((await api('POST', `/api/feeders/${SERIAL}/feed`, { portions: 3 })).status, 200);
   const feed = await waitFor(() => got('MANUAL_FEEDING_SERVICE', 'service'), 'manual feed');
   assert.strictEqual(feed.data.grainNum, 3);
-  post('event', { cmd: 'GRAIN_OUTPUT_EVENT', msgId: 'g1', execStep: 'GRAIN_END', finished: true, actualGrainNum: 3 });
+  // The feeder reports the dispense under the msgId of the command (observed).
+  post('event', { cmd: 'GRAIN_OUTPUT_EVENT', msgId: feed.data.msgId, execStep: 'GRAIN_END', finished: true, actualGrainNum: 3 });
   const grainAck = await waitFor(() => got('GRAIN_OUTPUT_EVENT', 'event'), 'grain ack');
   assert.strictEqual(grainAck.data.execStep, 'GRAIN_END');
+  assert.strictEqual(grainAck.data.msgId, feed.data.msgId);
   const fed = await waitFor(() => events.find((e) => e.type === 'event' && e.event.type === 'fed'), 'fed event');
   assert.deepStrictEqual([fed.event.portions, fed.event.source], [3, 'manual']);
+
+  // A second feed while one dispenses is refused by the bridge itself.
+  assert.strictEqual((await api('POST', `/api/feeders/${SERIAL}/feed`, { portions: 1 })).status, 200);
+  const busy = await api('POST', `/api/feeders/${SERIAL}/feed`, { portions: 1 });
+  assert.strictEqual(busy.status, 400);
+  assert.match(busy.body.error, /already in progress/);
+  await waitFor(() => received.filter((m) => m.data.cmd === 'MANUAL_FEEDING_SERVICE').length === 2, 'second feed command');
+  const second = received.filter((m) => m.data.cmd === 'MANUAL_FEEDING_SERVICE').pop();
+  // The feeder's own busy refusal (2002, as observed) is not an empty meal.
+  post('event', { cmd: 'ERROR_EVENT', errorCode: 2002 });
+  post('event', { cmd: 'GRAIN_OUTPUT_EVENT', msgId: 'other', execStep: 'GRAIN_END', finished: true, actualGrainNum: 0 });
+  // The real dispense, matched to its command by msgId, is manual.
+  post('event', { cmd: 'GRAIN_OUTPUT_EVENT', msgId: second.data.msgId, execStep: 'GRAIN_END', finished: true, actualGrainNum: 1 });
+  await waitFor(() => events.filter((e) => e.type === 'event' && e.event.type === 'fed').length === 2, 'second fed');
+  const fed2 = events.filter((e) => e.type === 'event' && e.event.type === 'fed')[1];
+  assert.strictEqual(fed2.event.source, 'manual');
+  assert.strictEqual(events.filter((e) => e.type === 'event' && ['feed_failed', 'device_error'].includes(e.event.type)).length, 0);
 
   // Lid, settings, display, pets, jam.
   assert.strictEqual((await api('POST', `/api/feeders/${SERIAL}/lid`, { open: true })).status, 200);

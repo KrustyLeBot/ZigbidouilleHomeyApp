@@ -28,7 +28,10 @@ const OFFLINE_AFTER_MS = 5 * 60 * 1000; // heartbeats come every ~90-100 s
 const ATTR_POLL_MS = 5 * 60 * 1000;
 const PLAN_RESEND_MS = 5 * 60 * 1000;
 const PLAN_MAX_SENDS = 24; // 2 hours of re-sends without an ack, then wait for the feeder to ask
+// How long a manual feed request is remembered while waiting for its dispense
+// to report, and how long one dispense may run before it is assumed finished.
 const MANUAL_FEED_WINDOW_MS = 2 * 60 * 1000;
+const FEED_RUN_MAX_MS = 60 * 1000;
 // Clock correction, values from petlibro-local (tested on this model, fw 3.0.72).
 const CLOCK_TOLERANCE_S = 30;
 const CLOCK_FIX_INTERVAL_MS = 5 * 60 * 1000;
@@ -40,6 +43,13 @@ const NTP_SYNC_ACK_TIMEOUT_MS = 10000;
 // errorCode 2032: the lid could not close (a pet in the way). The only code
 // ever observed (petlibro-local, issue #7); anything else is reported raw.
 const ERROR_LID_JAMMED = 2032;
+// errorCode 2002: a feed was asked for while another was still dispensing
+// (observed on ours, fw 3.0.72: a second "serve" 4 s after the first). The
+// feeder refuses it — ERROR_EVENT 2002, a GRAIN_OUTPUT_EVENT finished with 0,
+// and the command's reply with code 2002 — and the first feed completes
+// normally. Neither a fault nor an empty meal.
+const ERROR_FEED_BUSY = 2002;
+const BUSY_WINDOW_MS = 10 * 1000;
 
 // Settings Homey may change, and the exact field the feeder takes for each.
 // Sent one field per message, as the Petlibro app does — bundling them made the
@@ -65,7 +75,13 @@ class Feeder extends EventEmitter {
     this.online = false;
     this.lastSeen = 0;
     this.lastAttrPoll = 0;
-    this.pendingManualFeed = 0;
+    // msgId -> time of each manual feed request: GRAIN_OUTPUT_EVENT carries the
+    // msgId of the command that started it (observed), which is what tells a
+    // manual dispense from a scheduled one — a time window alone misfiled a
+    // manual feed as scheduled when a second request overlapped it.
+    this.pendingManualFeeds = new Map();
+    this.feedRunning = null; // { msgId, since } while a dispense is in progress
+    this.busyUntil = 0;
     this.nearSince = null;
     this.clockOffsetS = null;
     this.clockFix = { lastPush: 0, tries: 0, backoffUntil: 0, heldSince: null, lastHoldLog: 0 };
@@ -200,7 +216,9 @@ class Feeder extends EventEmitter {
       case 'MANUAL_FEEDING_SERVICE':
       case 'SWITCH_DOOR_SERVICE':
       case 'DISPLAY_MATRIX_SERVICE':
-        if (data.code !== 0 && data.code !== undefined) {
+        if (data.code === ERROR_FEED_BUSY && cmd === 'MANUAL_FEEDING_SERVICE') {
+          this.pendingManualFeeds.delete(data.msgId);
+        } else if (data.code !== 0 && data.code !== undefined) {
           this.emitEvent('command_refused', { command: cmd, code: data.code });
         }
         break;
@@ -529,18 +547,39 @@ class Feeder extends EventEmitter {
     const n = Number(portions);
     if (!Number.isInteger(n) || n < 1 || n > plans.MAX_PORTIONS) throw new Error(`portions must be 1..${plans.MAX_PORTIONS}`);
     if (!this.online) throw new Error('feeder offline');
-    this.pendingManualFeed = Date.now();
-    this.command({ cmd: 'MANUAL_FEEDING_SERVICE', grainNum: n });
+    // The feeder refuses a second feed while one is dispensing (code 2002);
+    // refusing it here gives a clear message instead of a misleading error.
+    if (this.feedRunning && Date.now() - this.feedRunning.since < FEED_RUN_MAX_MS) {
+      throw new Error('a feed is already in progress');
+    }
+    const now = Date.now();
+    for (const [id, t] of this.pendingManualFeeds) if (now - t > MANUAL_FEED_WINDOW_MS) this.pendingManualFeeds.delete(id);
+    const { msgId } = this.command({ cmd: 'MANUAL_FEEDING_SERVICE', grainNum: n });
+    this.pendingManualFeeds.set(msgId, now);
+    this.feedRunning = { msgId, since: now };
     log.info(this.name(), `manual feed requested: ${n} portion(s)`);
   }
 
   onGrainOutput(data) {
     this.send('event', { cmd: 'GRAIN_OUTPUT_EVENT', msgId: data.msgId || '', code: 0, execStep: data.execStep || '' });
-    if (!data.finished) return;
-    const portions = Number(data.actualGrainNum) || 0;
-    const manual = this.pendingManualFeed && Date.now() - this.pendingManualFeed <= MANUAL_FEED_WINDOW_MS;
-    this.pendingManualFeed = 0;
+    const manual = this.pendingManualFeeds.has(data.msgId);
     const source = manual ? 'manual' : 'scheduled';
+    if (!data.finished) {
+      // A scheduled dispense starting also counts as "busy" for feed().
+      this.feedRunning = { msgId: data.msgId, since: Date.now() };
+      return;
+    }
+    this.pendingManualFeeds.delete(data.msgId);
+    if (this.feedRunning && (this.feedRunning.msgId === data.msgId || Date.now() - this.feedRunning.since >= FEED_RUN_MAX_MS)) {
+      this.feedRunning = null;
+    }
+    const portions = Number(data.actualGrainNum) || 0;
+    if (portions === 0 && Date.now() < this.busyUntil) {
+      // The refused half of an overlapping request (see ERROR_FEED_BUSY).
+      log.info(this.name(), 'a feed was refused because another one was dispensing (2002)');
+      this.emitState();
+      return;
+    }
     if (portions > 0) {
       this.persisted.lastFeed = { t: Date.now(), portions, source };
       this.store.save();
@@ -595,6 +634,10 @@ class Feeder extends EventEmitter {
         this.emitEvent('lid_jammed');
         this.emitState();
       }
+      return;
+    }
+    if (data.errorCode === ERROR_FEED_BUSY) {
+      this.busyUntil = Date.now() + BUSY_WINDOW_MS;
       return;
     }
     this.emitEvent('device_error', { code: data.errorCode });
