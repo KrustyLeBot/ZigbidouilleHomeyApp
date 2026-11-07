@@ -853,7 +853,12 @@ from captures of the real Petlibro cloud. Add what our own capture shows
 | DNS | fw 3.0.72 resolves the name (with `8.8.4.4` as fallback DNS — blocked with the rest of its internet); fw 2.0.47 never does a DNS lookup and needs DNAT instead |
 
 Topics `dl/PLAF301/<serial>/device/<channel>/post` (feeder → us) and `.../sub`
-(us → feeder). Messages are JSON with `cmd`, `ts` (ms), `msgId`, `code` (0 = ok).
+(us → feeder). **Observed on ours (fw 3.0.72):** on every connect each feeder
+also subscribes to the model-wide `dl/PLAF301/device/broadcast/sub`. The first
+bridge build refused it, aedes dropped the connection, and both feeders
+reconnected every ~12 s without ever sending a message — a broker must grant
+that subscription (and should never answer a feeder's odd subscription by
+disconnecting it). Messages are JSON with `cmd`, `ts` (ms), `msgId`, `code` (0 = ok).
 
 | Feeder sends | Meaning | The bridge answers |
 |---|---|---|

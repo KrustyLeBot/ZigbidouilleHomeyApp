@@ -78,6 +78,16 @@ test('bridge plays the cloud for a PLAF301', async (t) => {
   });
   await new Promise((resolve, reject) => { feeder.on('connect', resolve); feeder.on('error', reject); });
   await new Promise((resolve) => feeder.subscribe(`dl/PLAF301/${SERIAL}/device/+/sub`, resolve));
+  // What a real PLAF301 (fw 3.0.72) also subscribes to on connect. Refusing it
+  // used to drop the connection; it must be granted and the feeder kept.
+  const granted = await new Promise((resolve) => feeder.subscribe('dl/PLAF301/device/broadcast/sub', (err, g) => resolve(g)));
+  assert.strictEqual(granted[0].qos, 0);
+  // Anything foreign is negated, never a reason to disconnect.
+  // (mqtt.js reports the 0x80 SUBACK as an error.)
+  const negated = await new Promise((resolve) => feeder.subscribe('dl/PLAF301/AF06OTHERSERIAL00/device/+/sub', (err) => resolve(err)));
+  assert.ok(negated, 'foreign subscription must be refused');
+  await sleep(200);
+  assert.strictEqual(feeder.connected, true, 'a refused subscription must not drop the feeder');
   feeder.on('message', (topic, payload) => received.push({ topic, data: JSON.parse(payload.toString()) }));
   const post = (channel, data) => feeder.publish(`dl/PLAF301/${SERIAL}/device/${channel}/post`, JSON.stringify({ ts: Date.now(), ...data }));
   const got = (cmd, channel) => received.find((m) => m.data.cmd === cmd && (!channel || m.topic.endsWith(`/${channel}/sub`)));
@@ -173,11 +183,17 @@ test('bridge plays the cloud for a PLAF301', async (t) => {
   assert.ok(capture.body.lines.some((l) => l.dir === 'in') && capture.body.lines.some((l) => l.dir === 'out'));
   assert.ok((await api('GET', '/api/log')).body.entries.length > 0);
 
-  // A feeder may not publish under another serial.
+  // A feeder may not send commands to another one, nor pose as it.
   const rogue = mqtt.connect(`mqtt://127.0.0.1:${MQTT_PORT}`, { clientId: 'AF06ROGUESERIAL00', reconnectPeriod: 0 });
   await new Promise((resolve, reject) => { rogue.on('connect', resolve); rogue.on('error', reject); });
-  rogue.publish(`dl/PLAF301/${SERIAL}/device/event/post`, '{"cmd":"HEARTBEAT"}');
-  await waitFor(() => output.includes('refused publish'), 'cross-serial publish refused');
+  const beforeRogue = received.length;
+  rogue.publish(`dl/PLAF301/${SERIAL}/device/event/post`, JSON.stringify({ cmd: 'DEVICE_START_EVENT', msgId: 'spoof' }));
+  await sleep(300);
+  assert.strictEqual(received.filter((m) => m.data.msgId === 'spoof').length, 0, 'a post under another serial must be ignored');
+  assert.ok(received.length >= beforeRogue);
+  rogue.publish(`dl/PLAF301/${SERIAL}/device/service/sub`, JSON.stringify({ cmd: 'MANUAL_FEEDING_SERVICE', grainNum: 9 }));
+  await waitFor(() => output.includes('refused publish'), 'command to another feeder refused');
+  assert.strictEqual(received.filter((m) => m.data.grainNum === 9).length, 0);
   rogue.end(true);
 
   // The schedule survives a restart.

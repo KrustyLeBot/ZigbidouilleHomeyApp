@@ -1,6 +1,6 @@
 {
   "name": "petlibro-bridge",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Local stand-in for the Petlibro cloud: MQTT broker for the feeders, an authenticated API for Homey.",
   "main": "src/index.js",

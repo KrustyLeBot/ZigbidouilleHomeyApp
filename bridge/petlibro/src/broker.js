@@ -24,6 +24,14 @@ const log = require('./log');
 const SERIAL_RE = /^[A-Z]{2}[0-9]{2}[0-9A-Z]{6,40}$/;
 const TOPIC_RE = /^dl\/([A-Z0-9]{4,12})\/([0-9A-Z]+)\/device\/([a-z]+)\/(post|sub)$/;
 
+const warned = new Set();
+function warnOnce(client, message) {
+  const key = `${client && client.id}|${message}`;
+  if (warned.has(key)) return;
+  warned.add(key);
+  log.warn('mqtt', `${client && client.id}: ${message}`);
+}
+
 async function startBroker({ port, htpasswd, allowedSerials, onDeviceMessage, onDeviceConnect, onDeviceDisconnect }) {
   const isFeeder = (client) => client && client.petlibroSerial;
 
@@ -49,23 +57,37 @@ async function startBroker({ port, htpasswd, allowedSerials, onDeviceMessage, on
     authorizePublish(client, packet, done) {
       if (packet.topic.startsWith('$SYS/')) return done(new Error('$SYS is read-only'));
       if (client && client.petlibroAdmin) return done(null);
-      const m = TOPIC_RE.exec(packet.topic);
-      if (!isFeeder(client) || !m || m[2] !== client.petlibroSerial || m[4] !== 'post') {
+      // A feeder may never publish on a .../sub topic: that is how commands
+      // reach a feeder, and one unit must not be able to drive another. Any
+      // other dl/ topic is let through (an unexpected one is only logged, and
+      // never acted on unless it is the feeder's own .../post — see 'publish'
+      // below), because a refused publish makes aedes drop the connection and
+      // the feeder would reconnect in a loop.
+      if (!isFeeder(client) || !packet.topic.startsWith('dl/') || /\/sub$/.test(packet.topic)) {
         log.warn('mqtt', `refused publish by ${client && client.id} on ${packet.topic}`);
         return done(new Error('not authorized'));
       }
+      const m = TOPIC_RE.exec(packet.topic);
+      if (!m || m[2] !== client.petlibroSerial) warnOnce(client, `publishes on ${packet.topic} (ignored)`);
       return done(null);
     },
 
     authorizeSubscribe(client, sub, done) {
       if (client && client.petlibroAdmin) return done(null, sub);
       const parts = sub.topic.split('/');
-      // dl/<model or +>/<own serial>/device/...
-      if (isFeeder(client) && parts[0] === 'dl' && parts[2] === client.petlibroSerial && parts[3] === 'device') {
-        return done(null, sub);
+      if (isFeeder(client) && parts[0] === 'dl') {
+        // Its own topics: dl/<model>/<serial>/device/...
+        if (parts[2] === client.petlibroSerial && parts[3] === 'device') return done(null, sub);
+        // The model-wide channel every PLAF301 subscribes to on connect
+        // (observed on fw 3.0.72: dl/PLAF301/device/broadcast/sub). Read-only
+        // for feeders, and nothing publishes on it here.
+        if (parts[2] === 'device' && parts[3] === 'broadcast') return done(null, sub);
       }
-      log.warn('mqtt', `refused subscription by ${client && client.id} to ${sub.topic}`);
-      return done(new Error('not authorized'));
+      // Anything else is negated (SUBACK 0x80), not failed: a failed
+      // subscription makes aedes drop the client, and a feeder that is
+      // dropped on every connect never gets as far as booting.
+      warnOnce(client, `subscription to ${sub.topic} refused`);
+      return done(null, null);
     },
   });
 
@@ -81,7 +103,8 @@ async function startBroker({ port, htpasswd, allowedSerials, onDeviceMessage, on
   aedes.on('publish', (packet, client) => {
     if (!isFeeder(client)) return;
     const m = TOPIC_RE.exec(packet.topic);
-    if (!m) return;
+    // Only a feeder's own .../post is ever acted on.
+    if (!m || m[2] !== client.petlibroSerial || m[4] !== 'post') return;
     let data;
     try {
       data = JSON.parse(packet.payload.toString('utf8'));
