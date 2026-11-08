@@ -2120,7 +2120,7 @@
                 "en": "Minimum time between two automatic cleanings",
                 "fr": "Délai minimum entre deux nettoyages automatiques"
               },
-              "value": 0,
+              "value": 5,
               "min": 0,
               "max": 240,
               "step": 1,
@@ -2184,7 +2184,7 @@
                 "en": "Scheduled times",
                 "fr": "Horaires programmés"
               },
-              "value": "",
+              "value": "07:00,10:00,13:00,16:00,19:00,21:00",
               "hint": {
                 "en": "Up to 6 local times, comma separated, e.g. 08:00,12:00,18:00. Empty = none.",
                 "fr": "Jusqu'à 6 heures locales, séparées par des virgules, par ex. 08:00,12:00,18:00. Vide = aucun."
