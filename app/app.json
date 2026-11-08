@@ -1954,6 +1954,283 @@
           ]
         }
       ]
+    },
+    {
+      "id": "petkit-t4",
+      "name": {
+        "en": "Petkit Pura Max 2 (ESPHome)",
+        "fr": "Petkit Pura Max 2 (ESPHome)"
+      },
+      "class": "other",
+      "connectivity": [
+        "lan"
+      ],
+      "capabilities": [
+        "litter_status",
+        "litter_last_visit",
+        "litter_pet1_visits",
+        "litter_pet2_visits",
+        "litter_waste",
+        "alarm_litter_full",
+        "alarm_litter_fault",
+        "litter_auto_clean",
+        "litter_block_movement",
+        "litter_clean_now",
+        "litter_level_now",
+        "litter_bin_emptied",
+        "alarm_offline"
+      ],
+      "platforms": [
+        "local"
+      ],
+      "pair": [
+        {
+          "id": "configure"
+        }
+      ],
+      "images": {
+        "small": "/drivers/petkit-t4/assets/images/small.png",
+        "large": "/drivers/petkit-t4/assets/images/large.png",
+        "xlarge": "/drivers/petkit-t4/assets/images/xlarge.png"
+      },
+      "settings": [
+        {
+          "type": "group",
+          "label": {
+            "en": "Pets",
+            "fr": "Chats"
+          },
+          "children": [
+            {
+              "id": "pet1_name",
+              "type": "text",
+              "label": {
+                "en": "Pet 1 — name",
+                "fr": "Chat 1 — nom"
+              },
+              "value": "Zeus"
+            },
+            {
+              "id": "pet1_min",
+              "type": "number",
+              "label": {
+                "en": "Pet 1 — from",
+                "fr": "Chat 1 — de"
+              },
+              "value": 3.5,
+              "min": 0.5,
+              "max": 15,
+              "step": 0.05,
+              "units": {
+                "en": "kg",
+                "fr": "kg"
+              }
+            },
+            {
+              "id": "pet1_max",
+              "type": "number",
+              "label": {
+                "en": "Pet 1 — to",
+                "fr": "Chat 1 — à"
+              },
+              "value": 4.65,
+              "min": 0.5,
+              "max": 15,
+              "step": 0.05,
+              "units": {
+                "en": "kg",
+                "fr": "kg"
+              },
+              "hint": {
+                "en": "A visit is this pet's when its median weight falls in [from, to). Adjust from the weights the box reports in \"Last visit\".",
+                "fr": "Une visite est attribuée à ce chat si son poids médian est dans [de, à[. Ajustez d'après les poids relevés par la litière dans « Dernière visite »."
+              }
+            },
+            {
+              "id": "pet2_name",
+              "type": "text",
+              "label": {
+                "en": "Pet 2 — name",
+                "fr": "Chat 2 — nom"
+              },
+              "value": "Ares"
+            },
+            {
+              "id": "pet2_min",
+              "type": "number",
+              "label": {
+                "en": "Pet 2 — from",
+                "fr": "Chat 2 — de"
+              },
+              "value": 4.65,
+              "min": 0.5,
+              "max": 15,
+              "step": 0.05,
+              "units": {
+                "en": "kg",
+                "fr": "kg"
+              }
+            },
+            {
+              "id": "pet2_max",
+              "type": "number",
+              "label": {
+                "en": "Pet 2 — to",
+                "fr": "Chat 2 — à"
+              },
+              "value": 6.0,
+              "min": 0.5,
+              "max": 15,
+              "step": 0.05,
+              "units": {
+                "en": "kg",
+                "fr": "kg"
+              }
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "label": {
+            "en": "Cleaning",
+            "fr": "Nettoyage"
+          },
+          "children": [
+            {
+              "id": "clean_after",
+              "type": "number",
+              "label": {
+                "en": "Clean after the visit",
+                "fr": "Nettoyer après la visite"
+              },
+              "value": 1,
+              "min": 0,
+              "max": 60,
+              "step": 1,
+              "units": {
+                "en": "min",
+                "fr": "min"
+              }
+            },
+            {
+              "id": "min_clean_interval",
+              "type": "number",
+              "label": {
+                "en": "Minimum time between two automatic cleanings",
+                "fr": "Délai minimum entre deux nettoyages automatiques"
+              },
+              "value": 0,
+              "min": 0,
+              "max": 240,
+              "step": 1,
+              "units": {
+                "en": "min",
+                "fr": "min"
+              },
+              "hint": {
+                "en": "0 = no minimum.",
+                "fr": "0 = pas de minimum."
+              }
+            },
+            {
+              "id": "quiet_hours",
+              "type": "checkbox",
+              "label": {
+                "en": "Quiet hours",
+                "fr": "Heures de silence"
+              },
+              "value": false,
+              "hint": {
+                "en": "No automatic cleaning in this window: a cleaning due then waits for its end. \"Clean now\" still works.",
+                "fr": "Pas de nettoyage automatique dans cette plage : un nettoyage prévu attend la fin. « Nettoyer maintenant » fonctionne toujours."
+              }
+            },
+            {
+              "id": "quiet_start",
+              "type": "text",
+              "label": {
+                "en": "Quiet hours — from (HH:MM)",
+                "fr": "Heures de silence — de (HH:MM)"
+              },
+              "value": "22:00"
+            },
+            {
+              "id": "quiet_end",
+              "type": "text",
+              "label": {
+                "en": "Quiet hours — to (HH:MM)",
+                "fr": "Heures de silence — à (HH:MM)"
+              },
+              "value": "07:00"
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "label": {
+            "en": "Waste bin",
+            "fr": "Bac à déchets"
+          },
+          "children": [
+            {
+              "id": "tray_capacity",
+              "type": "number",
+              "label": {
+                "en": "Bin capacity",
+                "fr": "Contenance du bac"
+              },
+              "value": 1.0,
+              "min": 0.1,
+              "max": 2,
+              "step": 0.1,
+              "units": {
+                "en": "kg",
+                "fr": "kg"
+              },
+              "hint": {
+                "en": "\"Waste bin full\" fires when the collected waste reaches this weight (or when the flap fails to close).",
+                "fr": "« Bac à déchets plein » se déclenche quand les déchets collectés atteignent ce poids (ou quand le volet ne se ferme pas)."
+              }
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "label": {
+            "en": "Connection",
+            "fr": "Connexion"
+          },
+          "children": [
+            {
+              "id": "address",
+              "type": "text",
+              "label": {
+                "en": "IP address",
+                "fr": "Adresse IP"
+              },
+              "value": ""
+            },
+            {
+              "id": "username",
+              "type": "text",
+              "label": {
+                "en": "Username",
+                "fr": "Identifiant"
+              },
+              "value": ""
+            },
+            {
+              "id": "password",
+              "type": "password",
+              "label": {
+                "en": "Password",
+                "fr": "Mot de passe"
+              },
+              "value": ""
+            }
+          ]
+        }
+      ]
     }
   ],
   "brandColor": "#00A6A6",
@@ -2673,6 +2950,198 @@
       "getable": false,
       "setable": true,
       "uiComponent": "button"
+    },
+    "litter_status": {
+      "type": "enum",
+      "title": {
+        "en": "Status",
+        "fr": "État"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "picker",
+      "values": [
+        {
+          "id": "idle",
+          "title": {
+            "en": "Ready",
+            "fr": "Prête"
+          }
+        },
+        {
+          "id": "pet_inside",
+          "title": {
+            "en": "Pet inside",
+            "fr": "Chat à l'intérieur"
+          }
+        },
+        {
+          "id": "clean_pending",
+          "title": {
+            "en": "Cleaning soon",
+            "fr": "Nettoyage imminent"
+          }
+        },
+        {
+          "id": "quiet_hours",
+          "title": {
+            "en": "Cleaning after quiet hours",
+            "fr": "Nettoyage après les heures de silence"
+          }
+        },
+        {
+          "id": "cleaning",
+          "title": {
+            "en": "Cleaning",
+            "fr": "Nettoyage en cours"
+          }
+        },
+        {
+          "id": "maintenance",
+          "title": {
+            "en": "Maintenance",
+            "fr": "Maintenance"
+          }
+        },
+        {
+          "id": "blocked",
+          "title": {
+            "en": "Movement blocked",
+            "fr": "Mouvements bloqués"
+          }
+        },
+        {
+          "id": "error",
+          "title": {
+            "en": "Fault",
+            "fr": "Panne"
+          }
+        }
+      ]
+    },
+    "alarm_litter_full": {
+      "type": "boolean",
+      "title": {
+        "en": "Waste bin full",
+        "fr": "Bac à déchets plein"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "insights": true
+    },
+    "alarm_litter_fault": {
+      "type": "boolean",
+      "title": {
+        "en": "Fault",
+        "fr": "Panne"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "insights": true
+    },
+    "litter_auto_clean": {
+      "type": "boolean",
+      "title": {
+        "en": "Auto clean",
+        "fr": "Nettoyage automatique"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "toggle",
+      "insights": false
+    },
+    "litter_block_movement": {
+      "type": "boolean",
+      "title": {
+        "en": "Block movement",
+        "fr": "Bloquer les mouvements"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "toggle",
+      "insights": false
+    },
+    "litter_clean_now": {
+      "type": "boolean",
+      "title": {
+        "en": "Clean now",
+        "fr": "Nettoyer maintenant"
+      },
+      "getable": false,
+      "setable": true,
+      "uiComponent": "button"
+    },
+    "litter_level_now": {
+      "type": "boolean",
+      "title": {
+        "en": "Level the litter",
+        "fr": "Niveler la litière"
+      },
+      "getable": false,
+      "setable": true,
+      "uiComponent": "button"
+    },
+    "litter_bin_emptied": {
+      "type": "boolean",
+      "title": {
+        "en": "Bin emptied",
+        "fr": "Bac vidé"
+      },
+      "getable": false,
+      "setable": true,
+      "uiComponent": "button"
+    },
+    "litter_last_visit": {
+      "type": "string",
+      "title": {
+        "en": "Last visit",
+        "fr": "Dernière visite"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor"
+    },
+    "litter_pet1_visits": {
+      "type": "number",
+      "title": {
+        "en": "Pet 1 — visits today",
+        "fr": "Chat 1 — visites aujourd'hui"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "decimals": 0,
+      "insights": true
+    },
+    "litter_pet2_visits": {
+      "type": "number",
+      "title": {
+        "en": "Pet 2 — visits today",
+        "fr": "Chat 2 — visites aujourd'hui"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "decimals": 0,
+      "insights": true
+    },
+    "litter_waste": {
+      "type": "number",
+      "title": {
+        "en": "Waste collected",
+        "fr": "Déchets collectés"
+      },
+      "units": {
+        "en": "g",
+        "fr": "g"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "decimals": 0,
+      "insights": true
     }
   },
   "flow": {
@@ -3904,6 +4373,176 @@
             "example": 14
           }
         ]
+      },
+      {
+        "id": "petkit_alert",
+        "title": {
+          "en": "An alert was raised",
+          "fr": "Une alerte a été levée"
+        },
+        "titleFormatted": {
+          "en": "An alert was raised ([[min_severity]])",
+          "fr": "Une alerte a été levée ([[min_severity]])"
+        },
+        "hint": {
+          "en": "ONE card for every alert of the litter box, with a ready-to-send message: use [message] in a push notification. Persistent problems (full bin, fault) repeat at most daily; their end is announced as \"info\".",
+          "fr": "UNE carte pour toutes les alertes de la litière, avec un message prêt à envoyer : utilisez [message] dans une notification. Les problèmes persistants (bac plein, panne) se répètent au plus une fois par jour ; leur fin est annoncée en « info »."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petkit-t4"
+          },
+          {
+            "name": "min_severity",
+            "type": "dropdown",
+            "values": [
+              {
+                "id": "info",
+                "title": {
+                  "en": "All alerts",
+                  "fr": "Toutes les alertes"
+                }
+              },
+              {
+                "id": "warning",
+                "title": {
+                  "en": "Warnings and critical",
+                  "fr": "Avertissements et critiques"
+                }
+              },
+              {
+                "id": "critical",
+                "title": {
+                  "en": "Critical only",
+                  "fr": "Critiques seulement"
+                }
+              }
+            ]
+          }
+        ],
+        "tokens": [
+          {
+            "name": "message",
+            "type": "string",
+            "title": {
+              "en": "Message",
+              "fr": "Message"
+            },
+            "example": "Litière : bac à déchets plein"
+          },
+          {
+            "name": "severity",
+            "type": "string",
+            "title": {
+              "en": "Severity",
+              "fr": "Gravité"
+            },
+            "example": "warning"
+          },
+          {
+            "name": "category",
+            "type": "string",
+            "title": {
+              "en": "Category",
+              "fr": "Catégorie"
+            },
+            "example": "litter"
+          },
+          {
+            "name": "device",
+            "type": "string",
+            "title": {
+              "en": "Device",
+              "fr": "Appareil"
+            },
+            "example": "Litière"
+          }
+        ]
+      },
+      {
+        "id": "petkit_pet_visit",
+        "title": {
+          "en": "A pet used the litter box",
+          "fr": "Un chat est passé dans la litière"
+        },
+        "titleFormatted": {
+          "en": "A pet used the litter box",
+          "fr": "Un chat est passé dans la litière"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petkit-t4"
+          }
+        ],
+        "tokens": [
+          {
+            "name": "pet",
+            "type": "string",
+            "title": {
+              "en": "Pet",
+              "fr": "Chat"
+            },
+            "example": "Zeus"
+          },
+          {
+            "name": "weight",
+            "type": "number",
+            "title": {
+              "en": "Weight (kg)",
+              "fr": "Poids (kg)"
+            },
+            "example": 4.3
+          },
+          {
+            "name": "duration",
+            "type": "number",
+            "title": {
+              "en": "Duration (s)",
+              "fr": "Durée (s)"
+            },
+            "example": 95
+          }
+        ]
+      },
+      {
+        "id": "petkit_cleaning_started",
+        "title": {
+          "en": "Cleaning started",
+          "fr": "Le nettoyage a commencé"
+        },
+        "titleFormatted": {
+          "en": "Cleaning started",
+          "fr": "Le nettoyage a commencé"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petkit-t4"
+          }
+        ]
+      },
+      {
+        "id": "petkit_cleaning_finished",
+        "title": {
+          "en": "Cleaning finished",
+          "fr": "Le nettoyage est terminé"
+        },
+        "titleFormatted": {
+          "en": "Cleaning finished",
+          "fr": "Le nettoyage est terminé"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petkit-t4"
+          }
+        ]
       }
     ],
     "conditions": [
@@ -4491,6 +5130,42 @@
             "name": "device",
             "type": "device",
             "filter": "driver_id=petlibro-plaf301"
+          }
+        ]
+      },
+      {
+        "id": "petkit_pet_inside",
+        "title": {
+          "en": "A pet !{{is|is not}} inside",
+          "fr": "Un chat !{{est|n'est pas}} à l'intérieur"
+        },
+        "titleFormatted": {
+          "en": "A pet !{{is|is not}} inside",
+          "fr": "Un chat !{{est|n'est pas}} à l'intérieur"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petkit-t4"
+          }
+        ]
+      },
+      {
+        "id": "petkit_bin_full",
+        "title": {
+          "en": "The waste bin !{{is|is not}} full",
+          "fr": "Le bac à déchets !{{est|n'est pas}} plein"
+        },
+        "titleFormatted": {
+          "en": "The waste bin !{{is|is not}} full",
+          "fr": "Le bac à déchets !{{est|n'est pas}} plein"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petkit-t4"
           }
         ]
       }
@@ -5119,6 +5794,136 @@
             "name": "device",
             "type": "device",
             "filter": "driver_id=petlibro-plaf301"
+          }
+        ]
+      },
+      {
+        "id": "petkit_clean",
+        "title": {
+          "en": "Clean now",
+          "fr": "Nettoyer maintenant"
+        },
+        "titleFormatted": {
+          "en": "Clean now",
+          "fr": "Nettoyer maintenant"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petkit-t4"
+          }
+        ]
+      },
+      {
+        "id": "petkit_level",
+        "title": {
+          "en": "Level the litter",
+          "fr": "Niveler la litière"
+        },
+        "titleFormatted": {
+          "en": "Level the litter",
+          "fr": "Niveler la litière"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petkit-t4"
+          }
+        ]
+      },
+      {
+        "id": "petkit_bin_emptied",
+        "title": {
+          "en": "Mark the waste bin as emptied",
+          "fr": "Marquer le bac comme vidé"
+        },
+        "titleFormatted": {
+          "en": "Mark the waste bin as emptied",
+          "fr": "Marquer le bac comme vidé"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petkit-t4"
+          }
+        ]
+      },
+      {
+        "id": "petkit_set_auto_clean",
+        "title": {
+          "en": "Turn auto clean on or off",
+          "fr": "Activer ou désactiver le nettoyage automatique"
+        },
+        "titleFormatted": {
+          "en": "Set auto clean [[state]]",
+          "fr": "Nettoyage automatique [[state]]"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petkit-t4"
+          },
+          {
+            "name": "state",
+            "type": "dropdown",
+            "values": [
+              {
+                "id": "on",
+                "title": {
+                  "en": "on",
+                  "fr": "activé"
+                }
+              },
+              {
+                "id": "off",
+                "title": {
+                  "en": "off",
+                  "fr": "désactivé"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "petkit_set_block_movement",
+        "title": {
+          "en": "Block or allow movement",
+          "fr": "Bloquer ou autoriser les mouvements"
+        },
+        "titleFormatted": {
+          "en": "Movement [[state]]",
+          "fr": "Mouvements [[state]]"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petkit-t4"
+          },
+          {
+            "name": "state",
+            "type": "dropdown",
+            "values": [
+              {
+                "id": "on",
+                "title": {
+                  "en": "blocked",
+                  "fr": "bloqués"
+                }
+              },
+              {
+                "id": "off",
+                "title": {
+                  "en": "allowed",
+                  "fr": "autorisés"
+                }
+              }
+            ]
           }
         ]
       }

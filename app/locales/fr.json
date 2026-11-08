@@ -109,5 +109,35 @@
     "source_scheduled": "programmé",
     "last_feed": "__time__ · __portions__ portion(s), __source__",
     "bad_refill_time": "Rappel de remplissage : « __value__ » n'est pas une heure — utilisez HH:MM, par ex. 09:00."
+  },
+  "petkit": {
+    "unknown_pet": "Chat inconnu",
+    "last_visit": "__pet__ · __weight__ kg · __minutes__ min, __time__",
+    "bad_time": "« __value__ » n'est pas une heure — utilisez HH:MM, par ex. 22:00.",
+    "bad_range": "Pour chaque chat, le poids « de » doit être inférieur au poids « à ».",
+    "alert": {
+      "tray_full": "Litière : le bac à déchets est plein — videz-le, puis appuyez sur « Bac vidé ».",
+      "tray_emptied": "Litière : bac à déchets vidé.",
+      "motor_error": "Litière : panne moteur (__reason__) — le nettoyage automatique est arrêté jusqu'à résolution.",
+      "motor_error_cleared": "Litière : panne moteur résolue.",
+      "link_lost": "Litière : la carte principale ne répond plus au contrôleur moteur — vérifiez la litière.",
+      "link_lost_cleared": "Litière : le contrôleur moteur répond de nouveau.",
+      "offline": "Litière : injoignable depuis 5 minutes (Wi-Fi ou courant).",
+      "online": "Litière : de nouveau en ligne.",
+      "unknown_pet": "Litière : visite d'un chat non reconnu (__weight__ kg) — vérifiez les plages de poids."
+    },
+    "pair": {
+      "address": "Adresse IP",
+      "address_hint": "Donnez d'abord une IP fixe à la litière dans votre box.",
+      "username": "Identifiant",
+      "password": "Mot de passe",
+      "login_hint": "Le web_username / web_password du secrets.yaml du firmware.",
+      "connect": "Connecter",
+      "connecting": "Connexion à la litière...",
+      "no_address": "Saisissez l'adresse IP de la litière.",
+      "bad_login": "Identifiant ou mot de passe incorrect.",
+      "not_our_firmware": "L'appareil répond, mais ne fait pas tourner le firmware Zigbidouille (KrustyLeBot/esphome-petkit-t4).",
+      "unreachable": "Impossible de joindre la litière : __error__"
+    }
   }
 }

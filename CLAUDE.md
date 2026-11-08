@@ -13,6 +13,7 @@ one app can host several protocols side by side:
 | `zigbee` | `co-hs720es`, `shelly-em-gen4` | [`homey-zigbeedriver`](https://athombv.github.io/node-homey-zigbeedriver/) + [`zigbee-clusters`](https://github.com/athombv/node-zigbee-clusters) — never raw frames |
 | `lan` | `x20plus` (Xiaomi vacuum) | miIO over UDP + AES-128, `lib/miio-client.js`, self-contained (dgram + crypto only) |
 | `lan` | `petlibro-plaf301` (Petlibro One RFID feeder) | HTTP + websocket to **petlibro-bridge** (`bridge/petlibro`, a container on the NAS) which speaks MQTT to the feeder |
+| `lan` | `petkit-t4` (Petkit Pura Max 2) | ESPHome web API (`lib/esphome-web-client.js`) of our firmware fork, KrustyLeBot/esphome-petkit-t4 — entities addressed by NAME, keep both sides in sync |
 
 Adding Matter or anything else means adding drivers, not restructuring: only the
 device layer is protocol-specific. Everything shared — the log, the verbose

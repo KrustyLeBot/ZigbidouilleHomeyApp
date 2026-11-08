@@ -59,6 +59,7 @@ identifiers are English; only the display names are translated.
 | Somfy Protect alarm | `somfy-alarm` | cloud |
 | kWh meter (virtual) — tracks any other device's `measure_power` | `kwh-meter` | LAN (Homey's own local API) |
 | Petlibro One RFID Smart Feeder (`PLAF301`) | `petlibro-plaf301` | LAN (MQTT, via `bridge/petlibro`) |
+| Petkit Pura Max 2 (T4) litter box, reflashed with ESPHome | `petkit-t4` | LAN (ESPHome web API) |
 
 The Zigbee identity, MIoT field map or API surface of every one of them is
 written down in [docs/fingerprints.md](docs/fingerprints.md) — including the
@@ -287,6 +288,42 @@ that says neither). See [FINDINGS.md](FINDINGS.md) and
 [docs/fingerprints.md](docs/fingerprints.md), and `probe/` for the scripts that
 produced them — including `sweep.js`, which brute-forces the property space and
 diffs two robot states to identify unknown fields.
+
+### Petkit Pura Max 2 — T4 (`petkit-t4`) · LAN (ESPHome web API)
+
+The stock box only works through Petkit's cloud and app. This one runs
+**our ESPHome firmware** instead — [KrustyLeBot/esphome-petkit-t4](https://github.com/KrustyLeBot/esphome-petkit-t4),
+a fork of Triskae's (itself from egormanga's), flashed once over UART, then
+updated over Wi-Fi. No cloud, no account, no bridge: the firmware runs the
+cleaning, the pet safety checks, the pet identification and the quiet hours
+**on the box**, and this driver only reads it and drives it over the
+firmware's own web API (REST + an `/events` stream, Basic auth;
+`lib/esphome-web-client.js`, reusable for any ESPHome device).
+
+What the fork adds to upstream (`zigbidouille.yaml` + `zigbidouille.h`): the
+web API for Homey, the clock from the LAN (SNTP to the Freebox) instead of Home
+Assistant, **two pets told apart by weight ranges** (median weight of the
+visit), per-pet visit counters, **quiet hours** and a **minimum interval**
+between automatic cleanings.
+
+**In Homey** — tiles: status (ready / pet inside / cleaning soon / waiting for
+quiet hours to end / cleaning / maintenance / blocked / fault), last visit (pet,
+weight, duration), visits today per pet (titled with the pets' names), waste
+collected, bin full, fault, offline, auto clean and block-movement switches,
+"clean now", "level", "bin emptied" buttons. **One alert card** — "an alert was
+raised" — carries a ready-to-send `[message]` (bin full, motor fault, motor
+controller lost, offline, unrecognised pet, and each recovery as "info"), with
+a minimum-severity filter: a single flow sends every alert. Persistent problems
+repeat at most once a day. Specific cards stay for automations: a pet used the
+box (pet, weight, duration), cleaning started / finished; conditions pet inside,
+bin full; actions clean, level, bin emptied, auto clean on/off, block movement.
+
+**Settings** (synced both ways with the box, which holds them): the two pets'
+names and weight ranges, clean delay, minimum interval, quiet hours, bin
+capacity, and the connection (IP + the firmware's web login).
+
+Known gap: the stock **liquid deodorizer spray is not driven** by this firmware
+(the protocol for it is not decoded). See the fork's README for flashing.
 
 ### Devialet Phantom (`devialet`) · LAN (HTTP)
 
@@ -644,6 +681,8 @@ app/                       the Homey app
     kwh-meter-device.js    the virtual meter — ZOH integration, monotonic meter_power
     petlibro-bridge.js     HTTP + event websocket to petlibro-bridge, shared by the feeders
     petlibro-feeder-device.js  the feeder device — capabilities, triggers, settings <-> schedule
+    esphome-web-client.js  ESPHome web_server v3 client: REST commands + /events stream (any ESPHome device)
+    petkit-t4-device.js    the Petkit litter box on our ESPHome firmware — state, one alert card, settings sync
   drivers/
     co-hs720es/            Heiman HS-720ES CO detector          — zigbee
     shelly-em-gen4/        Shelly EM Gen4, 3 sub-devices        — zigbee
@@ -657,6 +696,7 @@ app/                       the Homey app
     somfy-alarm/           Somfy Protect alarm                  — cloud
     kwh-meter/             virtual kWh meter, tracks another device's measure_power — lan (Homey's own local API)
     petlibro-plaf301/      Petlibro One RFID feeder             — lan (via bridge/petlibro)
+    petkit-t4/             Petkit Pura Max 2 on ESPHome         — lan (ESPHome web API)
   locales/                 en.json / fr.json
   settings/                6 tabs: log · Zigbee dump · raw miIO log · Imou · Somfy · Petlibro
   widgets/
@@ -717,6 +757,11 @@ INSTALL.md                 install steps and CLI/Node gotchas
 - Petlibro: [smcneece/petlibro-local](https://github.com/smcneece/petlibro-local)
   (MIT) — the whole MQTT protocol, the clock/DST handling rules, and the LED
   display font, ported to `bridge/petlibro`.
+- Petkit T4: [Triskae/esphome-petkit-t4](https://github.com/Triskae/esphome-petkit-t4)
+  and [egormanga/esphome-petkit-t4](https://github.com/egormanga/esphome-petkit-t4)
+  (the firmware our fork builds on), and
+  [earlynerd/petkit-pura-max-serial-bus](https://github.com/earlynerd/petkit-pura-max-serial-bus)
+  (the motor-controller protocol).
 - Devialet: the speakers' own local `ipcontrol/v1` API, with
   [winnieoursbrun/homey-devialet](https://github.com/winnieoursbrun/homey-devialet)
   as prior art (this app differs by mapping a tile to a *system*, not a speaker).

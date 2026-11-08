@@ -912,3 +912,21 @@ seen as mains, so only pushes are trusted for it.
   (sensor/IO log), `MACHINE_INFRARED_EVENT`. Each feeder also subscribes to
   `dl/PLAF301/device/broadcast/sub`. `DEVICE_START_EVENT` comes 2-3 times per
   boot, and the clock is minutes off after a power cycle (165-3194 s seen).
+
+## Petkit Pura Max 2 — T4 (driver `petkit-t4`, firmware KrustyLeBot/esphome-petkit-t4)
+
+Not a stock-protocol driver: the box is reflashed with our ESPHome fork, so the
+"fingerprint" is the firmware's entity list. Homey addresses entities by
+**name** through the web_server v3 API (ESPHome 2026.x: `POST /<domain>/<name>/<action>`,
+`GET /events` with `{ id: "<domain>/<name>", value, state }`; `number` values
+arrive as strings).
+
+| Read by the driver | Written by the driver |
+|---|---|
+| `switch/Clean`, `switch/Maintenance`, `switch/Auto Clean`, `switch/Block Movement` | `switch/Clean`, `switch/Auto Clean`, `switch/Block Movement`, `switch/Quiet Hours` |
+| `binary_sensor/Pet Inside`, `Tray Full`, `Motor Error`, `MCU Link Lost`, `Clean Pending`, `In Quiet Hours` | `button/Level`, `button/Bin Emptied` |
+| `sensor/Visit Count` (published last, the "a visit was recorded" signal), `Last Visit Weight`, `Last Visit Duration`, `Pet 1/2 Visits Today`, `Waste Collected` | `number/Pet 1/2 Min/Max Weight`, `Clean After`, `Min Clean Interval`, `Tray Capacity` |
+| `text_sensor/Last Visit Pet`, `Motor Error Reason` | `text/Pet 1/2 Name`, `Quiet Hours Start/End` |
+
+Ours: SN `…T4…` (2025-09), stock firmware v1.652. Stock features the fork does
+not cover: the liquid deodorizer spray, multi-pet beyond weight ranges.

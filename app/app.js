@@ -30,6 +30,32 @@ class ZigbidouilleApp extends Homey.App {
     this.registerSomfyFlows();
     this.registerFingerbotFlows();
     this.registerPetlibroFlows();
+    this.registerPetkitFlows();
+  }
+
+  // Petkit Pura Max 2 on our ESPHome firmware (drivers/petkit-t4). The alert
+  // card is the one most flows need: its run listener applies the severity
+  // filter the flow author picked.
+  registerPetkitFlows() {
+    const PetkitT4Device = require('./lib/petkit-t4-device');
+    this.homey.flow
+      .getDeviceTriggerCard('petkit_alert')
+      .registerRunListener((args, state) => PetkitT4Device.alertPasses(args.min_severity, state));
+
+    const actions = {
+      petkit_clean: (device) => device.clean(),
+      petkit_level: (device) => device.level(),
+      petkit_bin_emptied: (device) => device.binEmptied(),
+      petkit_set_auto_clean: (device, { state }) => device.setSwitch('Auto Clean', state === 'on'),
+      petkit_set_block_movement: (device, { state }) => device.setSwitch('Block Movement', state === 'on'),
+    };
+    for (const [card, run] of Object.entries(actions)) {
+      this.homey.flow.getActionCard(card).registerRunListener((args) => run(args.device, args));
+    }
+    this.homey.flow.getConditionCard('petkit_pet_inside')
+      .registerRunListener(({ device }) => device.getCapabilityValue('litter_status') === 'pet_inside');
+    this.homey.flow.getConditionCard('petkit_bin_full')
+      .registerRunListener(({ device }) => Boolean(device.getCapabilityValue('alarm_litter_full')));
   }
 
   // Petlibro feeders (drivers/petlibro-plaf301). Triggers fire from the device

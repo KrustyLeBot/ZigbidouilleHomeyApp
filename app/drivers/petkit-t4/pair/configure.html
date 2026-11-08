@@ -1,0 +1,78 @@
+<style>
+  .field { margin-bottom: 16px; }
+  .field label { display: block; margin-bottom: 4px; font-weight: 600; }
+  .field input {
+    width: 100%;
+    padding: 10px;
+    box-sizing: border-box;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+  }
+  .hint { font-size: 12px; color: #888; margin-top: 4px; }
+  button {
+    padding: 10px 20px;
+    font-size: 14px;
+    border-radius: 4px;
+    border: none;
+    background: #00A6A6;
+    color: #fff;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .status { margin-top: 16px; min-height: 20px; font-size: 14px; }
+  .status.error { color: #c00; }
+  .status.busy { color: #888; }
+</style>
+
+<form id="pair-form">
+  <div class="field">
+    <label for="address" id="l-address"></label>
+    <input type="text" id="address" placeholder="192.168.1.x" required />
+    <div class="hint" id="h-address"></div>
+  </div>
+  <div class="field">
+    <label for="username" id="l-username"></label>
+    <input type="text" id="username" autocomplete="off" required />
+  </div>
+  <div class="field">
+    <label for="password" id="l-password"></label>
+    <input type="password" id="password" autocomplete="off" required />
+    <div class="hint" id="h-login"></div>
+  </div>
+  <button type="submit" id="connect"></button>
+  <div class="status" id="status"></div>
+</form>
+
+<script type="application/javascript">
+  // Homey is a global in pair views.
+  const t = (k) => Homey.__('petkit.pair.' + k);
+  document.getElementById('l-address').textContent = t('address');
+  document.getElementById('h-address').textContent = t('address_hint');
+  document.getElementById('l-username').textContent = t('username');
+  document.getElementById('l-password').textContent = t('password');
+  document.getElementById('h-login').textContent = t('login_hint');
+  document.getElementById('connect').textContent = t('connect');
+
+  document.getElementById('pair-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const button = document.getElementById('connect');
+    const statusEl = document.getElementById('status');
+    button.disabled = true;
+    statusEl.className = 'status busy';
+    statusEl.textContent = t('connecting');
+    try {
+      const device = await Homey.emit('validate', {
+        address: document.getElementById('address').value.trim(),
+        username: document.getElementById('username').value.trim(),
+        password: document.getElementById('password').value,
+      });
+      await Homey.createDevice(device);
+      Homey.done();
+    } catch (err) {
+      statusEl.className = 'status error';
+      statusEl.textContent = (err && err.message) || String(err);
+      button.disabled = false;
+    }
+  });
+</script>

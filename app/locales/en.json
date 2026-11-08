@@ -109,5 +109,35 @@
     "source_scheduled": "scheduled",
     "last_feed": "__time__ · __portions__ portion(s), __source__",
     "bad_refill_time": "Refill reminder: \"__value__\" is not a time — use HH:MM, e.g. 09:00."
+  },
+  "petkit": {
+    "unknown_pet": "Unknown pet",
+    "last_visit": "__pet__ · __weight__ kg · __minutes__ min, __time__",
+    "bad_time": "\"__value__\" is not a time — use HH:MM, e.g. 22:00.",
+    "bad_range": "Each pet's \"from\" weight must be lower than its \"to\" weight.",
+    "alert": {
+      "tray_full": "Litter box: the waste bin is full — empty it, then press \"Bin emptied\".",
+      "tray_emptied": "Litter box: waste bin emptied.",
+      "motor_error": "Litter box: motor fault (__reason__) — automatic cleaning is stopped until it is cleared.",
+      "motor_error_cleared": "Litter box: motor fault cleared.",
+      "link_lost": "Litter box: the main board stopped answering the motor controller — check the box.",
+      "link_lost_cleared": "Litter box: motor controller answering again.",
+      "offline": "Litter box: unreachable for 5 minutes (Wi-Fi or power).",
+      "online": "Litter box: back online.",
+      "unknown_pet": "Litter box: a visit by an unrecognised pet (__weight__ kg) — check the weight ranges."
+    },
+    "pair": {
+      "address": "IP address",
+      "address_hint": "Give the litter box a fixed IP in your router first.",
+      "username": "Username",
+      "password": "Password",
+      "login_hint": "The web_username / web_password of the firmware's secrets.yaml.",
+      "connect": "Connect",
+      "connecting": "Connecting to the litter box...",
+      "no_address": "Enter the litter box's IP address.",
+      "bad_login": "Wrong username or password.",
+      "not_our_firmware": "This device answers, but does not run the Zigbidouille firmware (KrustyLeBot/esphome-petkit-t4).",
+      "unreachable": "Could not reach the litter box: __error__"
+    }
   }
 }
