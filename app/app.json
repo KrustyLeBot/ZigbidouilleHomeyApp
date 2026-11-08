@@ -2009,7 +2009,7 @@
                 "en": "Pet 1 — name",
                 "fr": "Chat 1 — nom"
               },
-              "value": "Zeus"
+              "value": "Cat 1"
             },
             {
               "id": "pet1_min",
@@ -2054,7 +2054,7 @@
                 "en": "Pet 2 — name",
                 "fr": "Chat 2 — nom"
               },
-              "value": "Ares"
+              "value": "Cat 2"
             },
             {
               "id": "pet2_min",
@@ -4582,7 +4582,7 @@
               "en": "Message",
               "fr": "Message"
             },
-            "example": "Zeus est passé dans la litière (4.31 kg, 2 min)."
+            "example": "Cat 1 est passé dans la litière (4.31 kg, 2 min)."
           },
           {
             "name": "pet",
@@ -4591,7 +4591,7 @@
               "en": "Pet",
               "fr": "Chat"
             },
-            "example": "Zeus"
+            "example": "Cat 1"
           },
           {
             "name": "weight",

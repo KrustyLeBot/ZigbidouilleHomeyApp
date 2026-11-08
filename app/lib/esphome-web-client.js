@@ -6,7 +6,7 @@
 // What the firmware exposes (ESPHome 2026.x, web_server.cpp):
 // - entities are addressed by NAME, not object_id: POST /switch/Auto Clean/turn_on,
 //   POST /button/Level/press, POST /number/Clean After/set?value=2,
-//   POST /text/Pet 1 Name/set?value=Zeus;
+//   POST /text/Pet 1 Name/set?value=Cat%201;
 // - GET /events is a Server-Sent Events stream: one `ping` (config) on connect,
 //   then a `state` event per entity — every entity once on connect, then on each
 //   change — with JSON `{ id: "<domain>/<name>", value, state }`;
