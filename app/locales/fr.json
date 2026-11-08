@@ -141,6 +141,7 @@
       "not_our_firmware": "L'appareil répond, mais ne fait pas tourner le firmware Zigbidouille (KrustyLeBot/esphome-petkit-t4).",
       "unreachable": "Impossible de joindre la litière : __error__"
     },
-    "too_many_times": "6 horaires programmés au maximum."
+    "too_many_times": "6 horaires programmés au maximum.",
+    "visit_message": "__pet__ est passé dans la litière (__weight__ kg, __minutes__ min)."
   }
 }

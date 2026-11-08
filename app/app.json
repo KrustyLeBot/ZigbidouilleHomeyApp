@@ -4405,51 +4405,24 @@
         ]
       },
       {
-        "id": "petkit_alert",
+        "id": "petkit_alert_error",
         "title": {
-          "en": "An alert was raised",
-          "fr": "Une alerte a été levée"
+          "en": "An error occurred",
+          "fr": "Une erreur est survenue"
         },
         "titleFormatted": {
-          "en": "An alert was raised ([[min_severity]])",
-          "fr": "Une alerte a été levée ([[min_severity]])"
+          "en": "An error occurred",
+          "fr": "Une erreur est survenue"
         },
         "hint": {
-          "en": "ONE card for every alert of the litter box, with a ready-to-send message: use [message] in a push notification. Persistent problems (full bin, fault) repeat at most daily; their end is announced as \"info\".",
-          "fr": "UNE carte pour toutes les alertes de la litière, avec un message prêt à envoyer : utilisez [message] dans une notification. Les problèmes persistants (bac plein, panne) se répètent au plus une fois par jour ; leur fin est annoncée en « info »."
+          "en": "Faults that stop the litter box: motor fault, motor controller not answering. Repeats at most daily while it lasts. Use [message] in a notification.",
+          "fr": "Pannes qui arrêtent la litière : panne moteur, contrôleur moteur muet. Se répète au plus une fois par jour tant qu'elle dure. Utilisez [message] dans une notification."
         },
         "args": [
           {
             "name": "device",
             "type": "device",
             "filter": "driver_id=petkit-t4"
-          },
-          {
-            "name": "min_severity",
-            "type": "dropdown",
-            "values": [
-              {
-                "id": "info",
-                "title": {
-                  "en": "All alerts",
-                  "fr": "Toutes les alertes"
-                }
-              },
-              {
-                "id": "warning",
-                "title": {
-                  "en": "Warnings and critical",
-                  "fr": "Avertissements et critiques"
-                }
-              },
-              {
-                "id": "critical",
-                "title": {
-                  "en": "Critical only",
-                  "fr": "Critiques seulement"
-                }
-              }
-            ]
           }
         ],
         "tokens": [
@@ -4460,16 +4433,109 @@
               "en": "Message",
               "fr": "Message"
             },
-            "example": "Litière : bac à déchets plein"
+            "example": "Litière : panne moteur (Stall) — le nettoyage automatique est arrêté jusqu'à résolution."
           },
           {
-            "name": "severity",
+            "name": "category",
             "type": "string",
             "title": {
-              "en": "Severity",
-              "fr": "Gravité"
+              "en": "Category",
+              "fr": "Catégorie"
             },
-            "example": "warning"
+            "example": "litter"
+          },
+          {
+            "name": "device",
+            "type": "string",
+            "title": {
+              "en": "Device",
+              "fr": "Appareil"
+            },
+            "example": "Litière"
+          }
+        ]
+      },
+      {
+        "id": "petkit_alert_warning",
+        "title": {
+          "en": "A warning was raised",
+          "fr": "Un avertissement a été levé"
+        },
+        "titleFormatted": {
+          "en": "A warning was raised",
+          "fr": "Un avertissement a été levé"
+        },
+        "hint": {
+          "en": "Needs attention: waste bin full, litter box offline, K3 deodorizer not answering. Persistent ones repeat at most daily.",
+          "fr": "Demande une intervention : bac à déchets plein, litière hors ligne, désodorisant K3 qui ne répond pas. Les persistants se répètent au plus une fois par jour."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petkit-t4"
+          }
+        ],
+        "tokens": [
+          {
+            "name": "message",
+            "type": "string",
+            "title": {
+              "en": "Message",
+              "fr": "Message"
+            },
+            "example": "Litière : le bac à déchets est plein — videz-le, puis appuyez sur « Bac vidé »."
+          },
+          {
+            "name": "category",
+            "type": "string",
+            "title": {
+              "en": "Category",
+              "fr": "Catégorie"
+            },
+            "example": "litter"
+          },
+          {
+            "name": "device",
+            "type": "string",
+            "title": {
+              "en": "Device",
+              "fr": "Appareil"
+            },
+            "example": "Litière"
+          }
+        ]
+      },
+      {
+        "id": "petkit_alert_info",
+        "title": {
+          "en": "An information was raised",
+          "fr": "Une information a été émise"
+        },
+        "titleFormatted": {
+          "en": "An information was raised",
+          "fr": "Une information a été émise"
+        },
+        "hint": {
+          "en": "No action needed: a problem is over (bin emptied, back online, deodorizer working again), or a visit by an unrecognised pet.",
+          "fr": "Aucune action requise : un problème est terminé (bac vidé, de nouveau en ligne, désodorisant de nouveau fonctionnel), ou passage d'un chat non reconnu."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petkit-t4"
+          }
+        ],
+        "tokens": [
+          {
+            "name": "message",
+            "type": "string",
+            "title": {
+              "en": "Message",
+              "fr": "Message"
+            },
+            "example": "Litière : bac à déchets vidé."
           },
           {
             "name": "category",
@@ -4510,6 +4576,15 @@
         ],
         "tokens": [
           {
+            "name": "message",
+            "type": "string",
+            "title": {
+              "en": "Message",
+              "fr": "Message"
+            },
+            "example": "Zeus est passé dans la litière (4.31 kg, 2 min)."
+          },
+          {
             "name": "pet",
             "type": "string",
             "title": {
@@ -4536,7 +4611,11 @@
             },
             "example": 95
           }
-        ]
+        ],
+        "hint": {
+          "en": "Every visit, recognised pet or not. [message] is ready to send.",
+          "fr": "Chaque passage, chat reconnu ou non. [message] est prêt à envoyer."
+        }
       },
       {
         "id": "petkit_cleaning_started",

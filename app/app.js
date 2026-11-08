@@ -33,15 +33,9 @@ class ZigbidouilleApp extends Homey.App {
     this.registerPetkitFlows();
   }
 
-  // Petkit Pura Max 2 on our ESPHome firmware (drivers/petkit-t4). The alert
-  // card is the one most flows need: its run listener applies the severity
-  // filter the flow author picked.
+  // Petkit Pura Max 2 on our ESPHome firmware (drivers/petkit-t4). Its
+  // triggers (alerts per severity, pet visits) fire straight from the device.
   registerPetkitFlows() {
-    const PetkitT4Device = require('./lib/petkit-t4-device');
-    this.homey.flow
-      .getDeviceTriggerCard('petkit_alert')
-      .registerRunListener((args, state) => PetkitT4Device.alertPasses(args.min_severity, state));
-
     const actions = {
       petkit_clean: (device) => device.clean(),
       petkit_level: (device) => device.level(),

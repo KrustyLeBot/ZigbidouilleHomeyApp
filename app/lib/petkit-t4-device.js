@@ -6,8 +6,8 @@
 // The firmware is autonomous: cleaning, pet safety, identifying the two pets
 // by weight and driving the K3 deodorizer all run on the box. This device only mirrors its
 // state, sends commands, keeps the box's settings and Homey's in sync, and turns
-// what happens into flow triggers — including ONE alert card carrying a
-// ready-to-send message, so a single flow covers every alert.
+// what happens into flow triggers: one card per alert severity (error,
+// warning, info) and one per pet visit, each carrying a ready-to-send message.
 //
 // Talks to the firmware's web API (lib/esphome-web-client.js). Entities are
 // addressed by their NAME in the firmware: renaming one there breaks it here.
@@ -20,7 +20,8 @@ const OFFLINE_ALERT_DELAY = 5 * 60 * 1000;
 // A persistent problem (full tray, motor fault) is announced once, then at most
 // once a day while it lasts — reminders, not spam.
 const REPEAT_PERSISTENT = 24 * 3600 * 1000;
-const SEVERITY_RANK = { info: 0, warning: 1, critical: 2 };
+// Alert severity -> its trigger card.
+const ALERT_CARDS = { critical: 'petkit_alert_error', warning: 'petkit_alert_warning', info: 'petkit_alert_info' };
 
 // Device setting key -> firmware entity (domain, name) and how to send it.
 const SETTINGS = {
@@ -242,7 +243,10 @@ class PetkitT4Device extends Homey.Device {
       pet: label, weight: weight.toFixed(2), minutes: Math.max(1, Math.round(duration / 60)), time: when,
     }));
     this.note('visit', `${label}, ${weight.toFixed(2)} kg, ${Math.round(duration)} s`);
-    await this.trigger('petkit_pet_visit', { pet: label, weight, duration: Math.round(duration) });
+    const message = this.homey.__('petkit.visit_message', {
+      pet: label, weight: weight.toFixed(2), minutes: Math.max(1, Math.round(duration / 60)),
+    });
+    await this.trigger('petkit_pet_visit', { message, pet: label, weight, duration: Math.round(duration) });
     if (!known) {
       this.raiseAlert(`unknown_${Date.now()}`, 'info', 'pets',
         this.homey.__('petkit.alert.unknown_pet', { weight: weight.toFixed(2) }), { persistent: false });
@@ -264,7 +268,7 @@ class PetkitT4Device extends Homey.Device {
     this.raiseAlert('deodorize_failed', 'warning', 'deodorizer', this.homey.__('petkit.alert.deodorize_failed'));
   }
 
-  // --- the one alert card ------------------------------------------------------
+  // --- alert cards (one per severity) -------------------------------------------
 
   // `key` identifies the problem, so a persistent one is announced once (then
   // daily), and its end can be announced once too.
@@ -276,15 +280,14 @@ class PetkitT4Device extends Homey.Device {
     this.lastAlertDetail = this.lastAlertDetail || {};
     this.lastAlertDetail[key] = { severity, category, message };
     this.note(`alert (${severity})`, message);
-    this.trigger('petkit_alert', { message, severity, category, device: this.getName() }, { severity }).catch(() => {});
+    this.trigger(ALERT_CARDS[severity], { message, category, device: this.getName() }).catch(() => {});
   }
 
   clearAlert(key, message) {
     const wasActive = this.activeAlerts.delete(key) || key === 'offline';
     if (!wasActive || !message) return;
     this.note('alert (info)', message);
-    this.trigger('petkit_alert', { message, severity: 'info', category: 'recovery', device: this.getName() }, { severity: 'info' })
-      .catch(() => {});
+    this.trigger(ALERT_CARDS.info, { message, category: 'recovery', device: this.getName() }).catch(() => {});
   }
 
   repeatPersistentAlerts() {
@@ -294,19 +297,16 @@ class PetkitT4Device extends Homey.Device {
       if (!detail || now - (this.lastAlertAt[key] || 0) < REPEAT_PERSISTENT) continue;
       this.lastAlertAt[key] = now;
       this.note(`alert (${detail.severity}, reminder)`, detail.message);
-      this.trigger('petkit_alert', { ...detail, device: this.getName() }, { severity: detail.severity }).catch(() => {});
+      this.trigger(ALERT_CARDS[detail.severity], { message: detail.message, category: detail.category, device: this.getName() })
+        .catch(() => {});
     }
   }
 
-  async trigger(card, tokens = {}, state = {}) {
-    await this.homey.flow.getDeviceTriggerCard(card).trigger(this, tokens, state).catch((err) => {
+  async trigger(card, tokens = {}) {
+    await this.homey.flow.getDeviceTriggerCard(card).trigger(this, tokens, {}).catch((err) => {
       this.error(card, err);
       errlog.add(`${this.getName()}: trigger ${card}`, err);
     });
-  }
-
-  static alertPasses(min, state) {
-    return SEVERITY_RANK[state.severity] >= SEVERITY_RANK[min || 'info'];
   }
 
   // --- commands ------------------------------------------------------------------

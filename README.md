@@ -314,13 +314,12 @@ read once from the Petkit cloud before leaving it (see the fork's README).
 maintenance / blocked / fault), last visit (pet,
 weight, duration), visits today per pet (titled with the pets' names), waste
 collected, bin full, fault, offline, auto clean and block-movement switches,
-"clean now", "level", "bin emptied", "deodorize now" buttons. **One alert
-card** — "an alert was raised" — carries a ready-to-send `[message]` (bin full,
-motor fault, motor controller lost, offline, unrecognised pet, K3 not
-answering, and each recovery as "info"), with
-a minimum-severity filter: a single flow sends every alert. Persistent problems
-repeat at most once a day. Specific cards stay for automations: a pet used the
-box (pet, weight, duration), cleaning started / finished; conditions pet inside,
+"clean now", "level", "bin emptied", "deodorize now" buttons. **Alert cards, one per severity** — "an error occurred" (motor fault, motor
+controller not answering), "a warning was raised" (bin full, offline, K3 not
+answering), "an information was raised" (each recovery, an unrecognised pet) —
+each carrying a ready-to-send `[message]`, so one flow per card covers it.
+Persistent problems repeat at most once a day. Other cards: a pet used the box (`[message]`, pet,
+weight, duration), cleaning started / finished; conditions pet inside,
 bin full; actions clean, level, bin emptied, deodorize, auto clean on/off,
 block movement.
 

@@ -141,6 +141,7 @@
       "not_our_firmware": "This device answers, but does not run the Zigbidouille firmware (KrustyLeBot/esphome-petkit-t4).",
       "unreachable": "Could not reach the litter box: __error__"
     },
-    "too_many_times": "At most 6 scheduled times."
+    "too_many_times": "At most 6 scheduled times.",
+    "visit_message": "__pet__ used the litter box (__weight__ kg, __minutes__ min)."
   }
 }
