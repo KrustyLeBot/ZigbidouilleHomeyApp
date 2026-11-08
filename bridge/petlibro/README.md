@@ -16,11 +16,26 @@ feeder its UTC plans — again after every reboot and every DST change — and p
 its state every 5 minutes. Protocol from
 [smcneece/petlibro-local](https://github.com/smcneece/petlibro-local) (MIT).
 
-## Endpoints (port 8484, all behind the htpasswd login except `/health`)
+## Endpoints (port 8484, all behind the htpasswd login except `/health` and `/login`)
+
+The same htpasswd users log in two ways:
+
+- **HTTP Basic**, sent up front — Homey, curl, scripts. Works on every `/api`
+  route and the websocket.
+- **The login form** at `/login` — a browser. A plain HTML form with standard
+  `username` / `current-password` fields, so password managers offer to save
+  and fill it, then an HttpOnly, `SameSite=Strict` session cookie (30 days,
+  `Secure` when `X-Forwarded-Proto: https`). Sessions live in memory: a
+  container restart logs the browser out. 8 failed logins from one address
+  lock it out for 15 minutes.
+
+No `WWW-Authenticate` header is ever sent, so a browser never shows its native
+Basic popup; the page sends an unauthenticated visitor to `/login`.
 
 | | |
 |---|---|
-| `GET /` | control page: state, feed, lid, settings, schedule editor, log |
+| `GET /` | control page (French): state, feed, lid, settings, schedule editor, log |
+| `GET /login`, `POST /login`, `POST /logout` | browser login form, session cookie |
 | `GET /api/feeders`, `GET /api/feeders/:serial` | snapshots |
 | `POST /api/feeders/:serial/feed` `{portions}` | serve now (1..10) |
 | `POST /api/feeders/:serial/lid` `{open}` | open / close the lid |

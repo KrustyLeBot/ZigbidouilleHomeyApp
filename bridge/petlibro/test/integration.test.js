@@ -56,6 +56,30 @@ test('bridge plays the cloud for a PLAF301', async (t) => {
   assert.strictEqual((await fetch(`http://127.0.0.1:${HTTP_PORT}/api/feeders`)).status, 401);
   assert.strictEqual((await fetch(`http://127.0.0.1:${HTTP_PORT}/health`)).status, 200);
 
+  // Browser login: no Basic popup, a form, then a session cookie that opens the
+  // page and the API; logout kills it.
+  const base = `http://127.0.0.1:${HTTP_PORT}`;
+  const anon = await fetch(`${base}/api/feeders`);
+  assert.strictEqual(anon.headers.get('www-authenticate'), null);
+  const page = await fetch(`${base}/`, { redirect: 'manual' });
+  assert.strictEqual(page.status, 303);
+  assert.strictEqual(page.headers.get('location'), '/login');
+  const form = await (await fetch(`${base}/login`)).text();
+  assert.match(form, /autocomplete="current-password"/);
+  const bad = await fetch(`${base}/login`, { method: 'POST', body: new URLSearchParams({ username: 'homey', password: 'nope' }), redirect: 'manual' });
+  assert.strictEqual(bad.status, 401);
+  assert.strictEqual(bad.headers.get('set-cookie'), null);
+  const good = await fetch(`${base}/login`, { method: 'POST', body: new URLSearchParams({ username: 'homey', password: 'pw' }), redirect: 'manual' });
+  assert.strictEqual(good.status, 303);
+  const cookie = good.headers.get('set-cookie');
+  assert.match(cookie, /HttpOnly/);
+  assert.match(cookie, /SameSite=Strict/);
+  const session = cookie.split(';')[0];
+  assert.strictEqual((await fetch(`${base}/`, { headers: { Cookie: session } })).status, 200);
+  assert.strictEqual((await fetch(`${base}/api/feeders`, { headers: { Cookie: session } })).status, 200);
+  await fetch(`${base}/logout`, { method: 'POST', headers: { Cookie: session }, redirect: 'manual' });
+  assert.strictEqual((await fetch(`${base}/api/feeders`, { headers: { Cookie: session } })).status, 401);
+
   // A client that is neither a feeder serial nor a known login is refused.
   const intruder = mqtt.connect(`mqtt://127.0.0.1:${MQTT_PORT}`, { clientId: 'random-client', reconnectPeriod: 0 });
   const refused = await new Promise((resolve) => {

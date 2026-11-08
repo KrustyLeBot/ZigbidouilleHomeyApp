@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Petlibro bridge — connexion</title>
+<!-- A plain form POST with standard autocomplete names, so password managers
+     recognise it and offer to save and fill the login. No script needed. -->
+<style>
+  :root { --bg:#f6f7f8; --card:#fff; --fg:#1f2937; --muted:#6b7280; --line:#e5e7eb; --accent:#0ea6a6; --bad:#dc2626; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111418; --card:#1b1f24; --fg:#e5e7eb; --muted:#9ca3af; --line:#2d333b; } }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; font:15px/1.45 -apple-system, system-ui, sans-serif; background:var(--bg); color:var(--fg); padding:16px; }
+  form { width:100%; max-width:340px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:24px; }
+  h1 { font-size:18px; margin:0 0 4px; }
+  p { margin:0 0 18px; color:var(--muted); font-size:13px; }
+  label { display:block; font-size:13px; font-weight:600; margin:12px 0 4px; }
+  input { width:100%; font:inherit; color:inherit; background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:10px 12px; }
+  input:focus { outline:2px solid var(--accent); outline-offset:-1px; }
+  button { width:100%; margin-top:18px; font:inherit; font-weight:600; color:#fff; background:var(--accent); border:none; border-radius:8px; padding:11px; cursor:pointer; }
+  .error { color:var(--bad); font-size:13px; margin-top:12px; min-height:18px; }
+</style>
+</head>
+<body>
+<form method="post" action="/login">
+  <h1>Petlibro bridge</h1>
+  <p>Connectez-vous pour voir et piloter vos distributeurs.</p>
+  <label for="username">Identifiant</label>
+  <input id="username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
+  <label for="password">Mot de passe</label>
+  <input id="password" name="password" type="password" autocomplete="current-password" required>
+  <button type="submit">Se connecter</button>
+  <div class="error"><!--ERROR--></div>
+</form>
+</body>
+</html>

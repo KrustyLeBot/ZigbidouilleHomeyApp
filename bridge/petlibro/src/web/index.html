@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Petlibro bridge</title>
-<!-- Served by the bridge itself at /, behind the same htpasswd login as the
-     API (the browser asks once). Same API Homey uses: anything done here shows
-     up in Homey, and the other way round. Polls every 5 s rather than using the
-     websocket: a browser cannot attach a Basic login to a websocket reliably. -->
+<!-- Served by the bridge itself at /, behind the /login form (session cookie).
+     Same API Homey uses: anything done here shows up in Homey, and the other
+     way round. The UI is French only, on purpose. Polls every 5 s: simple, and
+     a lost session simply sends the page back to /login. -->
 <style>
   :root { --bg:#f6f7f8; --card:#fff; --fg:#1f2937; --muted:#6b7280; --line:#e5e7eb; --accent:#0ea6a6; --bad:#dc2626; --warn:#d97706; --ok:#16a34a; }
   @media (prefers-color-scheme: dark) { :root { --bg:#111418; --card:#1b1f24; --fg:#e5e7eb; --muted:#9ca3af; --line:#2d333b; } }
@@ -16,7 +16,7 @@
   header { padding:14px 16px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); background:var(--card); }
   header h1 { font-size:17px; margin:0; }
   main { max-width:980px; margin:0 auto; padding:16px; display:grid; gap:16px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .card { min-width:0; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
   .card h2 { font-size:16px; margin:0 0 10px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   .pill { font-size:12px; padding:2px 8px; border-radius:99px; border:1px solid var(--line); color:var(--muted); font-weight:500; }
   .pill.ok { color:var(--ok); border-color:var(--ok); } .pill.bad { color:var(--bad); border-color:var(--bad); } .pill.warn { color:var(--warn); border-color:var(--warn); }
@@ -37,19 +37,20 @@
 </style>
 </head>
 <body>
-<header><h1>Petlibro bridge</h1><span class="muted" id="version"></span></header>
+<header><h1>Petlibro bridge</h1>
+  <div class="row" style="margin:0"><span class="muted" id="version"></span>
+    <form method="post" action="/logout" style="margin:0"><button type="submit">Se déconnecter</button></form></div></header>
 <main id="feeders"></main>
 <main>
   <div class="card">
-    <h2 data-t="log">Log</h2>
+    <h2>Journal</h2>
     <pre id="log"></pre>
   </div>
 </main>
 <div id="toast"></div>
 <script>
 'use strict';
-const FR = (navigator.language || '').toLowerCase().startsWith('fr');
-const T = FR ? {
+const T = {
   online:'En ligne', offline:'Hors ligne', battery:'Batterie', power:'Alimentation', mains:'Secteur', onBattery:'Batterie (coupure)',
   food:'Croquettes', foodOk:'OK', foodLow:'Basses', lid:'Trappe', open:'Ouverte', closed:'Fermée', jammed:'BLOQUÉE',
   lastFeed:'Dernier repas', lastVisit:'Dernière visite', firmware:'Firmware', clock:'Horloge', wifi:'Wi-Fi',
@@ -65,29 +66,12 @@ const T = FR ? {
   outlet:'Sortie', outletBlocked:'BLOQUÉE', refill:'Rappel de remplissage', refilled:'Réservoir rempli',
   remindNow:'Déclencher le rappel', every:'Tous les', daysUnit:'jours, à', enabled:'Activé',
   lastRefill:'Dernier remplissage', nextReminder:'Prochain rappel', daysAgo:'il y a {n} j', due:'À REMPLIR',
-} : {
-  online:'Online', offline:'Offline', battery:'Battery', power:'Power', mains:'Mains', onBattery:'Battery (power cut)',
-  food:'Food', foodOk:'OK', foodLow:'Low', lid:'Lid', open:'Open', closed:'Closed', jammed:'JAMMED',
-  lastFeed:'Last meal', lastVisit:'Last visit', firmware:'Firmware', clock:'Clock', wifi:'Wi-Fi',
-  feedNow:'Serve', portions:'portion(s)', openLid:'Open lid', closeLid:'Close lid',
-  lidMode:'Lid mode', CUSTOM:'Opens for the pet', KEEP_OPEN:'Always open', KEEP_CLOSE:'Always closed',
-  closeDelay:'Close after (s)', speed:'Speed', FAST:'Fast', SLOW:'Slow', sound:'Sound', volume:'Volume',
-  childLock:'Button lock', display:'Display', displayText:'Text', send:'Send', apply:'Apply',
-  schedule:'Schedule', time:'Time', days:'Days', add:'Add a meal', save:'Save schedule', remove:'Del.',
-  callSound:'Meal call sound', paused:'Meals paused', pause:'Pause', resume:'Resume', acked:'acknowledged by the feeder',
-  notAcked:'waiting for the feeder', noSchedule:'No schedule set here: the feeder keeps its own plans. The first save replaces them.',
-  dayNames:['Mo','Tu','We','Th','Fr','Sa','Su'], done:'Sent', manual:'manual', scheduled:'scheduled', log:'Log', none:'No feeder known yet.',
-  settings:'Settings', control:'Control', state:'State', tz:'Timezone',
-  outlet:'Outlet', outletBlocked:'BLOCKED', refill:'Refill reminder', refilled:'Hopper refilled',
-  remindNow:'Fire the reminder', every:'Every', daysUnit:'days, at', enabled:'Enabled',
-  lastRefill:'Last refill', nextReminder:'Next reminder', daysAgo:'{n} d ago', due:'REFILL DUE',
 };
-document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = T[el.dataset.t]; });
 
 const MAX_MEALS = 6;
 const drafts = {}; // serial -> meals being edited, so a poll does not wipe the editor
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
-const when = (t) => (t ? new Date(t).toLocaleString(undefined, { weekday:'short', hour:'2-digit', minute:'2-digit' }) : '—');
+const when = (t) => (t ? new Date(t).toLocaleString('fr-FR', { weekday:'short', hour:'2-digit', minute:'2-digit' }) : '—');
 
 function toast(msg, bad) {
   const el = document.getElementById('toast');
@@ -97,6 +81,8 @@ function toast(msg, bad) {
 
 async function api(method, path, body) {
   const res = await fetch(path, { method, headers: { 'Content-Type':'application/json' }, body: body ? JSON.stringify(body) : undefined, credentials:'same-origin' });
+  // Session expired or the bridge restarted: back to the login form.
+  if (res.status === 401) { location.href = '/login'; throw new Error('Session expirée'); }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
   return data;
@@ -271,7 +257,7 @@ async function refresh() {
     window.lastFeeders = feeders;
     render(feeders);
     const { entries } = await api('GET', '/api/log?limit=80');
-    document.getElementById('log').textContent = entries.map((e) => `${new Date(e.t).toLocaleTimeString()} ${e.level.toUpperCase()} ${e.context}: ${e.message}`).join('\n');
+    document.getElementById('log').textContent = entries.map((e) => `${new Date(e.t).toLocaleTimeString('fr-FR')} ${e.level.toUpperCase()} ${e.context}: ${e.message}`).join('\n');
   } catch (err) { toast(err.message, true); }
 }
 

@@ -557,7 +557,8 @@ the feeder keeps the plans it already had. Lid delay and speed, sound, volume,
 button lock, display on/off and display text are device settings too; values
 the feeder reports are written back, so the page shows what the feeder holds.
 
-**The bridge's own web page** (`http://<NAS>:8484/`, same login) shows every
+**The bridge's own web page** (`http://<NAS>:8484/`, in French, same login
+through a regular sign-in form that password managers can fill) shows every
 feeder and offers the same controls and schedule editor — whatever is changed
 there shows up in Homey, and the other way round. **Settings → Petlibro** in
 the app holds the bridge address and login (with a *Test* button) and shows the
@@ -717,7 +718,9 @@ bridge/petlibro/           petlibro-bridge: stands in for the Petlibro cloud (co
   src/plans.js             local meals <-> the feeder's UTC plans, DST skips
   src/broker.js            embedded MQTT broker (aedes), feeders fenced to their own topics
   src/api.js               Homey API + event websocket + web page, htpasswd login
-  src/web/index.html       the bridge's control page
+  src/sessions.js          browser sessions (login form cookie), failed-login lockout
+  src/web/index.html       the bridge's control page (French)
+  src/web/login.html       its sign-in form
   docker-compose.yml       Synology deployment (+ .env.example)
 .github/workflows/         petlibro-bridge.yml: test, then build + push the image to GHCR
 probe/                     standalone scripts — talk to a device without Homey
