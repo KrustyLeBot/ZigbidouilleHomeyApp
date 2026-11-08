@@ -4,7 +4,7 @@
 // (KrustyLeBot/esphome-petkit-t4: Triskae's firmware + zigbidouille.yaml).
 //
 // The firmware is autonomous: cleaning, pet safety, identifying the two pets
-// by weight and quiet hours all run on the box. This device only mirrors its
+// by weight and driving the K3 deodorizer all run on the box. This device only mirrors its
 // state, sends commands, keeps the box's settings and Homey's in sync, and turns
 // what happens into flow triggers — including ONE alert card carrying a
 // ready-to-send message, so a single flow covers every alert.
@@ -32,13 +32,15 @@ const SETTINGS = {
   pet2_max: { domain: 'number', name: 'Pet 2 Max Weight' },
   clean_after: { domain: 'number', name: 'Clean After' },
   min_clean_interval: { domain: 'number', name: 'Min Clean Interval' },
-  quiet_hours: { domain: 'switch', name: 'Quiet Hours' },
-  quiet_start: { domain: 'text', name: 'Quiet Hours Start' },
-  quiet_end: { domain: 'text', name: 'Quiet Hours End' },
+  auto_deodorize: { domain: 'switch', name: 'Auto Deodorize' },
+  intense_deodorize: { domain: 'switch', name: 'Intense Deodorize' },
+  deodorize_times: { domain: 'text', name: 'Deodorize Times' },
+  child_lock: { domain: 'switch', name: 'Child Lock' },
   tray_capacity: { domain: 'number', name: 'Tray Capacity' },
 };
 const SETTING_BY_ENTITY = Object.fromEntries(Object.entries(SETTINGS).map(([k, v]) => [`${v.domain}/${v.name}`, k]));
 const TIME_RE = /^([01]?\d|2[0-3]):([0-5]\d)$/;
+const MAX_DEODORIZE_TIMES = 6; // as the stock app
 
 class PetkitT4Device extends Homey.Device {
   async onInit() {
@@ -53,6 +55,7 @@ class PetkitT4Device extends Homey.Device {
     this.registerCapabilityListener('litter_clean_now', () => this.clean());
     this.registerCapabilityListener('litter_level_now', () => this.level());
     this.registerCapabilityListener('litter_bin_emptied', () => this.binEmptied());
+    this.registerCapabilityListener('litter_deodorize_now', () => this.deodorize());
 
     this.startClient();
     // Persistent alerts repeat daily while they last.
@@ -177,6 +180,10 @@ class PetkitT4Device extends Homey.Device {
       case 'text/Pet 2 Name':
         await this.renameVisitCounters();
         break;
+      case 'sensor/Deodorize Count':
+        // Published last by the firmware's deodorize script, after Last Deodorize.
+        if (previous && Number(value) > Number(was)) await this.onDeodorize();
+        break;
       case 'sensor/Visit Count':
         // Visit Count is published last by the firmware: when it moves, the
         // last-visit fields already describe this visit.
@@ -208,7 +215,6 @@ class PetkitT4Device extends Homey.Device {
     else if (this.bool('switch/Maintenance')) status = 'maintenance';
     else if (this.bool('switch/Clean')) status = 'cleaning';
     else if (this.bool('binary_sensor/Pet Inside')) status = 'pet_inside';
-    else if (this.bool('binary_sensor/In Quiet Hours') && this.bool('binary_sensor/Clean Pending')) status = 'quiet_hours';
     else if (this.bool('binary_sensor/Clean Pending')) status = 'clean_pending';
     await this.set('litter_status', status);
   }
@@ -241,6 +247,21 @@ class PetkitT4Device extends Homey.Device {
       this.raiseAlert(`unknown_${Date.now()}`, 'info', 'pets',
         this.homey.__('petkit.alert.unknown_pet', { weight: weight.toFixed(2) }), { persistent: false });
     }
+  }
+
+  async onDeodorize() {
+    const result = this.text('text_sensor/Last Deodorize') || '';
+    if (result === 'OK') {
+      this.clearAlert('deodorize_failed', this.homey.__('petkit.alert.deodorize_ok'));
+      errlog.debug(`${this.getName()}: deodorize`, 'OK');
+      return;
+    }
+    if (/^skipped/.test(result)) {
+      errlog.debug(`${this.getName()}: deodorize`, result);
+      return;
+    }
+    // A sleeping or out-of-range K3 is worth one alert, not one per spray.
+    this.raiseAlert('deodorize_failed', 'warning', 'deodorizer', this.homey.__('petkit.alert.deodorize_failed'));
   }
 
   // --- the one alert card ------------------------------------------------------
@@ -305,6 +326,11 @@ class PetkitT4Device extends Homey.Device {
     this.note('command', 'level');
   }
 
+  async deodorize() {
+    await this.client.command('button', 'Deodorize', 'press');
+    this.note('command', 'deodorize');
+  }
+
   async binEmptied() {
     await this.client.command('button', 'Bin Emptied', 'press');
     this.note('command', 'bin emptied');
@@ -327,11 +353,14 @@ class PetkitT4Device extends Homey.Device {
 
   async onSettings({ newSettings, changedKeys }) {
     const connection = ['address', 'username', 'password'].some((k) => changedKeys.includes(k));
-    for (const key of ['quiet_start', 'quiet_end']) {
-      if (!changedKeys.includes(key)) continue;
-      const m = TIME_RE.exec(String(newSettings[key]).trim());
-      if (!m) throw new Error(this.homey.__('petkit.bad_time', { value: newSettings[key] }));
-      newSettings[key] = `${m[1].padStart(2, '0')}:${m[2]}`;
+    if (changedKeys.includes('deodorize_times')) {
+      const times = String(newSettings.deodorize_times || '').split(',').map((x) => x.trim()).filter(Boolean);
+      if (times.length > MAX_DEODORIZE_TIMES) throw new Error(this.homey.__('petkit.too_many_times'));
+      newSettings.deodorize_times = times.map((x) => {
+        const m = TIME_RE.exec(x);
+        if (!m) throw new Error(this.homey.__('petkit.bad_time', { value: x }));
+        return `${m[1].padStart(2, '0')}:${m[2]}`;
+      }).join(',');
     }
     for (const [a, b] of [['pet1_min', 'pet1_max'], ['pet2_min', 'pet2_max']]) {
       if (Number(newSettings[a]) >= Number(newSettings[b])) throw new Error(this.homey.__('petkit.bad_range'));

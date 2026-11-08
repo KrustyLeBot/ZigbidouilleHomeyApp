@@ -124,7 +124,9 @@
       "link_lost_cleared": "Litter box: motor controller answering again.",
       "offline": "Litter box: unreachable for 5 minutes (Wi-Fi or power).",
       "online": "Litter box: back online.",
-      "unknown_pet": "Litter box: a visit by an unrecognised pet (__weight__ kg) — check the weight ranges."
+      "unknown_pet": "Litter box: a visit by an unrecognised pet (__weight__ kg) — check the weight ranges.",
+      "deodorize_failed": "Litter box: the K3 deodorizer did not answer (out of range, asleep or flat batteries) — no spray.",
+      "deodorize_ok": "Litter box: deodorizer working again."
     },
     "pair": {
       "address": "IP address",
@@ -138,6 +140,7 @@
       "bad_login": "Wrong username or password.",
       "not_our_firmware": "This device answers, but does not run the Zigbidouille firmware (KrustyLeBot/esphome-petkit-t4).",
       "unreachable": "Could not reach the litter box: __error__"
-    }
+    },
+    "too_many_times": "At most 6 scheduled times."
   }
 }

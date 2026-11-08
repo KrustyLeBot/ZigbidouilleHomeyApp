@@ -295,7 +295,7 @@ The stock box only works through Petkit's cloud and app. This one runs
 **our ESPHome firmware** instead — [KrustyLeBot/esphome-petkit-t4](https://github.com/KrustyLeBot/esphome-petkit-t4),
 a fork of Triskae's (itself from egormanga's), flashed once over UART, then
 updated over Wi-Fi. No cloud, no account, no bridge: the firmware runs the
-cleaning, the pet safety checks, the pet identification and the quiet hours
+cleaning, the pet safety checks, the pet identification and the deodorizer
 **on the box**, and this driver only reads it and drives it over the
 firmware's own web API (REST + an `/events` stream, Basic auth;
 `lib/esphome-web-client.js`, reusable for any ESPHome device).
@@ -303,27 +303,37 @@ firmware's own web API (REST + an `/events` stream, Basic auth;
 What the fork adds to upstream (`zigbidouille.yaml` + `zigbidouille.h`): the
 web API for Homey, the clock from the LAN (SNTP to the Freebox) instead of Home
 Assistant, **two pets told apart by weight ranges** (median weight of the
-visit), per-pet visit counters, **quiet hours** and a **minimum interval**
-between automatic cleanings.
+visit), per-pet visit counters, a **minimum interval** between automatic
+cleanings, a **child lock** for the box's buttons, and the **PETKIT K3 smart
+spray** driven over Bluetooth as the stock firmware does — after each visit
+(once the pet is gone), twice in a row when "intense" is on, at up to six
+scheduled times, never with a pet around. The K3 needs its MAC and secret,
+read once from the Petkit cloud before leaving it (see the fork's README).
 
-**In Homey** — tiles: status (ready / pet inside / cleaning soon / waiting for
-quiet hours to end / cleaning / maintenance / blocked / fault), last visit (pet,
+**In Homey** — tiles: status (ready / pet inside / cleaning soon / cleaning /
+maintenance / blocked / fault), last visit (pet,
 weight, duration), visits today per pet (titled with the pets' names), waste
 collected, bin full, fault, offline, auto clean and block-movement switches,
-"clean now", "level", "bin emptied" buttons. **One alert card** — "an alert was
-raised" — carries a ready-to-send `[message]` (bin full, motor fault, motor
-controller lost, offline, unrecognised pet, and each recovery as "info"), with
+"clean now", "level", "bin emptied", "deodorize now" buttons. **One alert
+card** — "an alert was raised" — carries a ready-to-send `[message]` (bin full,
+motor fault, motor controller lost, offline, unrecognised pet, K3 not
+answering, and each recovery as "info"), with
 a minimum-severity filter: a single flow sends every alert. Persistent problems
 repeat at most once a day. Specific cards stay for automations: a pet used the
 box (pet, weight, duration), cleaning started / finished; conditions pet inside,
-bin full; actions clean, level, bin emptied, auto clean on/off, block movement.
+bin full; actions clean, level, bin emptied, deodorize, auto clean on/off,
+block movement.
 
 **Settings** (synced both ways with the box, which holds them): the two pets'
-names and weight ranges, clean delay, minimum interval, quiet hours, bin
-capacity, and the connection (IP + the firmware's web login).
+names and weight ranges, clean delay, minimum interval, child lock, the
+deodorizer (after each visit, intense, scheduled times), bin capacity, and the
+connection (IP + the firmware's web login — the password lives in the
+firmware, Homey only keeps a copy to log in).
 
-Known gap: the stock **liquid deodorizer spray is not driven** by this firmware
-(the protocol for it is not decoded). See the fork's README for flashing.
+Known gaps: the K3's **liquid level and battery** are not decoded yet (a K3
+that stops answering raises an alert instead), and the stock cleaning variants
+(deep clean, waste saving, waste covering, continuous rotation) are not
+reproduced. See the fork's README for flashing.
 
 ### Devialet Phantom (`devialet`) · LAN (HTTP)
 

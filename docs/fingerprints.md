@@ -928,5 +928,17 @@ arrive as strings).
 | `sensor/Visit Count` (published last, the "a visit was recorded" signal), `Last Visit Weight`, `Last Visit Duration`, `Pet 1/2 Visits Today`, `Waste Collected` | `number/Pet 1/2 Min/Max Weight`, `Clean After`, `Min Clean Interval`, `Tray Capacity` |
 | `text_sensor/Last Visit Pet`, `Motor Error Reason` | `text/Pet 1/2 Name`, `Quiet Hours Start/End` |
 
+Also written: `switch/Auto Deodorize`, `switch/Intense Deodorize`, `switch/Child Lock`,
+`text/Deodorize Times`, `button/Deodorize`; read: `text_sensor/Last Deodorize`
+then `sensor/Deodorize Count` (published last).
+
+**K3 smart spray** (BLE, from the stock ESP32 strings: `brmg_k3_*`, `s_chk_spray`,
+`DEODOR_ACTION`): the stock box is the K3's GATT client. Protocol from
+sergey-akhmineev/PetKit-Smart-Spray: write on `0000aaa2` (service `0000aaa0`)
+`fafcfdd501000000fb` (init), `fafcfd56010108000000<secret>fb` (auth, secret
+from the Petkit cloud), `fafcfddc010a02000103fb` (spray ~10 s). Liquid level
+and battery: not decoded.
+
 Ours: SN `…T4…` (2025-09), stock firmware v1.652. Stock features the fork does
-not cover: the liquid deodorizer spray, multi-pet beyond weight ranges.
+not cover: K3 liquid/battery, cleaning variants (deep clean, waste saving,
+waste covering, continuous rotation), multi-pet beyond weight ranges.

@@ -1978,6 +1978,7 @@
         "litter_clean_now",
         "litter_level_now",
         "litter_bin_emptied",
+        "litter_deodorize_now",
         "alarm_offline"
       ],
       "platforms": [
@@ -2133,35 +2134,61 @@
               }
             },
             {
-              "id": "quiet_hours",
+              "id": "child_lock",
               "type": "checkbox",
               "label": {
-                "en": "Quiet hours",
-                "fr": "Heures de silence"
+                "en": "Child lock",
+                "fr": "Sécurité enfants"
               },
               "value": false,
               "hint": {
-                "en": "No automatic cleaning in this window: a cleaning due then waits for its end. \"Clean now\" still works.",
-                "fr": "Pas de nettoyage automatique dans cette plage : un nettoyage prévu attend la fin. « Nettoyer maintenant » fonctionne toujours."
+                "en": "The litter box's own buttons do nothing (Homey and the box's web page still work).",
+                "fr": "Les boutons de la litière ne font plus rien (Homey et la page web de la litière fonctionnent toujours)."
+              }
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "label": {
+            "en": "Deodorizer (K3 spray)",
+            "fr": "Désodorisant (spray K3)"
+          },
+          "children": [
+            {
+              "id": "auto_deodorize",
+              "type": "checkbox",
+              "label": {
+                "en": "Deodorize after each visit",
+                "fr": "Désodoriser après chaque passage"
+              },
+              "value": true,
+              "hint": {
+                "en": "About 30 s after the pet has left; never while a pet is there.",
+                "fr": "Environ 30 s après le départ du chat ; jamais avec un chat présent."
               }
             },
             {
-              "id": "quiet_start",
-              "type": "text",
+              "id": "intense_deodorize",
+              "type": "checkbox",
               "label": {
-                "en": "Quiet hours — from (HH:MM)",
-                "fr": "Heures de silence — de (HH:MM)"
+                "en": "Intense (two sprays)",
+                "fr": "Intense (deux pulvérisations)"
               },
-              "value": "22:00"
+              "value": true
             },
             {
-              "id": "quiet_end",
+              "id": "deodorize_times",
               "type": "text",
               "label": {
-                "en": "Quiet hours — to (HH:MM)",
-                "fr": "Heures de silence — à (HH:MM)"
+                "en": "Scheduled times",
+                "fr": "Horaires programmés"
               },
-              "value": "07:00"
+              "value": "",
+              "hint": {
+                "en": "Up to 6 local times, comma separated, e.g. 08:00,12:00,18:00. Empty = none.",
+                "fr": "Jusqu'à 6 heures locales, séparées par des virgules, par ex. 08:00,12:00,18:00. Vide = aucun."
+              }
             }
           ]
         },
@@ -2983,13 +3010,6 @@
           }
         },
         {
-          "id": "quiet_hours",
-          "title": {
-            "en": "Cleaning after quiet hours",
-            "fr": "Nettoyage après les heures de silence"
-          }
-        },
-        {
           "id": "cleaning",
           "title": {
             "en": "Cleaning",
@@ -3142,6 +3162,16 @@
       "uiComponent": "sensor",
       "decimals": 0,
       "insights": true
+    },
+    "litter_deodorize_now": {
+      "type": "boolean",
+      "title": {
+        "en": "Deodorize now",
+        "fr": "Désodoriser maintenant"
+      },
+      "getable": false,
+      "setable": true,
+      "uiComponent": "button"
     }
   },
   "flow": {
@@ -5924,6 +5954,28 @@
                 }
               }
             ]
+          }
+        ]
+      },
+      {
+        "id": "petkit_deodorize",
+        "title": {
+          "en": "Deodorize now",
+          "fr": "Désodoriser maintenant"
+        },
+        "titleFormatted": {
+          "en": "Deodorize now",
+          "fr": "Désodoriser maintenant"
+        },
+        "hint": {
+          "en": "Sprays with the K3 now (twice if \"intense\" is on). Skipped while a pet is there.",
+          "fr": "Pulvérise avec le K3 maintenant (deux fois si « intense » est activé). Ignoré si un chat est présent."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petkit-t4"
           }
         ]
       }

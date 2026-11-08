@@ -124,7 +124,9 @@
       "link_lost_cleared": "Litière : le contrôleur moteur répond de nouveau.",
       "offline": "Litière : injoignable depuis 5 minutes (Wi-Fi ou courant).",
       "online": "Litière : de nouveau en ligne.",
-      "unknown_pet": "Litière : visite d'un chat non reconnu (__weight__ kg) — vérifiez les plages de poids."
+      "unknown_pet": "Litière : visite d'un chat non reconnu (__weight__ kg) — vérifiez les plages de poids.",
+      "deodorize_failed": "Litière : le désodorisant K3 n'a pas répondu (hors de portée, en veille ou piles vides) — pas de pulvérisation.",
+      "deodorize_ok": "Litière : le désodorisant fonctionne de nouveau."
     },
     "pair": {
       "address": "Adresse IP",
@@ -138,6 +140,7 @@
       "bad_login": "Identifiant ou mot de passe incorrect.",
       "not_our_firmware": "L'appareil répond, mais ne fait pas tourner le firmware Zigbidouille (KrustyLeBot/esphome-petkit-t4).",
       "unreachable": "Impossible de joindre la litière : __error__"
-    }
+    },
+    "too_many_times": "6 horaires programmés au maximum."
   }
 }

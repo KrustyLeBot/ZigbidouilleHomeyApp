@@ -46,6 +46,7 @@ class ZigbidouilleApp extends Homey.App {
       petkit_clean: (device) => device.clean(),
       petkit_level: (device) => device.level(),
       petkit_bin_emptied: (device) => device.binEmptied(),
+      petkit_deodorize: (device) => device.deodorize(),
       petkit_set_auto_clean: (device, { state }) => device.setSwitch('Auto Clean', state === 'on'),
       petkit_set_block_movement: (device, { state }) => device.setSwitch('Block Movement', state === 'on'),
     };
