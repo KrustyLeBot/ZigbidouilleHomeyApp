@@ -482,14 +482,25 @@ The protocol comes from [smcneece/petlibro-local](https://github.com/smcneece/pe
 which built it from captures of the real cloud (tested there on fw 3.0.72).
 
 **In Homey** — tiles: lid open/close, lid mode (opens for the tagged pet / always
-open / always closed), meals paused, last meal, food low, lid jammed, power
-(mains / battery), battery %, offline. **Flow triggers**: food served (portions,
-manual or scheduled), a meal came out empty, a pet ate (RFID tag, duration), food
-low / refilled, switched to battery / mains back, battery below a threshold, lid
-jammed, offline / back online, a meal skipped by a clock correction, any other
-feeder error code. **Conditions**: food low, on battery, lid open, online.
-**Actions**: serve N portions now, open / close the lid, set the lid mode,
-pause / resume the meals, show a text on the LED display.
+open / always closed), meals paused, last meal, food low, outlet blocked, lid
+jammed, refill due, a "hopper refilled" button, power (mains / battery),
+battery %, offline. **Flow triggers**: food served (portions, manual or
+scheduled), a meal came out empty, a pet ate (RFID tag, duration), food low /
+refilled (also raised when the feeder comes up already low), outlet blocked /
+clear, time to refill, switched to battery / mains back, battery below a
+threshold, lid jammed, offline / back online, a meal skipped by a clock
+correction, any other feeder error code. **Conditions**: food low, outlet
+blocked, refill due, on battery, lid open, online. **Actions**: serve N
+portions now, open / close the lid, set the lid mode, pause / resume the meals,
+mark the hopper as refilled, show a text on the LED display.
+
+**Refill reminder** — the hopper sensor did not report an empty hopper on either
+of our units, so there is a calendar backstop: every N days (14 by default) at a
+set local time (09:00 by default), "time to refill" fires, then again every day
+at that time until the hopper is marked as refilled (tile button, flow action,
+or the bridge page — the sensor seeing food again also counts). Set it in the
+device settings or on the bridge page; the bridge page can also fire it on
+demand, to test the flows.
 
 **The schedule** is edited in the device settings — up to 6 meals, each a local
 time, a portion count and a set of days — and sent to the bridge with Homey's

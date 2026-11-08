@@ -44,6 +44,7 @@ class ZigbidouilleApp extends Homey.App {
       petlibro_pause_meals: (device) => device.setMealsPaused(true),
       petlibro_resume_meals: (device) => device.setMealsPaused(false),
       petlibro_show_text: (device, { text }) => device.showText(text),
+      petlibro_mark_refilled: (device) => device.markRefilled(),
     };
     for (const [card, run] of Object.entries(actions)) {
       this.homey.flow.getActionCard(card).registerRunListener((args) => run(args.device, args));
@@ -54,6 +55,8 @@ class ZigbidouilleApp extends Homey.App {
       petlibro_is_on_battery: (device) => device.getCapabilityValue('feeder_power') === 'battery',
       petlibro_lid_is_open: (device) => Boolean(device.getCapabilityValue('feeder_lid_open')),
       petlibro_is_online: (device) => device.getAvailable() && !device.getCapabilityValue('alarm_offline'),
+      petlibro_outlet_is_blocked: (device) => Boolean(device.getCapabilityValue('alarm_outlet_blocked')),
+      petlibro_refill_is_due: (device) => Boolean(device.getCapabilityValue('alarm_refill_due')),
     };
     for (const [card, run] of Object.entries(conditions)) {
       this.homey.flow.getConditionCard(card).registerRunListener(({ device }) => run(device));

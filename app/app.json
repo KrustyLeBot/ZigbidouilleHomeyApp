@@ -1038,7 +1038,10 @@
         "alarm_lid_jammed",
         "feeder_power",
         "measure_battery",
-        "alarm_offline"
+        "alarm_offline",
+        "alarm_outlet_blocked",
+        "alarm_refill_due",
+        "feeder_mark_refilled"
       ],
       "platforms": [
         "local"
@@ -1881,6 +1884,53 @@
         {
           "type": "group",
           "label": {
+            "en": "Refill reminder",
+            "fr": "Rappel de remplissage"
+          },
+          "children": [
+            {
+              "id": "refill_enabled",
+              "type": "checkbox",
+              "label": {
+                "en": "Remind me to refill",
+                "fr": "Me rappeler de remplir"
+              },
+              "value": true,
+              "hint": {
+                "en": "A calendar reminder, independent of the hopper sensor (which did not detect an empty hopper on our units). Press \"Hopper refilled\" on the tile after each refill.",
+                "fr": "Un rappel calendaire, indépendant du capteur du réservoir (qui n'a pas détecté de réservoir vide sur nos appareils). Appuyez sur « Réservoir rempli » sur la tuile après chaque remplissage."
+              }
+            },
+            {
+              "id": "refill_interval_days",
+              "type": "number",
+              "label": {
+                "en": "Every (days)",
+                "fr": "Tous les (jours)"
+              },
+              "value": 14,
+              "min": 1,
+              "max": 90,
+              "step": 1
+            },
+            {
+              "id": "refill_time",
+              "type": "text",
+              "label": {
+                "en": "At (HH:MM)",
+                "fr": "À (HH:MM)"
+              },
+              "value": "09:00",
+              "hint": {
+                "en": "Local time. The reminder repeats every day at this time until the hopper is marked as refilled.",
+                "fr": "Heure locale. Le rappel se répète chaque jour à cette heure jusqu'à ce que le réservoir soit marqué comme rempli."
+              }
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "label": {
             "en": "Alerts",
             "fr": "Alertes"
           },
@@ -2591,6 +2641,38 @@
       "getable": true,
       "setable": false,
       "uiComponent": "sensor"
+    },
+    "alarm_outlet_blocked": {
+      "type": "boolean",
+      "title": {
+        "en": "Outlet blocked",
+        "fr": "Sortie bloquée"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "insights": true
+    },
+    "alarm_refill_due": {
+      "type": "boolean",
+      "title": {
+        "en": "Refill due",
+        "fr": "Remplissage à faire"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "insights": false
+    },
+    "feeder_mark_refilled": {
+      "type": "boolean",
+      "title": {
+        "en": "Hopper refilled",
+        "fr": "Réservoir rempli"
+      },
+      "getable": false,
+      "setable": true,
+      "uiComponent": "button"
     }
   },
   "flow": {
@@ -3749,6 +3831,79 @@
             "example": 2040
           }
         ]
+      },
+      {
+        "id": "petlibro_outlet_blocked",
+        "title": {
+          "en": "The food outlet is blocked",
+          "fr": "La sortie des croquettes est bloquée"
+        },
+        "titleFormatted": {
+          "en": "The food outlet is blocked",
+          "fr": "La sortie des croquettes est bloquée"
+        },
+        "hint": {
+          "en": "The feeder's outlet sensor sees an obstruction (grainOutletState).",
+          "fr": "Le capteur de sortie du distributeur voit une obstruction (grainOutletState)."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          }
+        ]
+      },
+      {
+        "id": "petlibro_outlet_cleared",
+        "title": {
+          "en": "The food outlet is clear again",
+          "fr": "La sortie des croquettes est dégagée"
+        },
+        "titleFormatted": {
+          "en": "The food outlet is clear again",
+          "fr": "La sortie des croquettes est dégagée"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          }
+        ]
+      },
+      {
+        "id": "petlibro_refill_due",
+        "title": {
+          "en": "Time to refill the hopper",
+          "fr": "Il est temps de remplir le réservoir"
+        },
+        "titleFormatted": {
+          "en": "Time to refill the hopper",
+          "fr": "Il est temps de remplir le réservoir"
+        },
+        "hint": {
+          "en": "The refill reminder (device settings). Repeats daily at the set time until \"Hopper refilled\" is pressed.",
+          "fr": "Le rappel de remplissage (réglages de l'appareil). Se répète chaque jour à l'heure choisie jusqu'à l'appui sur « Réservoir rempli »."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          }
+        ],
+        "tokens": [
+          {
+            "name": "days",
+            "type": "number",
+            "title": {
+              "en": "Days since last refill",
+              "fr": "Jours depuis le dernier remplissage"
+            },
+            "example": 14
+          }
+        ]
       }
     ],
     "conditions": [
@@ -4294,6 +4449,42 @@
         "titleFormatted": {
           "en": "!{{Is|Is not}} online",
           "fr": "!{{Est|N'est pas}} en ligne"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          }
+        ]
+      },
+      {
+        "id": "petlibro_outlet_is_blocked",
+        "title": {
+          "en": "Outlet !{{is|is not}} blocked",
+          "fr": "La sortie !{{est|n'est pas}} bloquée"
+        },
+        "titleFormatted": {
+          "en": "Outlet !{{is|is not}} blocked",
+          "fr": "La sortie !{{est|n'est pas}} bloquée"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
+          }
+        ]
+      },
+      {
+        "id": "petlibro_refill_is_due",
+        "title": {
+          "en": "Refill !{{is|is not}} due",
+          "fr": "Le remplissage !{{est|n'est pas}} à faire"
+        },
+        "titleFormatted": {
+          "en": "Refill !{{is|is not}} due",
+          "fr": "Le remplissage !{{est|n'est pas}} à faire"
         },
         "args": [
           {
@@ -4906,6 +5097,28 @@
               "en": "MIAOU",
               "fr": "MIAOU"
             }
+          }
+        ]
+      },
+      {
+        "id": "petlibro_mark_refilled",
+        "title": {
+          "en": "Mark the hopper as refilled",
+          "fr": "Marquer le réservoir comme rempli"
+        },
+        "titleFormatted": {
+          "en": "Mark the hopper as refilled",
+          "fr": "Marquer le réservoir comme rempli"
+        },
+        "hint": {
+          "en": "Restarts the refill reminder's countdown.",
+          "fr": "Relance le compte à rebours du rappel de remplissage."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=petlibro-plaf301"
           }
         ]
       }

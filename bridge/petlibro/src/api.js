@@ -76,6 +76,20 @@ function startApi({ port, htpasswd, bridge, capture, version }) {
       feeder.setPaused(body.paused);
       return feeder.snapshot().schedule;
     }],
+    ['POST', /^\/api\/feeders\/([^/]+)\/refill$/, (m) => {
+      const feeder = bridge.get(m[1]);
+      feeder.markRefilled();
+      return feeder.snapshot().refill;
+    }],
+    ['POST', /^\/api\/feeders\/([^/]+)\/refill\/remind-now$/, (m) => {
+      bridge.get(m[1]).remindNow();
+      return { ok: true };
+    }],
+    ['PUT', /^\/api\/feeders\/([^/]+)\/refill-reminder$/, (m, body) => {
+      const feeder = bridge.get(m[1]);
+      feeder.setRefillReminder(body);
+      return feeder.snapshot().refill;
+    }],
     ['POST', /^\/api\/feeders\/([^/]+)\/display$/, async (m, body) => {
       const shown = await bridge.get(m[1]).showText(body.text);
       return { ok: true, text: shown };

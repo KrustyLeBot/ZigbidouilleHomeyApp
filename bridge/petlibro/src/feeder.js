@@ -22,6 +22,7 @@ const log = require('./log');
 const tz = require('./tz');
 const plans = require('./plans');
 const { textToFrames } = require('./display');
+const refill = require('./refill');
 
 const MODEL = 'PLAF301';
 const OFFLINE_AFTER_MS = 5 * 60 * 1000; // heartbeats come every ~90-100 s
@@ -88,6 +89,11 @@ class Feeder extends EventEmitter {
     this.ntpSyncPending = new Map();
     this.msgCounter = 0;
     this.persisted = store.feeder(serial);
+    // The refill clock starts the first time the bridge sees this feeder.
+    if (!this.persisted.refill) {
+      this.persisted.refill = { ...refill.DEFAULTS, lastRefill: Date.now() };
+      store.save();
+    }
   }
 
   // --- identity / state ---------------------------------------------------
@@ -120,6 +126,9 @@ class Feeder extends EventEmitter {
       // surplusGrain is the hopper sensor: true = food present. The author of
       // petlibro-local calls it "not always reliable"; it is shown as is.
       foodLow: typeof a.surplusGrain === 'boolean' ? !a.surplusGrain : null,
+      // grainOutletState false = the food outlet is blocked (infrared sensor C
+      // per the manual; the Petlibro HA integration reads it the same way).
+      outletBlocked: typeof a.grainOutletState === 'boolean' ? !a.grainOutletState : null,
       lidOpen: typeof a.barnDoorState === 'boolean' ? a.barnDoorState : null,
       lidJammed: Boolean(this.persisted.lidJammed),
       settings: {
@@ -142,6 +151,7 @@ class Feeder extends EventEmitter {
       } : null,
       lastFeed: this.persisted.lastFeed || null,
       lastVisit: this.persisted.lastVisit || null,
+      refill: (({ todayNum, remind, ...r }) => r)(refill.status(this.persisted.refill, this.timezone(), Date.now())),
     };
   }
 
@@ -266,6 +276,7 @@ class Feeder extends EventEmitter {
     }
     if (this.online && now - this.lastAttrPoll >= ATTR_POLL_MS) this.pollAttrs();
     this.reconcilePlans(now);
+    this.checkRefill(now);
   }
 
   pollAttrs() {
@@ -289,8 +300,19 @@ class Feeder extends EventEmitter {
     if (before.power !== after.power && after.power) {
       if (before.power) this.emitEvent(after.power === 'battery' ? 'on_battery' : 'mains_restored');
     }
-    if (before.foodLow !== after.foodLow && after.foodLow !== null && before.foodLow !== null) {
-      this.emitEvent(after.foodLow ? 'food_low' : 'food_refilled');
+    // The first reading counts too: a feeder that comes up already low must
+    // raise the alert, not stay silent until it is refilled and runs out again.
+    if (before.foodLow !== after.foodLow && after.foodLow !== null) {
+      if (after.foodLow) this.emitEvent('food_low');
+      else if (before.foodLow !== null) {
+        this.emitEvent('food_refilled');
+        // The sensor seeing food again is a refill: restart the reminder clock.
+        this.markRefilled('hopper sensor');
+      }
+    }
+    if (before.outletBlocked !== after.outletBlocked && after.outletBlocked !== null) {
+      if (after.outletBlocked) this.emitEvent('outlet_blocked');
+      else if (before.outletBlocked !== null) this.emitEvent('outlet_cleared');
     }
     if (before.lidOpen !== after.lidOpen && after.lidOpen === false && this.persisted.lidJammed) {
       this.clearJam();
@@ -647,6 +669,41 @@ class Feeder extends EventEmitter {
     this.persisted.lidJammed = false;
     this.store.save();
     this.emitEvent('lid_unjammed');
+  }
+
+  // --- refill reminder ------------------------------------------------------
+
+  checkRefill(now = Date.now()) {
+    const st = refill.status(this.persisted.refill, this.timezone(), now);
+    if (!st.remind) return;
+    this.persisted.refill.lastReminderDay = st.todayNum;
+    this.store.save();
+    this.emitEvent('refill_due', { days: st.daysSinceRefill });
+    this.emitState();
+  }
+
+  // From the web page: fire the reminder now, whatever the calendar says, to
+  // test the Homey flows hanging off it. Does not touch the refill clock.
+  remindNow() {
+    const st = refill.status(this.persisted.refill, this.timezone(), Date.now());
+    this.emitEvent('refill_due', { days: st.daysSinceRefill, manual: true });
+  }
+
+  markRefilled(by = 'user') {
+    this.persisted.refill.lastRefill = Date.now();
+    this.persisted.refill.lastReminderDay = null;
+    this.store.save();
+    log.info(this.name(), `hopper marked as refilled (${by})`);
+    this.emitState();
+  }
+
+  setRefillReminder(changes) {
+    Object.assign(this.persisted.refill, refill.validate(changes));
+    this.persisted.refill.lastReminderDay = null;
+    this.store.save();
+    const r = this.persisted.refill;
+    log.info(this.name(), `refill reminder: ${r.enabled ? `every ${r.intervalDays} day(s) at ${r.time}` : 'off'}`);
+    this.emitState();
   }
 
   // --- settings / display ---------------------------------------------------

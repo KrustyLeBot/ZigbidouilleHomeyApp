@@ -59,6 +59,16 @@ const EVENT_TRIGGERS = {
   online: 'petlibro_online',
   meal_skipped: 'petlibro_meal_skipped',
   device_error: 'petlibro_device_error',
+  outlet_blocked: 'petlibro_outlet_blocked',
+  outlet_cleared: 'petlibro_outlet_cleared',
+  refill_due: 'petlibro_refill_due',
+};
+
+// Device setting key -> bridge refill-reminder key.
+const REFILL_SETTINGS = {
+  refill_enabled: 'enabled',
+  refill_interval_days: 'intervalDays',
+  refill_time: 'time',
 };
 
 class PetlibroFeederDevice extends Homey.Device {
@@ -73,6 +83,7 @@ class PetlibroFeederDevice extends Homey.Device {
     this.registerCapabilityListener('feeder_lid_open', (value) => this.setLid(value));
     this.registerCapabilityListener('feeder_lid_mode', (value) => this.setLidMode(value));
     this.registerCapabilityListener('feeder_meals_paused', (value) => this.setMealsPaused(value));
+    this.registerCapabilityListener('feeder_mark_refilled', () => this.markRefilled());
 
     this.onMessage = (message) => this.handleMessage(message).catch((err) => errlog.add(`${this.getName()}: update`, err));
     bridge.subscribe(this.homey, this.serial(), this.onMessage);
@@ -130,6 +141,8 @@ class PetlibroFeederDevice extends Homey.Device {
     await this.set('alarm_food_low', f.foodLow);
     await this.set('feeder_lid_open', f.lidOpen);
     await this.set('alarm_lid_jammed', f.lidJammed);
+    await this.set('alarm_outlet_blocked', f.outletBlocked);
+    if (f.refill) await this.set('alarm_refill_due', f.refill.due);
     if (f.settings) await this.set('feeder_lid_mode', f.settings.lidMode);
     await this.set('feeder_meals_paused', f.schedule ? f.schedule.paused : false);
     if (f.lastFeed) await this.set('feeder_last_feed', this.describeFeed(f.lastFeed));
@@ -161,6 +174,14 @@ class PetlibroFeederDevice extends Homey.Device {
       if (this.syncedFeederSettings[key] === value) continue;
       this.syncedFeederSettings[key] = value;
       if (this.getSetting(key) !== value) changes[key] = value;
+    }
+    if (f.refill) {
+      for (const [key, bridgeKey] of Object.entries(REFILL_SETTINGS)) {
+        const value = f.refill[bridgeKey];
+        if (value === undefined || this.syncedFeederSettings[key] === value) continue;
+        this.syncedFeederSettings[key] = value;
+        if (this.getSetting(key) !== value) changes[key] = value;
+      }
     }
     if (f.settings && f.settings.displayText && this.getSetting('display_text') !== f.settings.displayText
       && this.syncedFeederSettings.display_text !== f.settings.displayText) {
@@ -230,10 +251,12 @@ class PetlibroFeederDevice extends Homey.Device {
       tokens.time = new Intl.DateTimeFormat('en-GB', {
         timeZone: this.homey.clock.getTimezone(), hour: '2-digit', minute: '2-digit',
       }).format(new Date(event.at));
+    } else if (event.type === 'refill_due') {
+      tokens.days = Number(event.days) || 0;
     } else if (event.type === 'device_error') {
       tokens.code = Number(event.code) || 0;
     }
-    if (['feed_failed', 'meal_skipped', 'device_error', 'lid_jammed', 'on_battery'].includes(event.type)) {
+    if (['feed_failed', 'meal_skipped', 'device_error', 'lid_jammed', 'on_battery', 'outlet_blocked', 'refill_due'].includes(event.type)) {
       this.note(event.type, JSON.stringify(event));
     } else {
       errlog.debug(`${this.getName()}: ${event.type}`, JSON.stringify(event));
@@ -272,6 +295,11 @@ class PetlibroFeederDevice extends Homey.Device {
   async setMealsPaused(paused) {
     await bridge.request(this.homey, 'POST', this.path('/schedule/paused'), { paused: Boolean(paused) });
     this.note('meals', paused ? 'paused' : 'resumed');
+  }
+
+  async markRefilled() {
+    await bridge.request(this.homey, 'POST', this.path('/refill'));
+    this.note('refill', 'hopper marked as refilled');
   }
 
   async showText(text) {
@@ -325,6 +353,21 @@ class PetlibroFeederDevice extends Homey.Device {
     }
     if (Object.keys(feederChanges).length) {
       await bridge.request(this.homey, 'POST', this.path('/settings'), feederChanges);
+    }
+
+    const refillChanges = {};
+    for (const [key, bridgeKey] of Object.entries(REFILL_SETTINGS)) {
+      if (!changedKeys.includes(key)) continue;
+      refillChanges[bridgeKey] = key === 'refill_interval_days' ? Number(newSettings[key]) : newSettings[key];
+      this.syncedFeederSettings[key] = refillChanges[bridgeKey];
+    }
+    if (Object.keys(refillChanges).length) {
+      if (refillChanges.time !== undefined) {
+        const m = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(String(refillChanges.time).trim());
+        if (!m) throw new Error(this.homey.__('petlibro.bad_refill_time', { value: refillChanges.time }));
+        refillChanges.time = `${m[1].padStart(2, '0')}:${m[2]}`;
+      }
+      await bridge.request(this.homey, 'PUT', this.path('/refill-reminder'), refillChanges);
     }
 
     if (changedKeys.includes('display_text') && String(newSettings.display_text || '').trim()) {

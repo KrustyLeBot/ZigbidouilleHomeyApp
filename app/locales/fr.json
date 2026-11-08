@@ -107,6 +107,7 @@
     "bad_time": "Repas __slot__ : « __value__ » n'est pas une heure — utilisez HH:MM, par ex. 07:30.",
     "source_manual": "manuel",
     "source_scheduled": "programmé",
-    "last_feed": "__time__ · __portions__ portion(s), __source__"
+    "last_feed": "__time__ · __portions__ portion(s), __source__",
+    "bad_refill_time": "Rappel de remplissage : « __value__ » n'est pas une heure — utilisez HH:MM, par ex. 09:00."
   }
 }

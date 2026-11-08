@@ -113,6 +113,21 @@ test('bridge plays the cloud for a PLAF301', async (t) => {
   post('event', { cmd: 'ATTR_PUSH_EVENT', electricQuantity: 87, powerType: 3, surplusGrain: true, barnDoorState: false, coverOpenMode: 'CUSTOM' });
   await waitFor(() => events.find((e) => e.type === 'state' && e.feeder.battery === 87 && e.feeder.power === 'mains'), 'state push');
 
+  // Initial reading already low -> alert at once; blocked outlet -> alert.
+  post('event', { cmd: 'ATTR_PUSH_EVENT', surplusGrain: false, grainOutletState: false });
+  await waitFor(() => events.find((e) => e.type === 'event' && e.event.type === 'outlet_blocked'), 'outlet_blocked');
+  post('event', { cmd: 'ATTR_PUSH_EVENT', surplusGrain: true, grainOutletState: true });
+  await waitFor(() => events.find((e) => e.type === 'event' && e.event.type === 'outlet_cleared'), 'outlet_cleared');
+  await waitFor(() => events.find((e) => e.type === 'event' && e.event.type === 'food_refilled'), 'food_refilled');
+
+  // Refill reminder: settable and resettable through the API.
+  const rem = await api('PUT', `/api/feeders/${SERIAL}/refill-reminder`, { intervalDays: 7, time: '18:30' });
+  assert.strictEqual(rem.status, 200, JSON.stringify(rem.body));
+  assert.deepStrictEqual([rem.body.intervalDays, rem.body.time, rem.body.enabled], [7, '18:30', true]);
+  assert.strictEqual((await api('PUT', `/api/feeders/${SERIAL}/refill-reminder`, { time: '25:00' })).status, 400);
+  const marked = await api('POST', `/api/feeders/${SERIAL}/refill`);
+  assert.strictEqual(marked.body.daysSinceRefill, 0);
+
   // Power cut -> event.
   post('event', { cmd: 'ATTR_PUSH_EVENT', powerType: 2 });
   await waitFor(() => events.find((e) => e.type === 'event' && e.event.type === 'on_battery'), 'on_battery event');

@@ -62,6 +62,9 @@ const T = FR ? {
   notAcked:'en attente de confirmation', noSchedule:"Aucun planning défini ici : le distributeur garde ses propres plans. Le premier enregistrement les remplace.",
   dayNames:['Lu','Ma','Me','Je','Ve','Sa','Di'], done:'Envoyé', manual:'manuel', scheduled:'programmé', log:'Journal', none:'Aucun distributeur connu pour l’instant.',
   settings:'Réglages', control:'Contrôle', state:'État', tz:'Fuseau',
+  outlet:'Sortie', outletBlocked:'BLOQUÉE', refill:'Rappel de remplissage', refilled:'Réservoir rempli',
+  remindNow:'Déclencher le rappel', every:'Tous les', daysUnit:'jours, à', enabled:'Activé',
+  lastRefill:'Dernier remplissage', nextReminder:'Prochain rappel', daysAgo:'il y a {n} j', due:'À REMPLIR',
 } : {
   online:'Online', offline:'Offline', battery:'Battery', power:'Power', mains:'Mains', onBattery:'Battery (power cut)',
   food:'Food', foodOk:'OK', foodLow:'Low', lid:'Lid', open:'Open', closed:'Closed', jammed:'JAMMED',
@@ -75,6 +78,9 @@ const T = FR ? {
   notAcked:'waiting for the feeder', noSchedule:'No schedule set here: the feeder keeps its own plans. The first save replaces them.',
   dayNames:['Mo','Tu','We','Th','Fr','Sa','Su'], done:'Sent', manual:'manual', scheduled:'scheduled', log:'Log', none:'No feeder known yet.',
   settings:'Settings', control:'Control', state:'State', tz:'Timezone',
+  outlet:'Outlet', outletBlocked:'BLOCKED', refill:'Refill reminder', refilled:'Hopper refilled',
+  remindNow:'Fire the reminder', every:'Every', daysUnit:'days, at', enabled:'Enabled',
+  lastRefill:'Last refill', nextReminder:'Next reminder', daysAgo:'{n} d ago', due:'REFILL DUE',
 };
 document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = T[el.dataset.t]; });
 
@@ -141,12 +147,16 @@ function cardHtml(f) {
     <span class="pill ${f.online ? 'ok' : 'bad'}">${f.online ? T.online : T.offline}</span>
     ${f.lidJammed ? `<span class="pill bad">${T.lid} ${T.jammed}</span>` : ''}
     ${f.power === 'battery' ? `<span class="pill warn">${T.onBattery}</span>` : ''}
+    ${f.outletBlocked ? `<span class="pill bad">${T.outlet} ${T.outletBlocked}</span>` : ''}
+    ${f.refill && f.refill.due ? `<span class="pill warn">${T.due}</span>` : ''}
     <span class="muted">${esc(f.serial)}</span></h2>
   <div class="grid">
     ${stat(T.food, f.foodLow == null ? '—' : f.foodLow ? T.foodLow : T.foodOk, f.foodLow ? 'pill bad' : '')}
     ${stat(T.battery, f.battery == null ? '—' : f.battery + ' %')}
     ${stat(T.power, f.power === 'battery' ? T.onBattery : f.power === 'mains' ? T.mains : '—')}
     ${stat(T.lid, f.lidOpen == null ? '—' : f.lidOpen ? T.open : T.closed)}
+    ${stat(T.outlet, f.outletBlocked == null ? '—' : f.outletBlocked ? T.outletBlocked : T.foodOk, f.outletBlocked ? 'pill bad' : '')}
+    ${f.refill ? stat(T.lastRefill, `${when(f.refill.lastRefill)} · ${T.daysAgo.replace('{n}', f.refill.daysSinceRefill)}`) : ''}
     ${stat(T.lastFeed, lastFeed)}
     ${stat(T.lastVisit, lastVisit)}
     ${stat(T.clock, f.clockOffsetSeconds == null ? '—' : `${f.clockOffsetSeconds > 0 ? '-' : '+'}${Math.abs(f.clockOffsetSeconds)} s`)}
@@ -177,6 +187,19 @@ function cardHtml(f) {
     <label>${T.displayText} <input type="text" maxlength="20" value="${esc(s.displayText || '')}" data-text></label>
     <button data-send-text>${T.send}</button>
   </div>
+
+  ${f.refill ? `<h3>${T.refill}</h3>
+  <div class="row">
+    <button class="primary" data-refilled>${T.refilled}</button>
+    <button data-remind-now>${T.remindNow}</button>
+    <span class="muted">${T.nextReminder} : ${esc(f.refill.nextReminder || '—')}</span>
+  </div>
+  <div class="row">
+    <label><input type="checkbox" data-refill-enabled ${f.refill.enabled ? 'checked' : ''}> ${T.enabled}</label>
+    <label>${T.every} <input type="number" min="1" max="90" value="${f.refill.intervalDays}" data-refill-days></label>
+    <label>${T.daysUnit} <input type="time" value="${esc(f.refill.time)}" data-refill-time></label>
+    <button data-refill-apply>${T.apply}</button>
+  </div>` : ''}
 
   <h3>${T.schedule} ${sched ? `<span class="muted">· ${T.tz} ${esc(sched.timezone)} · ${sched.acked ? T.acked : T.notAcked}${sched.paused ? ' · ' + T.paused : ''}</span>` : ''}</h3>
   ${sched ? '' : `<p class="muted">${T.noSchedule}</p>`}
@@ -210,6 +233,15 @@ function wire(card, f) {
       act(`${base}/settings`, { [el.dataset.set]: v });
     };
   });
+  if (f.refill) {
+    card.querySelector('[data-refilled]').onclick = () => act(`${base}/refill`);
+    card.querySelector('[data-remind-now]').onclick = () => act(`${base}/refill/remind-now`);
+    card.querySelector('[data-refill-apply]').onclick = () => act(`${base}/refill-reminder`, {
+      enabled: card.querySelector('[data-refill-enabled]').checked,
+      intervalDays: Number(card.querySelector('[data-refill-days]').value),
+      time: card.querySelector('[data-refill-time]').value,
+    }, 'PUT');
+  }
   card.querySelector('[data-send-text]').onclick = () => act(`${base}/display`, { text: card.querySelector('[data-text]').value });
   const keepDraft = () => { drafts[f.serial] = readMeals(card); };
   card.querySelectorAll('tbody input').forEach((el) => { el.oninput = keepDraft; });
